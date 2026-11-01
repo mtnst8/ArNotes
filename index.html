@@ -1065,6 +1065,20 @@ function mailNow(b){if(b){b.disabled=true;b.textContent='Checking for new…'}
     toast(parts.length?'Brought in '+parts.join(', '):'Nothing new yet. An email you just sent can take a minute or two to arrive; try again shortly.');return (r.mail||r.files||r.scanned)?load(true).then(function(){refreshInboxCount();rerender()}):0})
     .catch(function(e){toast(e.message)}).then(function(){var x=$('#mailNow');if(x){x.disabled=false;x.textContent='⟳ Check for new'}})}
 /* ---------- linked Drive files ---------- */
+/** The first time someone links something, say plainly what happened (with a "don't show this again" box). */
+function linkExplain(r){
+  var k='arnote.tip.link'; try{if(localStorage.getItem(k))return}catch(e){}
+  var f=(r.folders||[])[0], files=(r.notes||[]).length;
+  var what=f?'<p><b>You linked the folder “'+esc(f.name)+'”.</b> Its '+f.count+' file'+(f.count===1?' is':'s are')+' now in your <b>'+esc(f.notebook||'Inbox')+'</b>, each tagged <b>'+esc(f.name)+'</b>'+(f.parent?' (filed under the <b>'+esc(f.parent)+'</b> tag, the account that shares it)':'')+'. Sub-folders become tags under it.</p>'+
+      '<p>ArNote keeps watching the folder: files added to it later show up in your Inbox by themselves, ready to wrangle.</p>'+(f.notebook==='Cabinet'?'<p>Big folders (over 25 files) go straight to the Cabinet so they don\'t flood your Inbox; find them under the folder\'s tag.</p>':'')
+    :'<p><b>You linked '+files+' file'+(files===1?'':'s')+'.</b> '+(files===1?'It is':'They are')+' now in your Inbox as notes, tagged with the Google account they belong to.</p>';
+  modal('What linking does','','<div class="guide">'+what+
+    '<p><b>Nothing is copied or moved.</b> The files stay where they are in Google Drive; ArNote only keeps a note that points to each one, with your tags. Removing a linked note never deletes the file.</p>'+
+    '<p>Manage linked folders under <b>Settings → Linked Drive folders</b>, and the account tags under <b>Settings → Google accounts</b>.</p></div>'+
+    '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="lxNo"> Don\'t show this again</label>',
+    '<span class="grow"></span><button class="btn primary" id="lxOk">Got it</button>');
+  $('#lxOk').onclick=function(){if($('#lxNo').checked){try{localStorage.setItem(k,'1')}catch(e){}}closeModal()};
+}
 function linkDialog(){
   var st={where:'root',q:'',sel:{},data:null,tab:'browse'};
   modal('Link Drive files','Files stay exactly where they are in your Drive. ArNote adds a note that points to each one.',
@@ -1121,9 +1135,9 @@ function linkDialog(){
       return ((r.folders||[]).length?load_all():Promise.resolve()).then(function(){return r});
     }).then(function(r){refreshInboxCount();
       var msg=[]; if(r.notes.length) msg.push('Linked '+r.notes.length+' file'+(r.notes.length>1?'s':''));
-      (r.folders||[]).forEach(function(f){msg.push('folder “'+f.name+'” → Cabinet')});
+      (r.folders||[]).forEach(function(f){msg.push('folder “'+f.name+'”: '+f.count+' file'+(f.count===1?'':'s')+' → '+(f.notebook||'Inbox'))});
       if(r.already) msg.push(r.already+' already linked'); if(r.failed) msg.push(r.failed+' not found');
-      toast(msg.join(' · ')||'Nothing to link'); rerender();
+      toast(msg.join(' · ')||'Nothing to link'); rerender(); linkExplain(r);
     }).catch(function(){b.disabled=false;info()});}
   $('#lnkGo').onclick=function(){ if(st.tab==='paste'){var t=$('#lnkTxt').value.trim();if(t)doLink(t);return}
     var ids=Object.keys(st.sel); if(ids.length) doLink(ids.join('\n')); };

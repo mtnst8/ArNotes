@@ -1106,25 +1106,35 @@ function ensureTagParent_(name, parent) {
 
 function watchList_() { try { return JSON.parse(props_().getProperty('watchFolders') || '[]'); } catch (e) { return []; } }
 
-/** Link every file in a folder (and sub-folders) into the Cabinet, tagged with the folder name. */
-function syncFolder_(folder, index, start, parentTag) {
+/** Link every file in a folder (and sub-folders), tagged with the folder name; sub-folders become tags under it. */
+function syncFolder_(folder, index, start, parentTag, notebook) {
   var tag = folder.getName(), out = [];
   ensureTagParent_(tag, parentTag || '');
   var it = folder.getFiles();
   while (it.hasNext() && Date.now() - start < 240000) {
     var f = it.next();
     if (f.getMimeType() === MimeType.SHORTCUT) continue;
-    var n = createLinkedNote_(f, 'Cabinet', [tag], index); if (n) out.push(n);
+    var n = createLinkedNote_(f, notebook || 'Inbox', [tag], index); if (n) out.push(n);
   }
   var sub = folder.getFolders();
-  while (sub.hasNext() && Date.now() - start < 240000) out = out.concat(syncFolder_(sub.next(), index, start, tag));
+  while (sub.hasNext() && Date.now() - start < 240000) out = out.concat(syncFolder_(sub.next(), index, start, tag, notebook));
   return out;
 }
-
+/** A linked folder's tag goes under the tag of the Google account that shares it (e.g. Brewhouse › Cabin Build). */
+function folderParentTag_(folder) { try { return accountTagFor_(fileOwner_(folder)); } catch (e) { return ''; } }
+function countFiles_(folder, cap) {
+  var n = 0, it = folder.getFiles(); while (it.hasNext() && n < cap) { it.next(); n++; }
+  var sub = folder.getFolders(); while (sub.hasNext() && n < cap) n += countFiles_(sub.next(), cap - n);
+  return n;
+}
+var LINK_INBOX_MAX_ = 25;   // linking a bigger folder files its notes straight to the Cabinet instead of flooding the Inbox
 function watchFolder_(folder, index, start) {
   var w = watchList_();
   if (w.indexOf(folder.getId()) < 0) { w.push(folder.getId()); props_().setProperty('watchFolders', JSON.stringify(w)); }
-  return syncFolder_(folder, index, start, '');
+  var nb = countFiles_(folder, LINK_INBOX_MAX_ + 1) > LINK_INBOX_MAX_ ? 'Cabinet' : 'Inbox';
+  var made = syncFolder_(folder, index, start, folderParentTag_(folder), nb);
+  made.notebook = nb;
+  return made;
 }
 
 /** Called from processDrop (every 15 minutes): shortcuts in ArNote/Link, plus new files in linked folders. */
@@ -1150,7 +1160,7 @@ function processLinks_(start) {
   }
   watchList_().forEach(function (fid) {
     if (Date.now() - start > 240000) return;
-    try { made = made.concat(syncFolder_(DriveApp.getFolderById(fid), index, start, '')); } catch (e) {}
+    try { var fo = DriveApp.getFolderById(fid); made = made.concat(syncFolder_(fo, index, start, folderParentTag_(fo), 'Inbox')); } catch (e) {}   // new files: Inbox, to wrangle
   });
   return made;
 }
@@ -1165,7 +1175,7 @@ function api_linkFiles(text) {
     try { f = DriveApp.getFileById(id); } catch (e) { try { folder = DriveApp.getFolderById(id); } catch (e2) {} }
     if (f && f.getMimeType() === MimeType.FOLDER) { f = null; try { folder = DriveApp.getFolderById(id); } catch (e) {} }   // Drive also hands folders back as "files"
     if (f) { var n = createLinkedNote_(f, 'Inbox', [], index); if (n) out.notes.push(n); else out.already++; }
-    else if (folder) { var made = watchFolder_(folder, index, start); out.folders.push({ name: folder.getName(), count: made.length }); out.notes = out.notes.concat(made); }
+    else if (folder) { var made = watchFolder_(folder, index, start); out.folders.push({ name: folder.getName(), count: made.length, notebook: made.notebook, parent: folderParentTag_(folder) }); out.notes = out.notes.concat(made); }
     else out.failed++;
   });
   return out;
@@ -1638,9 +1648,16 @@ function api_driveList(where, q) {
 function accountMap_() { try { return JSON.parse(props_().getProperty('accountTags') || '{}'); } catch (e) { return {}; } }
 function saveAccountMap_(m) { props_().setProperty('accountTags', JSON.stringify(m)); }
 
+/** A plain, readable tag for a Google account: brewhouse@… → "Brewhouse", brian.arnett@gmail.com → "Brian Arnett"
+ * (the business name is added only if that name is already taken). */
 function defaultAccountTag_(email) {
-  var parts = String(email).toLowerCase().split('@'), local = parts[0], dom = (parts[1] || '').split('.')[0];
-  return '@' + local + (dom && dom !== 'gmail' && dom !== 'googlemail' ? '-' + dom : '');
+  var parts = String(email).toLowerCase().split('@'), dom = (parts[1] || '').split('.')[0];
+  var cap = function (x) { return x.split(/[._\-+]+/).filter(String).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' '); };
+  var name = cap(parts[0]) || 'Account', taken = {};
+  readTable_('Tags').forEach(function (t) { taken[String(t.name).toLowerCase()] = 1; });
+  var m = accountMap_(); Object.keys(m).forEach(function (e) { if (e !== email && m[e]) taken[String(m[e]).toLowerCase()] = 1; });
+  if (taken[name.toLowerCase()] && dom && dom !== 'gmail' && dom !== 'googlemail') name += ' ' + cap(dom);
+  return name;
 }
 
 function accountTagFor_(email) {
