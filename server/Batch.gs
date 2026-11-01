@@ -1137,6 +1137,7 @@ function processLinks_(start) {
       if (s.getMimeType() === MimeType.SHORTCUT) {
         var tid = s.getTargetId(), target = null, isFolder = false;
         try { target = DriveApp.getFileById(tid); } catch (e) { try { target = DriveApp.getFolderById(tid); isFolder = true; } catch (e2) {} }
+        if (target && !isFolder && target.getMimeType() === MimeType.FOLDER) { try { target = DriveApp.getFolderById(tid); isFolder = true; } catch (e) { target = null; } }
         if (target) {
           if (isFolder) made = made.concat(watchFolder_(target, index, start));
           else { var n = createLinkedNote_(target, 'Inbox', [], index); if (n) made.push(n); }
@@ -1162,6 +1163,7 @@ function api_linkFiles(text) {
     if (seen[id]) return; seen[id] = 1;
     var f = null, folder = null;
     try { f = DriveApp.getFileById(id); } catch (e) { try { folder = DriveApp.getFolderById(id); } catch (e2) {} }
+    if (f && f.getMimeType() === MimeType.FOLDER) { f = null; try { folder = DriveApp.getFolderById(id); } catch (e) {} }   // Drive also hands folders back as "files"
     if (f) { var n = createLinkedNote_(f, 'Inbox', [], index); if (n) out.notes.push(n); else out.already++; }
     else if (folder) { var made = watchFolder_(folder, index, start); out.folders.push({ name: folder.getName(), count: made.length }); out.notes = out.notes.concat(made); }
     else out.failed++;
