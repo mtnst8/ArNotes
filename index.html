@@ -2,10 +2,10 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>ArNote</title>
+<title>ArNotes</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2f6f4f">
-<meta name="description" content="ArNote — simple notes kept in your own Google Drive">
+<meta name="description" content="ArNotes — simple notes kept in your own Google Drive">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -335,7 +335,7 @@ body.guest #actbar,body.guest .row .nb{display:none!important}
 <body>
 <aside id="side">
 <header>
-  <span class="brand" onclick="go('home')">ArNote<small class="tagline">Tag — you're it.</small></span>
+  <span class="brand" onclick="go('home')">ArNotes<small class="tagline">Tag — you're it.</small></span>
   <input id="q" type="search" placeholder="Search notes" title="Tips: #tag to filter by tag, in:inbox or in:cabinet" autocomplete="off">
   <button class="cambtn" id="camBtn" aria-label="Add photos" title="Take or choose photos"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.6"/></svg></button>
   <input type="file" id="camIn" accept="image/*" multiple hidden>
@@ -400,8 +400,8 @@ function rawCall(cfg,fn,a,retried){
     .then(function(r){if(!r.ok)throw new Error('Server error '+r.status);return r.text()})
     .then(function(t){
       // Google occasionally turns the request into a plain page load; the action never ran, so it's safe to send again.
-      if(/^ArNote server is running/.test(t)){if(retried)throw new Error('The server didn\'t receive the request. Try again in a moment.');return new Promise(function(res){setTimeout(res,800)}).then(function(){return rawCall(cfg,fn,a,true)})}
-      var j;try{j=JSON.parse(t)}catch(e){throw new Error(/<html/i.test(t)?'The server address looks wrong (got a web page instead of ArNote)':'Bad reply from server')}
+      if(/^ArNotes server is running/.test(t)){if(retried)throw new Error('The server didn\'t receive the request. Try again in a moment.');return new Promise(function(res){setTimeout(res,800)}).then(function(){return rawCall(cfg,fn,a,true)})}
+      var j;try{j=JSON.parse(t)}catch(e){throw new Error(/<html/i.test(t)?'The server address looks wrong (got a web page instead of ArNotes)':'Bad reply from server')}
       if(!j.ok)throw new Error(j.error||'Server error');return j.result});
 }
 function call(fn){var a=[].slice.call(arguments,1);
@@ -461,7 +461,7 @@ function fillReader(frame,id,fresh){
   return nvFetch(id).then(function(v){if(frame.isConnected)put(v);fixPhotos(v);return v});
 }
 var PHFIX={};
-/* ---------- linked PDFs: the real pages, drawn in the app (bytes come through ArNote, so no Google sign-in needed) ---------- */
+/* ---------- linked PDFs: the real pages, drawn in the app (bytes come through ArNotes, so no Google sign-in needed) ---------- */
 var PDFC={};
 function pdfBytes(id){if(PDFC[id])return PDFC[id];
   var parts=[],total=0;function step(off){return call('api_dlChunk',id,off).then(function(r){if(r.size>30*1048576)throw new Error('big');var u=b64Bytes(r.b64);parts.push(u);total+=u.length;return r.next!=null?step(r.next):null})}
@@ -593,7 +593,7 @@ function pvLock(){var pv=$('#pv');if(!pv)return;var n=G?0:Object.keys(S.sel).len
   if(!b){b=document.createElement('div');b.id='pvSelNote';b.className='pvsel';pv.insertBefore(b,pv.firstChild)}
   b.innerHTML='<b>'+n+' selected</b><span>Tag, file or delete them with the selection bar (T = tags, F = file).</span><span class="grow"></span><button class="btn small" id="pvSelX">Clear selection</button>';
   $('#pvSelX').onclick=endSelect}
-/** Notes ArNote made from scanning a photo (they can go back to being just a photo). */
+/** Notes ArNotes made from scanning a photo (they can go back to being just a photo). */
 function isScanNote(n){return !!(n&&n.link&&(['Document','Receipt','Business Card'].some(function(t){return n.tags.indexOf(t)>=0})||/^(Document|Receipt|Business card) —/i.test(n.title)))}
 /** A scanned-photo note → a real note with the picture in it (keeps its tags, minus Document); the scan note goes away. */
 /** A note the server just made: show it straight away instead of reloading every note. */
@@ -604,10 +604,10 @@ function noteFromScan(id,btn){var n=S.byId[id];if(!n)return;if(btn){btn.disabled
   call('api_photoToNote',n.docId,n.tags).then(function(r){call('api_justPhoto',[id]).catch(function(){});dropLocalNote(id);return addMadeNote(r).then(function(){openMadeNote(r,'Note made: write away. It\'s in your Inbox.')})})
   .catch(function(){if(btn){btn.disabled=false;btn.textContent='📝 Note with this photo'}})}
 function justPhoto(ids){
-  ids=ids.filter(function(id){var n=S.byId[id];return n&&n.link});        // ArNote checks which ones really are your photos
+  ids=ids.filter(function(id){var n=S.byId[id];return n&&n.link});        // ArNotes checks which ones really are your photos
   if(!ids.length){toast('None of these are photos: Just a photo is for notes made from a photo');return}
   call('api_justPhoto',ids).then(function(r){
-    if(!r.done){toast('None of these are photos in ArNote Photos, so nothing changed');return}
+    if(!r.done){toast('None of these are photos in ArNotes Photos, so nothing changed');return}
     ids.forEach(function(id){delete S.sel[id]});
     toast(r.done+' back to being just a photo'+(r.done>1?'s':'')+': they\'re in Photos with their tags and won\'t be scanned again'+(r.asked>r.done?' ('+(r.asked-r.done)+' skipped: not photos)':''));
     return load(true).then(function(){refreshInboxCount();if(S.view==='inbox'){S.pv=null;viewInbox()}else if(S.view==='note')go('inbox');else rerender();paintSel()});
@@ -971,7 +971,7 @@ function renderPv(){
   el.innerHTML='<input id="pvTitle" class="pvtitle" value="'+esc(n.title)+'" title="Click to rename" spellcheck="false">'+
     '<div class="muted" style="font-size:12px">Created '+fmt(n.created)+(n.att?' · 📎'+n.att:'')+'</div>'+
     '<div class="bar" id="tagbar"></div>'+
-    '<div class="bar"><button class="btn primary" id="pvFile">File → Cabinet</button><button class="btn" id="pvOpen">Open</button>'+(n.link?'':'<button class="btn" id="pvEd" title="Edit this note (Google Docs, inside ArNote)">✏️ Edit</button><button class="btn" id="pvAdd" title="Type some text and it goes at the end of this note">＋ Add text</button>')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" id="pvRc">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" id="pvMk" title="Read this email as a receipt or invoice">🧾 It\'s a receipt</button>':'')+(isScanNote(n)?'<button class="btn" id="pvNp" title="A new note with this picture in it, ready for you to write">📝 Note with this photo</button>':'')+(isScanNote(n)?'<button class="btn" id="pvJp" title="Not a document, receipt or card: remove this note and put the photo back in Photos">📷 Just a photo</button>':'')+'<button class="btn" id="pvSend" title="Email this note to someone">✉ Send</button><button class="btn" id="pvPr">🖨 Print</button><button class="btn" id="pvDn" title="Download as PDF">⇩ Download</button>'+'<button class="btn danger" id="pvDel">Delete</button>'+
+    '<div class="bar"><button class="btn primary" id="pvFile">File → Cabinet</button><button class="btn" id="pvOpen">Open</button>'+(n.link?'':'<button class="btn" id="pvEd" title="Edit this note (Google Docs, inside ArNotes)">✏️ Edit</button><button class="btn" id="pvAdd" title="Type some text and it goes at the end of this note">＋ Add text</button>')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" id="pvRc">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" id="pvMk" title="Read this email as a receipt or invoice">🧾 It\'s a receipt</button>':'')+(isScanNote(n)?'<button class="btn" id="pvNp" title="A new note with this picture in it, ready for you to write">📝 Note with this photo</button>':'')+(isScanNote(n)?'<button class="btn" id="pvJp" title="Not a document, receipt or card: remove this note and put the photo back in Photos">📷 Just a photo</button>':'')+'<button class="btn" id="pvSend" title="Email this note to someone">✉ Send</button><button class="btn" id="pvPr">🖨 Print</button><button class="btn" id="pvDn" title="Download as PDF">⇩ Download</button>'+'<button class="btn danger" id="pvDel">Delete</button>'+
     '<span class="kbd">Keys: ↑ ↓ move · T add tag · F file · Enter open</span></div><div id="pvloc"></div>'+
     (n.tags.indexOf('Receipt')>=0?'<div id="pvRcCard"><p class="muted">Loading receipt…</p></div><div id="pvFull" style="display:none">'+readerHtml()+'</div>':readerHtml());
   renderTags(n);
@@ -1069,7 +1069,7 @@ function locHtml(loc,n){
   var p=(loc.partial?'<span class="muted">'+(loc.owner&&!loc.me?esc(loc.ownerName||loc.owner)+'\'s Drive':'…')+'</span><span class="sep">›</span>':'')+
     loc.path.map(function(f){return '<a target="_blank" href="https://drive.google.com/drive/folders/'+esc(f.id)+au+'">'+esc(f.name)+'</a>'}).join('<span class="sep">›</span>')+
     (loc.path.length?'<span class="sep">›</span>':'')+'<b>'+esc(n.title)+'</b>';
-  return '<div class="loc">📍 <span class="acct">'+esc(loc.owner||'Unknown account')+'</span>'+(loc.me?' <span class="muted">(this ArNote account)</span>':'')+'<br>'+p+
+  return '<div class="loc">📍 <span class="acct">'+esc(loc.owner||'Unknown account')+'</span>'+(loc.me?' <span class="muted">(this ArNotes account)</span>':'')+'<br>'+p+
     (loc.owner&&!loc.me?'<br><a target="_blank" href="'+esc(linkUrl(n).replace(/([?&])authuser=[^&]*/,'$1authuser='+encodeURIComponent(loc.owner)))+'">Open as '+esc(loc.owner)+' ↗</a> <span class="muted">(to edit it in the owner\'s account)</span>':'')+'</div>';
 }
 function linkUrl(n){var u=n.sourceUrl||('https://drive.google.com/file/d/'+n.docId+'/view');return u+(S.user?(u.indexOf('?')<0?'?':'&')+'authuser='+encodeURIComponent(S.user):'')}
@@ -1088,10 +1088,10 @@ function linkExplain(r){
   var k='arnote.tip.link'; try{if(localStorage.getItem(k))return}catch(e){}
   var f=(r.folders||[])[0], files=(r.notes||[]).length;
   var what=f?'<p><b>You linked the folder “'+esc(f.name)+'”.</b> Its '+f.count+' file'+(f.count===1?' is':'s are')+' now in your <b>'+esc(f.notebook||'Inbox')+'</b>, each tagged <b>'+esc(f.name)+'</b>'+(f.parent?' (filed under the <b>'+esc(f.parent)+'</b> tag, the account that shares it)':'')+'. Sub-folders become tags under it.</p>'+
-      '<p>ArNote keeps watching the folder: files added to it later show up in your Inbox by themselves, ready to wrangle.</p>'+(f.notebook==='Cabinet'?'<p>Big folders (over 25 files) go straight to the Cabinet so they don\'t flood your Inbox; find them under the folder\'s tag.</p>':'')
+      '<p>ArNotes keeps watching the folder: files added to it later show up in your Inbox by themselves, ready to wrangle.</p>'+(f.notebook==='Cabinet'?'<p>Big folders (over 25 files) go straight to the Cabinet so they don\'t flood your Inbox; find them under the folder\'s tag.</p>':'')
     :'<p><b>You linked '+files+' file'+(files===1?'':'s')+'.</b> '+(files===1?'It is':'They are')+' now in your Inbox as notes, tagged with the Google account they belong to.</p>';
   modal('What linking does','','<div class="guide">'+what+
-    '<p><b>Nothing is copied or moved.</b> The files stay where they are in Google Drive; ArNote only keeps a note that points to each one, with your tags. Removing a linked note never deletes the file.</p>'+
+    '<p><b>Nothing is copied or moved.</b> The files stay where they are in Google Drive; ArNotes only keeps a note that points to each one, with your tags. Removing a linked note never deletes the file.</p>'+
     '<p>Manage linked folders under <b>Settings → Linked Drive folders</b>, and the account tags under <b>Settings → Google accounts</b>.</p></div>'+
     '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="lxNo"> Don\'t show this again</label>',
     '<span class="grow"></span><button class="btn primary" id="lxOk">Got it</button>');
@@ -1099,13 +1099,13 @@ function linkExplain(r){
 }
 function linkDialog(){
   var st={where:'root',q:'',sel:{},data:null,tab:'browse'};
-  modal('Link Drive files','Files stay exactly where they are in your Drive. ArNote adds a note that points to each one.',
+  modal('Link Drive files','Files stay exactly where they are in your Drive. ArNotes adds a note that points to each one.',
     '<div class="tabs" id="lkTabs" style="margin-bottom:8px"><button data-t="browse" class="on">Browse Drive</button><button data-t="paste">Paste links</button></div>'+
     '<div id="lkBrowse"><div class="setrow" style="margin:0 0 6px"><input class="field" id="lkQ" placeholder="Search Drive by name…" autocomplete="off" style="flex:1"></div>'+
       '<div class="crumbs" id="lkCr" style="margin:4px 0 6px;font-size:14px"></div><div id="lkWho" class="subtags" style="margin:0 0 6px"></div><div id="lkList" class="pick" style="max-height:46vh;min-height:260px"></div></div>'+
     '<div id="lkPaste" style="display:none"><label class="muted" style="font-size:13px">Paste Drive links (one or more). A folder link links every file in it into the Cabinet, tagged with the folder name, and keeps it in sync.</label>'+
       '<textarea id="lnkTxt" rows="5" placeholder="https://docs.google.com/document/d/…&#10;https://drive.google.com/drive/folders/…" style="margin-top:6px"></textarea>'+
-      '<p class="muted" style="font-size:13px;margin:10px 0 0"><b>From the Drive app:</b> Organize → Add shortcut → <b>ArNote › Link</b>'+(LINK_URL?' (<a href="'+LINK_URL+'" target="_blank" style="color:var(--acc)">Link folder</a>)':'')+'. Shows up within 15 minutes.</p></div>',
+      '<p class="muted" style="font-size:13px;margin:10px 0 0"><b>From the Drive app:</b> Organize → Add shortcut → <b>ArNotes › Link</b>'+(LINK_URL?' (<a href="'+LINK_URL+'" target="_blank" style="color:var(--acc)">Link folder</a>)':'')+'. Shows up within 15 minutes.</p></div>',
     '<span class="grow muted" id="lkInfo" style="font-size:13px"></span><button class="btn" id="lnkC">Cancel</button><button class="btn" id="lkFolder" style="display:none">Link this folder</button><button class="btn primary" id="lnkGo">Link</button>');
   $('#lnkC').onclick=closeModal;
   $$('#lkTabs button').forEach(function(b){b.onclick=function(){st.tab=b.dataset.t;$$('#lkTabs button').forEach(function(x){x.classList.toggle('on',x===b)});
@@ -1176,14 +1176,14 @@ function exportForAI(ids){
     call('api_exportMarkdown',ids.slice(i,i+chunk)).then(function(md){parts.push(md);i+=chunk;var n=$('#aiN');if(n)n.textContent=Math.min(i,ids.length);next()}).catch(function(e){var w=$('#aiw');if(w)w.innerHTML='<p class="err">'+esc(e.message)+'</p>'});
   })();
   function done(){
-    var head='# ArNote export: '+ids.length+' note'+(ids.length>1?'s':'')+' ('+today()+')\n\nExported from ArNote, a notes app that keeps notes as Google Docs organized by tags. Each note below starts with its title, then its tags, notebook (Inbox = not yet filed, Cabinet = filed) and dates, then its full text.\n\n---\n\n';
+    var head='# ArNotes export: '+ids.length+' note'+(ids.length>1?'s':'')+' ('+today()+')\n\nExported from ArNotes, a notes app that keeps notes as Google Docs organized by tags. Each note below starts with its title, then its tags, notebook (Inbox = not yet filed, Cabinet = filed) and dates, then its full text.\n\n---\n\n';
     var md=head+parts.join('\n'), w=$('#aiw'); if(!w) return;
     var kb=Math.round(new Blob([md]).size/1024);
     w.innerHTML='<p style="margin:0 0 8px">Ready: '+kb+' KB. Attach the file to a chat with Claude, ChatGPT or Gemini, or paste the text, then ask your question.</p>'+
       '<div class="setrow"><button class="btn primary" id="aiDl">⇩ Download .md</button><button class="btn" id="aiCp">Copy text</button></div>'+
       '<textarea readonly id="aiT" style="width:100%;height:180px;margin-top:8px;font:12px monospace;box-sizing:border-box"></textarea>';
     $('#aiT').value=md;
-    $('#aiDl').onclick=function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));a.download=(ids.length===1?String(S.byId[ids[0]].title||'Note').replace(/[\\/:*?"<>|]+/g,' ').slice(0,80).trim():'ArNote export '+today())+'.md';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000)};
+    $('#aiDl').onclick=function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));a.download=(ids.length===1?String(S.byId[ids[0]].title||'Note').replace(/[\\/:*?"<>|]+/g,' ').slice(0,80).trim():'ArNotes export '+today())+'.md';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000)};
     $('#aiCp').onclick=function(){var t=$('#aiT');(navigator.clipboard?navigator.clipboard.writeText(md):Promise.reject()).then(function(){toast('Copied: paste it into your AI chat')}).catch(function(){t.focus();t.select();try{document.execCommand('copy');toast('Copied')}catch(e){toast('Select the text and copy it')}})};
   }
 }
@@ -1229,7 +1229,7 @@ function downloadPhotos(ids){
   call('api_dlMeta',ids).then(function(m){
     var ok=m.filter(function(x){return !x.error&&!x.google});
     if(!ok.length){toast('Nothing to download');return}
-    dlRun('Download '+ok.length+' photo'+(ok.length>1?'s':''),ok.map(function(x){return {path:safeName(x.name),id:x.id,size:x.size,mime:x.mime}}),'ArNote photos '+today());
+    dlRun('Download '+ok.length+' photo'+(ok.length>1?'s':''),ok.map(function(x){return {path:safeName(x.name),id:x.id,size:x.size,mime:x.mime}}),'ArNotes photos '+today());
   });
 }
 /* ---------- send notes by email (from your own Gmail) ---------- */
@@ -1280,7 +1280,7 @@ function downloadNotes(ids){
   var jobs=[], i=0, multi=ids.length>1;
   (function next(){
     if(stop) return;
-    if(i>=ids.length){closeModal();dlRun('Download '+ids.length+' note'+(ids.length>1?'s':''),jobs,ids.length>1?'ArNote notes '+today():safeName(S.byId[ids[0]].title));return}
+    if(i>=ids.length){closeModal();dlRun('Download '+ids.length+' note'+(ids.length>1?'s':''),jobs,ids.length>1?'ArNotes notes '+today():safeName(S.byId[ids[0]].title));return}
     var id=ids[i];
     call('api_notePdf',id).then(function(r){
       var base=safeName(S.byId[id].title), withAtts=r.atts&&r.atts.length, dir=(multi||withAtts)?'':'';
@@ -1291,10 +1291,10 @@ function downloadNotes(ids){
     }).catch(function(e){var p=$('#dnp');if(p)p.textContent=e.message});
   })();
 }
-/* ---------- help text kept by Brian as notes (read from his ArNote; public how-to) ---------- */
+/* ---------- help text kept by Brian as notes (read from his ArNotes; public how-to) ---------- */
 function adminDoc(kind){return invCall({inv:'doc',kind:kind})}
 function showGuide(first){
-  modal(first?'Welcome to ArNote':'Getting started',first?'A two-minute tour. You can open it again any time under Settings → Getting started.':'','<div class="guide" id="gdw"><p class="muted">Loading…</p></div>','<span class="grow"></span><button class="btn primary" id="gdC">'+(first?'Let\'s go':'Close')+'</button>');
+  modal(first?'Welcome to ArNotes':'Getting started',first?'A two-minute tour. You can open it again any time under Settings → Getting started.':'','<div class="guide" id="gdw"><p class="muted">Loading…</p></div>','<span class="grow"></span><button class="btn primary" id="gdC">'+(first?'Let\'s go':'Close')+'</button>');
   $('#gdC').onclick=closeModal;
   adminDoc('guide').then(function(r){var w=$('#gdw');if(w)w.innerHTML=(r&&r.html)||'<p>Not available right now.</p>'}).catch(function(e){var w=$('#gdw');if(w)w.innerHTML='<p class="err">'+esc(e.message)+'</p>'});
 }
@@ -1308,7 +1308,7 @@ function whatsNew(rel,notes){
   var list=(notes||[]).filter(function(x){return +x.n>seen&&String(x.text||'').trim()}).sort(function(a,b){return b.n-a.n});
   mark(); if(!list.length) return;
   var md=function(t){var h='',ul=false;esc(t).split('\n').forEach(function(l){var m=l.match(/^\s*[-•*]\s+(.*)$/);if(m){if(!ul){h+='<ul>';ul=true}h+='<li>'+m[1]+'</li>'}else{if(ul){h+='</ul>';ul=false}if(l.trim())h+='<p>'+l+'</p>'}});return h+(ul?'</ul>':'')};
-  modal('What\'s new in ArNote','','<div class="guide">'+list.map(function(x){return '<h3>'+esc(x.title||('Release '+x.n))+'</h3>'+md(x.text)}).join('')+'</div>','<span class="grow"></span><button class="btn primary" id="wnC">Got it</button>');
+  modal('What\'s new in ArNotes','','<div class="guide">'+list.map(function(x){return '<h3>'+esc(x.title||('Release '+x.n))+'</h3>'+md(x.text)}).join('')+'</div>','<span class="grow"></span><button class="btn primary" id="wnC">Got it</button>');
   $('#wnC').onclick=closeModal;
 }
 function printNotes(ids){
@@ -1713,7 +1713,7 @@ function viewNote(id,keep){
   function next(skipped){ if(isTriage){ if(!skipped&&S.triage[0]===id) S.triage.shift(); } refreshInboxCount();
     if(isTriage&&S.triage.length){S.view='note';viewNote(S.triage[0])} else go(isTriage?'inbox':'home'); }
 }
-/** Edit the note's Google Doc inside ArNote, full height, with Done to go back to reading. */
+/** Edit the note's Google Doc inside ArNotes, full height, with Done to go back to reading. */
 function editHere(n){
   var b=$('#nbody'),h=$('#ehint');if(!b)return;
   if(h)h.innerHTML='Editing in Google Docs: changes save by themselves. <button class="btn small primary" id="edone">Done</button> <span class="muted">If it says you need access, use Edit in Google Docs (this browser is signed in to a different Google account).</span>';
@@ -1810,20 +1810,20 @@ function viewSettings(){
     '<h3 style="margin:16px 0 4px;font-size:15px">Add another device</h3>'+
     '<p class="muted" style="margin:0 0 8px;font-size:13px">Open this pairing link on your phone or another computer (email it to yourself). Anyone with this link can open your notes — keep it private.</p>'+
     '<div class="setrow"><button class="btn primary" id="cpPair">Copy pairing link</button>'+(navigator.share?'<button class="btn" id="shPair">Share…</button>':'')+'</div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Email to ArNote</h3><div id="mset" class="muted" style="font-size:13px">Loading…</div>'+
+    '<h3 style="margin:16px 0 4px;font-size:15px">Email to ArNotes</h3><div id="mset" class="muted" style="font-size:13px">Loading…</div>'+
     '<h3 style="margin:16px 0 4px;font-size:15px">Receipts</h3><div id="rcpt" class="muted" style="font-size:13px">Loading…</div>'+
     '<h3 style="margin:16px 0 4px;font-size:15px">Photo places</h3><div id="plset" class="muted" style="font-size:13px">Loading…</div>'+
     '<h3 style="margin:16px 0 4px;font-size:15px">Backup</h3><div id="bkset" class="muted" style="font-size:13px">Loading…</div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Getting started</h3><div class="muted" style="font-size:13px"><div class="setrow"><button class="btn small" id="gdOpen">Open the guide</button><span>A short tour of ArNote.</span></div></div>'+
+    '<h3 style="margin:16px 0 4px;font-size:15px">Getting started</h3><div class="muted" style="font-size:13px"><div class="setrow"><button class="btn small" id="gdOpen">Open the guide</button><span>A short tour of ArNotes.</span></div></div>'+
     (S.lic&&S.lic.owner?'<h3 style="margin:16px 0 4px;font-size:15px">Users</h3><div id="ppl" class="muted" style="font-size:13px">Loading…</div>':'<h3 style="margin:16px 0 4px;font-size:15px">Updates</h3><div id="upd" class="muted" style="font-size:13px">Loading…</div>')+
     '<h3 style="margin:16px 0 4px;font-size:15px">Shared links</h3><div id="sset" class="muted" style="font-size:13px">Loading…</div>'+
     '<h3 style="margin:16px 0 4px;font-size:15px">Google accounts</h3><div id="acct" class="muted" style="font-size:13px">Loading…</div>'+
     '<h3 style="margin:16px 0 4px;font-size:15px">Linked Drive folders</h3><div id="lfold" class="muted" style="font-size:13px">Loading…</div>'+
     '<h3 style="margin:16px 0 4px;font-size:15px">This device</h3>'+
     '<div class="setrow"><button class="btn" id="reload">Reload notes</button><button class="btn danger" id="unpair">Unpair this device</button></div>'+
-    '<p class="muted" style="font-size:12px;margin-top:14px">ArNote · your notes stay in your own Google Drive.</p></div>';
+    '<p class="muted" style="font-size:12px;margin-top:14px">ArNotes · your notes stay in your own Google Drive.</p></div>';
   $('#cpPair').onclick=function(){var l=pairLink();(navigator.clipboard?navigator.clipboard.writeText(l):Promise.reject()).then(function(){toast('Pairing link copied')}).catch(function(){prompt('Copy this link:',l)})};
-  if($('#shPair')) $('#shPair').onclick=function(){navigator.share({title:'ArNote pairing link',text:pairLink()}).catch(function(){})};
+  if($('#shPair')) $('#shPair').onclick=function(){navigator.share({title:'ArNotes pairing link',text:pairLink()}).catch(function(){})};
   drawMailSet(); drawPlaceSet(); drawBackupSet(); if(S.lic&&S.lic.owner) drawPeople(); else drawUpdates();
   if($('#gdOpen')) $('#gdOpen').onclick=function(){showGuide(false)};
   call('api_linkedFolders').then(function(fs){var el=$('#lfold');if(!el)return;
@@ -2050,12 +2050,12 @@ function drawRcSet(){
     $('#rcSaveCfg').onclick=function(){save(collect(),this)};
   }).catch(function(){var el=$('#rcpt');if(el)el.textContent='Not set up yet.'});
 }
-/* ---------- people using ArNote (only on Brian's own ArNote) ---------- */
+/* ---------- people using ArNotes (only on Brian's own ArNotes) ---------- */
 function drawPeople(list){
   (list?Promise.resolve(list):call('api_users')).then(function(us){var el=$('#ppl');if(!el)return;
     var ago=function(d){if(!d)return '<span class="muted">never</span>';var n=Math.round((new Date(today())-new Date(d))/864e5);return esc(d)+' <span class="muted">('+(n<=0?'today':n===1?'yesterday':n+' days ago')+')</span>'};
     us.sort(function(a,b){return (a.status==='removed')-(b.status==='removed')||(a.name||a.email).localeCompare(b.name||b.email)});
-    el.innerHTML='<div id="relBox" class="setrow" style="margin:0 0 10px"></div><p style="margin:0 0 8px">Only people on this list can set up and use ArNote. Each copy checks in once a day and reports only the last day it was used, its version and the kinds of device it\'s opened on (e.g. iPhone, Windows) — never notes, tags or photos. Removing someone stops their ArNote within a day; their own notes and photos stay in their Drive.</p>'+
+    el.innerHTML='<div id="relBox" class="setrow" style="margin:0 0 10px"></div><p style="margin:0 0 8px">Only people on this list can set up and use ArNotes. Each copy checks in once a day and reports only the last day it was used, its version and the kinds of device it\'s opened on (e.g. iPhone, Windows) — never notes, tags or photos. Removing someone stops their ArNotes within a day; their own notes and photos stay in their Drive.</p>'+
       (us.length?'<div class="rcwrap"><table class="rct"><thead><tr><th>Person</th><th>Status</th><th>Last used</th><th>Last check-in</th><th>Version</th><th></th></tr></thead><tbody>'+
         us.map(function(u){var off=u.status==='removed',devs=String(u.devices||''),onPhone=/iPhone|Android/.test(devs);
           var st=off?'Removed':u.status==='invited'?'Invited <span class="muted" style="font-size:12px">'+esc(u.invited||'')+'</span>':!u.lastCheckin?'Accepted <span class="muted" style="font-size:12px">'+esc(u.accepted||'')+'</span>':onPhone?'On phone ✓':'Set up';
@@ -2076,10 +2076,10 @@ function drawPeople(list){
     $$('#ppl [data-pdel]').forEach(function(b){b.onclick=function(){if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Delete?';return}act(call('api_userDelete',b.dataset.pdel))}});
   }).catch(function(e){var el=$('#ppl');if(el)el.textContent='Not available ('+e.message+').'});
 }
-/** Everyone else: which release this ArNote runs; it updates itself daily, or now. */
+/** Everyone else: which release this ArNotes runs; it updates itself daily, or now. */
 function drawUpdates(){
   call('api_releaseInfo').then(function(r){var el=$('#upd');if(!el)return;
-    el.innerHTML='<p style="margin:0 0 6px">ArNote updates itself once a day when a new version is out. Running release '+(r.installed||'—')+(r.latest>r.installed?' · <b style="color:var(--ink)">release '+r.latest+' is ready</b>':' · up to date')+(r.at?' · last updated '+fmt(r.at):'')+'.</p>'+
+    el.innerHTML='<p style="margin:0 0 6px">ArNotes updates itself once a day when a new version is out. Running release '+(r.installed||'—')+(r.latest>r.installed?' · <b style="color:var(--ink)">release '+r.latest+' is ready</b>':' · up to date')+(r.at?' · last updated '+fmt(r.at):'')+'.</p>'+
       (r.error?'<p class="rcw" style="margin:0 0 6px">⚠ '+esc(r.error)+'</p>':'')+'<button class="btn small" id="updGo">Update now</button>';
     $('#updGo').onclick=function(){var b=this;b.disabled=true;b.textContent='Updating…';
       call('api_updateNow').then(function(x){toast(x.updated?'Updated to release '+x.updated+' — reload the app':'Already up to date');drawUpdates()}).catch(function(e){toast(e.message);drawUpdates()})};
@@ -2092,7 +2092,7 @@ function drawRelease(){
     el.innerHTML='<span style="flex-basis:100%"><b style="color:var(--ink)">Released to everyone:</b> '+(r.n?'release '+r.n+' · '+fmt(r.at):'nothing yet')+'</span>'+
       '<textarea class="field" id="relNote" rows="4" placeholder="What\'s new: one line per change, starting with -" style="flex-basis:100%;margin:4px 0;font:13px/1.4 inherit">'+esc(r.draft||'')+'</textarea>'+
       '<span class="muted" style="font-size:12px">'+(r.draft?'Filled in from <i>Next release</i> in your release notes; edit freely. ':'')+'Users see this once, the first time they open the new release.</span><span class="grow"></span>'+
-      '<button class="btn small primary" id="relGo" title="Everyone on the list gets ArNote as it is now, within a day">Release this version</button>';
+      '<button class="btn small primary" id="relGo" title="Everyone on the list gets ArNotes as it is now, within a day">Release this version</button>';
     $('#relGo').onclick=function(){var b=this;if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tap again to release';return}
       b.disabled=true;b.textContent='Releasing…';
       call('api_releaseNow',$('#relNote').value.trim()).then(function(){toast('Released: everyone gets it within a day');drawRelease()}).catch(function(e){toast(e.message);b.disabled=false;b.textContent='Release this version';delete b.dataset.arm})};
@@ -2104,7 +2104,7 @@ function drawBackupSet(){
   call('api_backups').then(function(b){var el=$('#bkset');if(!el)return;
     var nice=function(n){var m=n.match(/^(\d{4})-(\d\d)-(\d\d)(?: (\d\d)-(\d\d))?(?: \((.+)\))?$/);if(!m)return esc(n);
       var d=new Date(+m[1],+m[2]-1,+m[3],m[4]?+m[4]:3,m[5]?+m[5]:0);return esc(d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'})+(m[4]?' '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'')+(m[6]?' · '+m[6]:' · daily'))};
-    el.innerHTML='<p style="margin:0 0 6px">Every day around 3 AM ArNote saves a copy of its index — every note\'s tags and filing, photo tags and places, receipts — plus your settings, to <a href="'+esc(b.folderUrl)+'" target="_blank" style="color:var(--acc)">ArNote Backups</a> in your Drive. The last 30 days are kept. Your notes and photos themselves are ordinary Drive files with Drive\'s own history and 30-day trash.</p>'+
+    el.innerHTML='<p style="margin:0 0 6px">Every day around 3 AM ArNotes saves a copy of its index — every note\'s tags and filing, photo tags and places, receipts — plus your settings, to <a href="'+esc(b.folderUrl)+'" target="_blank" style="color:var(--acc)">ArNotes Backups</a> in your Drive. The last 30 days are kept. Your notes and photos themselves are ordinary Drive files with Drive\'s own history and 30-day trash.</p>'+
       '<div class="setrow"><button class="btn small primary" id="bkNow">Back up now</button>'+(b.last?'<span>Last backup: '+fmt(b.last.at)+'</span>':'<span>No backup yet</span>')+'</div>'+
       (b.list.length?'<details style="margin-top:4px"><summary style="cursor:pointer">'+b.list.length+' backup'+(b.list.length>1?'s':'')+' — open or restore</summary>'+
         b.list.map(function(x){return '<div class="setrow"><span style="min-width:230px">'+nice(x.name)+'</span><a class="btn small" href="'+esc(x.url)+'" target="_blank">Open</a><button class="btn small" data-bkr="'+esc(x.id)+'" data-bkn="'+esc(x.name)+'">Restore…</button></div>'}).join('')+'</details>':'')+
@@ -2112,7 +2112,7 @@ function drawBackupSet(){
     $('#bkNow').onclick=function(){var x=this;x.disabled=true;x.textContent='Backing up…';
       call('api_backupNow').then(function(r){toast('Backed up: '+r.name);drawBackupSet()}).catch(function(e){toast(e.message);x.disabled=false;x.textContent='Back up now'})};
     $$('#bkset [data-bkr]').forEach(function(btn){btn.onclick=function(){var id=btn.dataset.bkr,nm=btn.dataset.bkn;
-      modal('Restore this backup?','Puts ArNote back the way it was at '+nm+'.',
+      modal('Restore this backup?','Puts ArNotes back the way it was at '+nm+'.',
         '<p style="margin:0 0 8px">Every note\'s tags and filing, photo tags and places, receipts and settings go back to that point. Anything tagged, filed or added after it loses those changes (notes and photos themselves stay in Drive).</p><p class="muted" style="margin:0;font-size:13px">A backup of how things are right now is made first, so you can undo this by restoring that one.</p>',
         '<span class="grow"></span><button class="btn" id="bkX">Cancel</button><button class="btn danger" id="bkGo">Restore</button>');
       $('#bkX').onclick=closeModal;
@@ -2135,17 +2135,17 @@ function drawPlaceSet(){
     $$('#plset [data-pn]').forEach(function(b){b.onclick=function(){var p=list[+b.dataset.pn],n=prompt('New name for “'+p.name+'”',p.name);if(n&&n.trim()){p.name=n.trim();save()}}});
   }).catch(function(){var el=$('#plset');if(el)el.textContent='Not available yet.'});
 }
-/* ---------- email → ArNote settings ---------- */
+/* ---------- email → ArNotes settings ---------- */
 function drawMailSet(){
   call('api_mailInfo').then(function(mi){var el=$('#mset');if(!el)return;
-    el.innerHTML='<p style="margin:0 0 6px">Send or forward email to <b class="mono" style="color:var(--ink)">'+esc(mi.address)+'</b>, or put the Gmail label <b style="color:var(--ink)">ArNote</b> on any email. It becomes an Inbox note within 15 minutes (subject = title, attachments included). Add tags in the subject with # — e.g. <i>Boiler quote #HVAC</i> (tags must already exist).</p>'+
+    el.innerHTML='<p style="margin:0 0 6px">Send or forward email to <b class="mono" style="color:var(--ink)">'+esc(mi.address)+'</b>, or put the Gmail label <b style="color:var(--ink)">ArNotes</b> on any email. It becomes an Inbox note within 15 minutes (subject = title, attachments included). Add tags in the subject with # — e.g. <i>Boiler quote #HVAC</i> (tags must already exist).</p>'+
       '<div class="setrow"><button class="btn small primary" id="mCopy">Copy address</button><button class="btn small" id="mNow">Check now</button>'+(mi.last?'<span>Last email note: '+fmt(mi.last.at)+'</span>':'')+'</div>'+
       '<p style="margin:10px 0 4px"><b style="color:var(--ink)">Accepted senders</b> — email to that address from anyone else is ignored (the Gmail label works for any email):</p>'+
       mi.senders.map(function(s){return '<div class="setrow"><span class="mono">'+esc(s)+'</span>'+(s===mi.me?'<span>(this account)</span>':'<button class="btn small" data-mrm="'+esc(s)+'">Remove</button>')+'</div>'}).join('')+
       '<div class="setrow"><input class="field" id="mAdd" placeholder="another address you send from" autocomplete="off" style="max-width:300px;margin:0"><button class="btn small" id="mAddB">Add</button></div>';
     $('#mCopy').onclick=function(){copyText(mi.address,'Address copied')};
     $('#mNow').onclick=function(){var b=this;b.disabled=true;b.textContent='Checking…';
-      call('api_mailCheckNow').then(function(r){toast(r.added?r.added+' email note'+(r.added>1?'s':'')+' added to Inbox':'No new email for ArNote');if(r.added)load(true).then(refreshInboxCount)}).catch(function(){}).then(function(){b.disabled=false;b.textContent='Check now'})};
+      call('api_mailCheckNow').then(function(r){toast(r.added?r.added+' email note'+(r.added>1?'s':'')+' added to Inbox':'No new email for ArNotes');if(r.added)load(true).then(refreshInboxCount)}).catch(function(){}).then(function(){b.disabled=false;b.textContent='Check now'})};
     function save(list){call('api_setMailSenders',list.filter(function(x){return x!==mi.me})).then(function(){drawMailSet()})}
     $$('#mset [data-mrm]').forEach(function(b){b.onclick=function(){save(mi.senders.filter(function(x){return x!==b.dataset.mrm}))}});
     $('#mAddB').onclick=function(){var v=$('#mAdd').value.trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){toast('That doesn\'t look like an email address');return}save(mi.senders.concat([v]))};
@@ -2169,7 +2169,7 @@ function bindShareRows(root,list,after){
   $$(root+' [data-sa]').forEach(function(b){b.onclick=function(){
     var id=b.closest('[data-sid]').dataset.sid, s=list.filter(function(x){return x.id===id})[0], a=b.dataset.sa; if(!s) return;
     if(a==='copy') copyText(shareUrl(s.token),'Link copied: send it to '+s.label);
-    else if(a==='send') navigator.share({title:'ArNote: '+s.label,text:'Here are the notes I\'m sharing with you:',url:shareUrl(s.token)}).catch(function(){});
+    else if(a==='send') navigator.share({title:'ArNotes: '+s.label,text:'Here are the notes I\'m sharing with you:',url:shareUrl(s.token)}).catch(function(){});
     else if(a==='toggle'){b.disabled=true;call('api_updateShare',s.id,{active:!s.active}).then(function(){toast(s.active?'Link switched off':'Link switched on');after()}).catch(function(){b.disabled=false})}
     else if(a==='del'){if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tap again';return}
       b.disabled=true;call('api_deleteShare',s.id).then(function(){toast('Link deleted');after()}).catch(function(){b.disabled=false})}
@@ -2207,13 +2207,13 @@ function guestStart(sh,asOwner){
   Promise.all([gCall('share_info'),gCall('share_list')]).then(function(r){
     G.info=r[0]; G.notes=r[1].sort(function(a,b){return String(b.updated).localeCompare(String(a.updated))});
     S.byId={}; G.notes.forEach(function(n){n.notebook='';n.starred=false;S.byId[n.id]=n});
-    document.title=G.info.label+' · ArNote'; guestList();
+    document.title=G.info.label+' · ArNotes'; guestList();
   }).catch(function(e){
-    $('#main').innerHTML='<div class="pair"><h1>ArNote</h1><p>'+esc(e.message)+'</p>'+(asOwner?'<button class="btn" id="gBack">Back to my notes</button>':'')+'</div>';
+    $('#main').innerHTML='<div class="pair"><h1>ArNotes</h1><p>'+esc(e.message)+'</p>'+(asOwner?'<button class="btn" id="gBack">Back to my notes</button>':'')+'</div>';
     if($('#gBack')) $('#gBack').onclick=guestExit;
   });
 }
-function guestExit(){G=null;document.body.classList.remove('guest','unpaired');document.title='ArNote';start()}
+function guestExit(){G=null;document.body.classList.remove('guest','unpaired');document.title='ArNotes';start()}
 function guestBanner(){return G.owner?'<div class="gban">'+(G.owner==='self'?'You\'re seeing what people with this share link see.':'Someone shared these notes with you.')+' <button class="btn small" id="gBack">Back to my notes</button></div>':''}
 function guestList(){
   S.view='guest'; S.sel=S.sel||{};
@@ -2255,10 +2255,10 @@ function openB64(b64,mime,name){
 }
 
 
-/* ---------- Photos: photos stay in Drive (ArNote Photos folder); ArNote keeps tags and inbox/filed ----------
+/* ---------- Photos: photos stay in Drive (ArNotes Photos folder); ArNotes keeps tags and inbox/filed ----------
  * The grid is a timeline (newest first) of month sections; each month loads as it scrolls near, and the bar on the
  * right jumps through years/months like Google Photos. Thumbnails come straight from Drive when this browser is
- * signed in to the ArNote account (fast, cached by the browser); otherwise through the server. */
+ * signed in to the ArNotes account (fast, cached by the browser); otherwise through the server. */
 var P={tab:'all',tag:'',folder:'',sel:{},byId:{},secs:[],stats:null,thumbs:{},gen:0,direct:true,queue:[],busy:0,last:null};
 function phStats(force){
   if(P.stats&&!force&&Date.now()-P.stats._t<60000) return Promise.resolve(P.stats);
@@ -2313,8 +2313,8 @@ function viewPhotos(){
   phStats().then(function(st){ if(S.view!=='photos') return;
     var sy=st.sync||{}; $('#phSync').textContent=sy.at?'Checked '+new Date(sy.at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
     if(!st.total){
-      $('#phTop').innerHTML='<div class="wg" style="margin-top:10px"><p style="margin-top:0"><b>No photos yet.</b> ArNote shows the photos in your Drive folder <a href="'+esc(st.rootUrl)+'" target="_blank" style="color:var(--acc)">ArNote Photos</a> (and every folder inside it). They stay there; ArNote just keeps your tags.</p>'+
-        '<ul class="muted" style="font-size:14px;margin:0;padding-left:18px"><li><b>Your existing photos:</b> export them with Google Takeout and copy the folders into ArNote Photos.</li><li><b>New phone photos:</b> a sync app (Autosync for Google Drive or FolderSync on Android) copying your camera folder to ArNote Photos/Phone.</li><li>New photos are picked up every 15 minutes, or press <b>Check for new</b>.</li></ul></div>';
+      $('#phTop').innerHTML='<div class="wg" style="margin-top:10px"><p style="margin-top:0"><b>No photos yet.</b> ArNotes shows the photos in your Drive folder <a href="'+esc(st.rootUrl)+'" target="_blank" style="color:var(--acc)">ArNotes Photos</a> (and every folder inside it). They stay there; ArNotes just keeps your tags.</p>'+
+        '<ul class="muted" style="font-size:14px;margin:0;padding-left:18px"><li><b>Your existing photos:</b> export them with Google Takeout and copy the folders into ArNotes Photos.</li><li><b>New phone photos:</b> a sync app (Autosync for Google Drive or FolderSync on Android) copying your camera folder to ArNotes Photos/Phone.</li><li>New photos are picked up every 15 minutes, or press <b>Check for new</b>.</li></ul></div>';
       return }
     phTop(); var show=!(P.tab==='tag'&&!P.tag)&&!(P.tab==='place'&&!phPlaceSel()&&!P.q)&&!(P.tab==='map'&&!P.box); if(P.tab==='map') phMap(); if(show) phTimeline(); else {$('#phTL').innerHTML='';$('#phScrub').style.display='none'} phPaint();
   }).catch(function(){$('#phTop').innerHTML='<p class="muted">Could not load photos.</p>'});
@@ -2368,7 +2368,7 @@ function phTop(){
     var fc=st.folders||{}, pre=P.folder?P.folder+'/':'', sub={};
     Object.keys(fc).forEach(function(f){ if(P.folder&&f!==P.folder&&f.indexOf(pre)!==0) return; var rest=P.folder?f.slice(pre.length):f; if(!rest) return; var k=rest.split('/')[0]; sub[k]=(sub[k]||0)+fc[f]});
     var segs=P.folder?P.folder.split('/'):[];
-    h+='<div class="crumbs"><button class="cr" data-pf="">ArNote Photos</button>'+segs.map(function(sg,i){var path=segs.slice(0,i+1).join('/');return '<span class="sep">›</span>'+(i<segs.length-1?'<button class="cr" data-pf="'+esc(path)+'">'+esc(sg)+'</button>':'<b>'+esc(sg)+'</b>')}).join('')+
+    h+='<div class="crumbs"><button class="cr" data-pf="">ArNotes Photos</button>'+segs.map(function(sg,i){var path=segs.slice(0,i+1).join('/');return '<span class="sep">›</span>'+(i<segs.length-1?'<button class="cr" data-pf="'+esc(path)+'">'+esc(sg)+'</button>':'<b>'+esc(sg)+'</b>')}).join('')+
       ' <a href="'+esc(st.rootUrl)+'" target="_blank" class="muted" style="font-size:12px;margin-left:8px">open in Drive ↗</a></div>'+
       (Object.keys(sub).length?'<div class="subtags">'+Object.keys(sub).sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true})}).map(function(k){return '<button class="chip" data-pf="'+esc(pre+k)+'">📁 '+esc(k)+' <span class="muted">'+sub[k]+'</span></button>'}).join('')+'</div>':'');
   }
@@ -2507,17 +2507,17 @@ function phPaint(){
   $('#pbNote').onclick=function(){if(ids.length>20){toast('Up to 20 photos in one note');return}var b=this;b.disabled=true;b.textContent='Making the note… (a few seconds)';
     call('api_photoToNote',ids).then(function(r){P.sel={};return addMadeNote(r).then(function(){openMadeNote(r,'Note made with '+ids.length+' photo'+(ids.length>1?'s':'')+': write away. It\'s in your Inbox.')})}).catch(function(){b.disabled=false;b.textContent='📝 Note with these photos'})};
 }
-/** Add photos/videos from this device: anything already in ArNote (same name and size) is skipped; the rest go straight to Drive (ArNote Photos/Phone). */
+/** Add photos/videos from this device: anything already in ArNotes (same name and size) is skipped; the rest go straight to Drive (ArNotes Photos/Phone). */
 function phAddFiles(files){
   files=files.filter(function(f){return /^(image|video)\//.test(f.type)||/\.(jpe?g|png|gif|heic|heif|webp|mp4|mov|3gp|avi|mkv)$/i.test(f.name)});
   if(!files.length){toast('Those aren\'t photos or videos');return}
   var total=files.length, sent=0, skipped=0, failed=[], bytes=0, done=0, ids=[], stop=false;
   files.forEach(function(f){bytes+=f.size});
-  modal('Adding '+total+' item'+(total>1?'s':''),'They go to ArNote Photos › Phone in your Drive. Anything already in ArNote is skipped.',
+  modal('Adding '+total+' item'+(total>1?'s':''),'They go to ArNotes Photos › Phone in your Drive. Anything already in ArNotes is skipped.',
     '<div class="upprog"><div id="upFill"></div></div><p id="upTxt" class="muted" style="margin:8px 0 0">Starting…</p>','<span class="grow"></span><button class="btn" id="upX">Stop</button>');
   $('#upX').onclick=function(){stop=true;closeModal()};
   function show(){var el=$('#upTxt');if(!el)return;$('#upFill').style.width=Math.round(done/Math.max(1,bytes)*100)+'%';
-    el.textContent='Uploaded '+sent+' of '+(total-skipped)+(skipped?' · '+skipped+' already in ArNote':'')+(failed.length?' · '+failed.length+' failed':'')}
+    el.textContent='Uploaded '+sent+' of '+(total-skipped)+(skipped?' · '+skipped+' already in ArNotes':'')+(failed.length?' · '+failed.length+' failed':'')}
   function b64(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(String(r.result).split(',')[1])};r.onerror=rej;r.readAsDataURL(f)})}
   function one(f,t){                      // straight to Drive; through the server only if the browser refuses (small files)
     var base=done;
@@ -2542,7 +2542,7 @@ function phAddFiles(files){
   })();
   function finish(){
     var el=$('#upTxt'); if(el){$('#upFill').style.width='100%';
-      el.innerHTML='<b>Done.</b> '+sent+' added'+(skipped?', '+skipped+(skipped===1?' was':' were')+' already in ArNote':'')+(failed.length?', <b style="color:var(--warn)">'+failed.length+' failed</b>: '+esc(failed.slice(0,5).join(', ')):'')+'.'+
+      el.innerHTML='<b>Done.</b> '+sent+' added'+(skipped?', '+skipped+(skipped===1?' was':' were')+' already in ArNotes':'')+(failed.length?', <b style="color:var(--warn)">'+failed.length+' failed</b>: '+esc(failed.slice(0,5).join(', ')):'')+'.'+
         (sent?' New photos from the last 60 days are read for receipts, cards and documents within 15 minutes.':'');
       $('#upX').textContent='Close'; $('#upX').onclick=closeModal}
     else toast(sent+' added'+(skipped?' · '+skipped+' already there':''));
@@ -2705,7 +2705,7 @@ function phViewer(id,swapping){
     phPlaces().then(function(){var el=$('#pvLoc');if(!el||!document.body.contains(v))return;var nm=phNamedAt(lat,lng);
       el.innerHTML=(nm?'<button class="chip ghost" data-gl="'+esc(JSON.stringify({named:nm}))+'" title="All photos at this place">⭐ '+esc(nm)+'</button>':'')+
         (p.town?'<button class="chip ghost" data-gl="'+esc(JSON.stringify({region:p.region,town:p.town}))+'" title="All photos from this town">📍 '+esc(p.town)+(p.region?', '+esc(p.region):'')+'</button>':'<span style="opacity:.7;font-size:12px">📍 town being looked up</span>')+
-        '<button class="chip ghost" id="pvMap" title="Show on the ArNote map">🗺 Map</button>'+
+        '<button class="chip ghost" id="pvMap" title="Show on the ArNotes map">🗺 Map</button>'+
         (nm?'':'<button class="chip ghost" id="pvSp">＋ Save as a place</button>');
       $$('#pvLoc [data-gl]').forEach(function(b){b.onclick=function(){var pl=JSON.parse(b.dataset.gl);close();P.tab='place';P.pl=pl;P.q='';viewPhotos();window.scrollTo(0,0)}});
       if($('#pvSp')) $('#pvSp').onclick=function(){phSavePlace(lat,lng,p.town)};
@@ -2739,13 +2739,13 @@ function parsePair(s){
 }
 function showPair(msg){
   document.body.classList.add('unpaired');
-  $('#main').innerHTML='<div class="pair"><h1>ArNote</h1><span class="tagline">Tag — you\'re it.</span><p class="muted" style="margin:0">Connect this device to your notes.</p>'+
+  $('#main').innerHTML='<div class="pair"><h1>ArNotes</h1><span class="tagline">Tag — you\'re it.</span><p class="muted" style="margin:0">Connect this device to your notes.</p>'+
     '<label>Paste your pairing link</label><input class="field" id="plink" placeholder="https://…#pair=…" autocomplete="off">'+
     '<details style="margin-top:10px"><summary class="muted" style="cursor:pointer;font-size:13px">Or enter server address and key</summary>'+
     '<label>Server address (Apps Script web app URL)</label><input class="field" id="papi" placeholder="https://script.google.com/macros/s/…/exec">'+
     '<label>Private key</label><input class="field" id="pkey" autocomplete="off"></details>'+
     '<div class="err" id="perr">'+esc(msg||'')+'</div><button class="btn primary" id="pgo" style="margin-top:6px">Connect</button>'+
-    '<p class="muted" style="font-size:12px;margin-top:16px">New to ArNote? Your notes live in your own Google Drive. See <a href="https://github.com/mtnst8/ArNote#set-up-your-own-arnote" target="_blank">how to set up your own</a>.</p></div>';
+    '<p class="muted" style="font-size:12px;margin-top:16px">New to ArNotes? Your notes live in your own Google Drive. See <a href="https://github.com/mtnst8/ArNotes#set-up-your-own-arnotes" target="_blank">how to set up your own</a>.</p></div>';
   $('#pgo').onclick=function(){var c=parsePair($('#plink').value)||(($('#papi').value.trim()&&$('#pkey').value.trim())?{api:$('#papi').value.trim(),key:$('#pkey').value.trim()}:null);
     if(!c){$('#perr').textContent='That doesn\'t look like a pairing link.';return}
     tryPair(c)};
@@ -2767,8 +2767,8 @@ function start(){
 }
 /** This copy is no longer on Brian's list: say so plainly; everything is still in their Drive. */
 function showEnded(){
-  $('#main').innerHTML='<div class="pair"><h1>ArNote</h1><p style="font-size:16px"><b>ArNote access has ended for this account.</b></p>'+
-    '<p class="muted">Nothing has been deleted: your notes are Google Docs in the <b>ArNote</b> folder of your Google Drive, your photos are in <b>ArNote Photos</b>, and the index is the ArNote spreadsheet. You can open all of them in Google Drive any time.</p>'+
+  $('#main').innerHTML='<div class="pair"><h1>ArNotes</h1><p style="font-size:16px"><b>ArNotes access has ended for this account.</b></p>'+
+    '<p class="muted">Nothing has been deleted: your notes are Google Docs in the <b>ArNotes</b> folder of your Google Drive, your photos are in <b>ArNotes Photos</b>, and the index is the ArNotes spreadsheet. You can open all of them in Google Drive any time.</p>'+
     '<p class="muted">If you think this is a mistake, contact the person who invited you.</p><a class="btn" href="https://drive.google.com" target="_blank">Open Google Drive</a></div>';
 }
 /** Kind of device, for Brian's People list (nothing else about the device). */
@@ -2776,18 +2776,18 @@ function devLabel(){var u=navigator.userAgent||'',k=/iPhone/.test(u)?'iPhone':/i
   var app=false;try{app=navigator.standalone||matchMedia('(display-mode: standalone)').matches}catch(e){}return k+(app?' app':'')}
 /* ---------- invite page: someone Brian invited confirms their Google account and gets setup steps for their phone ---------- */
 var OWNER_API='https://script.google.com/macros/s/AKfycbyFPAGYJE1bVycoBv8QamFeUHuBjbCAhogOM8mSU7vn20CVO_Ex1XJYfRy7f7lZES-_Kg/exec';
-function invCall(body){return fetch(OWNER_API,{method:'POST',body:JSON.stringify(body)}).then(function(r){return r.text()}).then(function(t){var j;try{j=JSON.parse(t)}catch(e){throw new Error('ArNote didn\'t answer; try again in a minute')}if(!j.ok)throw new Error(j.error||'Something went wrong');return j.result})}
+function invCall(body){return fetch(OWNER_API,{method:'POST',body:JSON.stringify(body)}).then(function(r){return r.text()}).then(function(t){var j;try{j=JSON.parse(t)}catch(e){throw new Error('ArNotes didn\'t answer; try again in a minute')}if(!j.ok)throw new Error(j.error||'Something went wrong');return j.result})}
 function showInvite(tok){
   document.body.classList.add('unpaired');
   var d=devLabel(),phone=/^iPhone|^iPad/.test(d)?'ios':/^Android/.test(d)?'android':'';
-  var box=function(h){$('#main').innerHTML='<div class="pair invite" style="max-width:640px"><h1>ArNote</h1><span class="tagline">Tag — you\'re it.</span>'+h+'</div>'};
+  var box=function(h){$('#main').innerHTML='<div class="pair invite" style="max-width:640px"><h1>ArNotes</h1><span class="tagline">Tag — you\'re it.</span>'+h+'</div>'};
   box('<p class="muted">Opening your invite…</p>');
   var draw=function(v){
     if(!v){box('<p style="font-size:16px"><b>This invite link isn\'t valid anymore.</b></p><p class="muted">Ask the person who invited you to send a new one.</p>');return}
     var ph='<div class="setrow" style="gap:6px;flex-wrap:wrap;margin:4px 0 0">'+[['ios','iPhone'],['android','Android (Pixel, Samsung…)'],['none','No smartphone']].map(function(o){return '<button class="btn small'+(phone===o[0]?' primary':'')+'" data-ph="'+o[0]+'">'+o[1]+'</button>'}).join('')+'</div>';
-    var hello='<p style="font-size:16px;margin:10px 0 4px"><b>Welcome'+(v.name?', '+esc(v.name.split(/\s+/)[0]):'')+'!</b> '+esc(v.from)+' invited you to ArNote: notes, photos and receipts, organized by tags and kept in your own Google Drive.</p>';
+    var hello='<p style="font-size:16px;margin:10px 0 4px"><b>Welcome'+(v.name?', '+esc(v.name.split(/\s+/)[0]):'')+'!</b> '+esc(v.from)+' invited you to ArNotes: notes, photos and receipts, organized by tags and kept in your own Google Drive.</p>';
     if(!v.accepted){
-      box(hello+'<label>1. Which Google account will you use for ArNote?</label><input class="field" id="ivAcct" value="'+esc(v.contact)+'" autocomplete="email">'+
+      box(hello+'<label>1. Which Google account will you use for ArNotes?</label><input class="field" id="ivAcct" value="'+esc(v.contact)+'" autocomplete="email">'+
         '<p class="muted" style="font-size:13px;margin:4px 0 10px">Everything is kept in this account\'s Google Drive. A free Gmail account is fine. It must be the account you\'ll be signed in to when you set up.</p>'+
         '<label>2. What phone do you have?</label>'+ph+'<div class="err" id="ivErr"></div><button class="btn primary" id="ivGo" style="margin-top:12px">Continue</button>');
       $$('#main [data-ph]').forEach(function(b){b.onclick=function(){phone=b.dataset.ph;$$('#main [data-ph]').forEach(function(x){x.classList.toggle('primary',x===b)})}});
@@ -2797,17 +2797,17 @@ function showInvite(tok){
       return}
     var A='<b>'+esc(v.account)+'</b>';
     var steps='<h3 style="margin:16px 0 4px">On a computer (about 10 minutes)</h3><ol style="padding-left:20px;margin:0;line-height:1.55">'+
-      '<li>Be signed in to Google as '+A+'. (If you use several Google accounts, sign out of the others or use a private window.) Then open <a href="'+esc(v.copyUrl)+'" target="_blank"><b>Make my copy of ArNote</b></a> and click <b>Make a copy</b>.</li>'+
-      '<li>In your copy, wait a few seconds for the <b>ArNote</b> menu at the top (refresh the page if it doesn\'t appear), then choose <b>ArNote → Set up ArNote</b>.</li>'+
-      '<li>Google asks for permission: choose '+A+'. If you see <i>Google hasn\'t verified this app</i>, click <b>Advanced → Go to ArNote</b>, then <b>Allow</b>. (It\'s "unverified" only because it\'s a private app, not one from an app store.)</li>'+
-      '<li>When it says ArNote is set up: <b>Extensions → Apps Script</b>, then <b>Deploy</b> (blue button, top right) <b>→ New deployment →</b> the gear ⚙ <b>→ Web app</b>. Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, click <b>Deploy</b>, allow the permissions, then click <b>Copy</b> under <i>Web app URL</i>. ("Anyone" only lets your phone reach your ArNote; it still needs your private pairing link.)</li>'+
-      '<li>Back in the spreadsheet: <b>ArNote → Open the app</b>, paste the address, and click <b>Get my pairing link</b>. Click <b>Open ArNote here</b> to start, and <b>email the pairing link to yourself</b> for your phone. Keep it private: it\'s the key to your notes.</li></ol>';
-    var ph2=phone==='ios'?'<p style="margin:0 0 6px">Open the pairing link from your email in <b>Safari</b> (or Chrome), tap <b>Share</b> (the square with the arrow) <b>→ Add to Home Screen</b>. ArNote is now an app on your phone.</p>'+
-        '<p style="margin:0">To send photos from your gallery or a text: iPhone doesn\'t let web apps appear in the Share menu, so tap <b>Share → Mail</b> and send them to your ArNote email address. You\'ll find it in ArNote under <b>Settings → Email to ArNote</b>; if your phone sends from a different address, allow that address there too. Or open ArNote and add photos from there.</p>'
-      :phone==='android'?'<p style="margin:0 0 6px">Open the pairing link from your email in <b>Chrome</b>, tap the <b>⋮</b> menu <b>→ Install app</b> (or <b>Add to Home screen</b>). ArNote is now an app on your phone.</p>'+
-        '<p style="margin:0">Then in your gallery or a text, tap <b>Share → ArNote</b> to send photos straight in.</p>'
+      '<li>Be signed in to Google as '+A+'. (If you use several Google accounts, sign out of the others or use a private window.) Then open <a href="'+esc(v.copyUrl)+'" target="_blank"><b>Make my copy of ArNotes</b></a> and click <b>Make a copy</b>.</li>'+
+      '<li>In your copy, wait a few seconds for the <b>ArNotes</b> menu at the top (refresh the page if it doesn\'t appear), then choose <b>ArNotes → Set up ArNotes</b>.</li>'+
+      '<li>Google asks for permission: choose '+A+'. If you see <i>Google hasn\'t verified this app</i>, click <b>Advanced → Go to ArNotes</b>, then <b>Allow</b>. (It\'s "unverified" only because it\'s a private app, not one from an app store.)</li>'+
+      '<li>When it says ArNotes is set up: <b>Extensions → Apps Script</b>, then <b>Deploy</b> (blue button, top right) <b>→ New deployment →</b> the gear ⚙ <b>→ Web app</b>. Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, click <b>Deploy</b>, allow the permissions, then click <b>Copy</b> under <i>Web app URL</i>. ("Anyone" only lets your phone reach your ArNotes; it still needs your private pairing link.)</li>'+
+      '<li>Back in the spreadsheet: <b>ArNotes → Open the app</b>, paste the address, and click <b>Get my pairing link</b>. Click <b>Open ArNotes here</b> to start, and <b>email the pairing link to yourself</b> for your phone. Keep it private: it\'s the key to your notes.</li></ol>';
+    var ph2=phone==='ios'?'<p style="margin:0 0 6px">Open the pairing link from your email in <b>Safari</b> (or Chrome), tap <b>Share</b> (the square with the arrow) <b>→ Add to Home Screen</b>. ArNotes is now an app on your phone.</p>'+
+        '<p style="margin:0">To send photos from your gallery or a text: iPhone doesn\'t let web apps appear in the Share menu, so tap <b>Share → Mail</b> and send them to your ArNotes email address. You\'ll find it in ArNotes under <b>Settings → Email to ArNotes</b>; if your phone sends from a different address, allow that address there too. Or open ArNotes and add photos from there.</p>'
+      :phone==='android'?'<p style="margin:0 0 6px">Open the pairing link from your email in <b>Chrome</b>, tap the <b>⋮</b> menu <b>→ Install app</b> (or <b>Add to Home screen</b>). ArNotes is now an app on your phone.</p>'+
+        '<p style="margin:0">Then in your gallery or a text, tap <b>Share → ArNotes</b> to send photos straight in.</p>'
       :'<p style="margin:0">Use the pairing link on any computer or tablet. If you get a smartphone later, come back to this page.</p>';
-    var fill=function(h){return String(h).replace(/\{account\}/g,A).replace(/\{copy link\}/gi,'<a href="'+esc(v.copyUrl)+'" target="_blank"><b>Make my copy of ArNote</b></a>')};
+    var fill=function(h){return String(h).replace(/\{account\}/g,A).replace(/\{copy link\}/gi,'<a href="'+esc(v.copyUrl)+'" target="_blank"><b>Make my copy of ArNotes</b></a>')};
     var doc=SD.steps&&SD.steps.sections, comp=steps, phoneH=ph2, intro='';
     if(doc&&doc.length){
       var pick=function(re){return doc.filter(function(x){return re.test(x.title)})[0]};
@@ -2815,16 +2815,16 @@ function showInvite(tok){
       intro=doc.filter(function(x){return !x.title}).map(function(x){return x.html}).join('');
       if(c) comp=fill(c.html); if(pi) phoneH=fill(pi.html.replace(/^<h[1-4]>[\s\S]*?<\/h[1-4]>/,''));
     }
-    box(hello+'<p style="margin:6px 0 0">Your ArNote account: '+A+'</p><div class="guide">'+fill(intro)+comp+'</div><h3 style="margin:16px 0 4px">On your phone (highly recommended)</h3>'+ph+'<div id="ivPh" class="guide" style="margin-top:8px">'+phoneH+'</div>'+
-      '<details style="margin-top:16px"><summary style="cursor:pointer"><b>What you can do with ArNote</b> (getting started)</summary><div class="guide" id="ivGd">'+(SD.guide&&SD.guide.html||'<p class="muted">Loading…</p>')+'</div></details>'+
-      '<p class="muted" style="font-size:13px;margin-top:16px">Keep this email: the same link brings you back to these steps. Questions? Reply to the invite email.</p>'+(CFG?'<a class="btn" href="./">Go to my ArNote</a>':''));
+    box(hello+'<p style="margin:6px 0 0">Your ArNotes account: '+A+'</p><div class="guide">'+fill(intro)+comp+'</div><h3 style="margin:16px 0 4px">On your phone (highly recommended)</h3>'+ph+'<div id="ivPh" class="guide" style="margin-top:8px">'+phoneH+'</div>'+
+      '<details style="margin-top:16px"><summary style="cursor:pointer"><b>What you can do with ArNotes</b> (getting started)</summary><div class="guide" id="ivGd">'+(SD.guide&&SD.guide.html||'<p class="muted">Loading…</p>')+'</div></details>'+
+      '<p class="muted" style="font-size:13px;margin-top:16px">Keep this email: the same link brings you back to these steps. Questions? Reply to the invite email.</p>'+(CFG?'<a class="btn" href="./">Go to my ArNotes</a>':''));
     $$('#main [data-ph]').forEach(function(b){b.onclick=function(){phone=b.dataset.ph;draw(v)}});
   };
   var SD={};
   adminDoc('guide').then(function(r){SD.guide=r;var g=$('#ivGd');if(g&&r)g.innerHTML=r.html}).catch(function(){});
   Promise.all([invCall({inv:'get',t:tok}),adminDoc('steps').then(function(r){SD.steps=r}).catch(function(){})]).then(function(x){draw(x[0])}).catch(function(e){box('<p class="err">'+esc(e.message)+'</p>')});
 }
-/* ---------- things shared into ArNote from other apps (Android share sheet) ---------- */
+/* ---------- things shared into ArNotes from other apps (Android share sheet) ---------- */
 function receiveShare(){
   history.replaceState(null,'',location.pathname);
   caches.open('arnote-share').then(function(c){return c.match('shared').then(function(r){return r?r.json():null}).then(function(meta){
@@ -2835,7 +2835,7 @@ function receiveShare(){
       var text=[meta.title,meta.text,meta.url].filter(Boolean).join('\n');
       var media=files.length&&files.every(function(f){return /^(image|video)\//.test(f.type)});
       if(media){ go('photos');
-        modal('Add '+files.length+' to Photos?','You shared '+(files.length>1?files.length+' photos/videos':'a photo or video')+' with ArNote.','<p class="muted" style="margin:0">Photos go to your gallery. Make notes instead if these are things to keep as notes.</p>',
+        modal('Add '+files.length+' to Photos?','You shared '+(files.length>1?files.length+' photos/videos':'a photo or video')+' with ArNotes.','<p class="muted" style="margin:0">Photos go to your gallery. Make notes instead if these are things to keep as notes.</p>',
           '<button class="btn" id="shNote">Make notes</button><span class="grow"></span><button class="btn primary" id="shPh">Add to Photos</button>');
         $('#shPh').onclick=function(){closeModal();phAddFiles(files)};
         $('#shNote').onclick=function(){closeModal();go('inbox');uploadFiles(files)};

@@ -1,7 +1,7 @@
 var TAG_TREE = '';   // first-time tags now come from STARTER_TAGS_ (Batch.gs)
 /**
- * ArNote — personal note system (Google Apps Script, bound to the "ArNote" Sheet).
- * Notes are Google Docs in ArNote/Notes; attachments are files in ArNote/Attachments;
+ * ArNotes — personal note system (Google Apps Script, bound to the "ArNotes" Sheet).
+ * Notes are Google Docs in ArNotes/Notes; attachments are files in ArNotes/Attachments;
  * this Sheet is the index (Notes, Tags, Attachments tabs).
  */
 
@@ -13,7 +13,7 @@ var TAG_SEP = '; ';
 /* ---------------- menu & setup ---------------- */
 
 function onOpen() {
-  var m = SpreadsheetApp.getUi().createMenu('ArNote');
+  var m = SpreadsheetApp.getUi().createMenu('ArNotes');
   if (typeof ARNOTE_STUBS_ === 'undefined') m.addItem('Set up (first time)', 'setup');   // copies are set up by the starter
   m.addItem('Open the app', 'showAppLink')
     .addItem('Start / resume Evernote import', 'startImport')
@@ -28,19 +28,19 @@ function setup() {
   var p = props_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   p.setProperty('sheetId', ss.getId());
-  if (ss.getName() !== 'ArNote') ss.rename('ArNote');
-  var root = getOrCreateFolder_(p.getProperty('rootId'), 'ArNote', DriveApp.getRootFolder());
+  if (ss.getName() !== 'ArNotes') ss.rename('ArNotes');
+  var root = getOrCreateFolder_(p.getProperty('rootId'), 'ArNotes', DriveApp.getRootFolder());
   p.setProperty('rootId', root.getId());
   p.setProperty('notesId', getOrCreateFolder_(p.getProperty('notesId'), 'Notes', root).getId());
   p.setProperty('attId', getOrCreateFolder_(p.getProperty('attId'), 'Attachments', root).getId());
-  // move the index sheet into the ArNote folder
+  // move the index sheet into the ArNotes folder
   try { DriveApp.getFileById(ss.getId()).moveTo(root); } catch (e) {}
   ensureSheet_('Notes', NOTE_COLS);
   var tags = ensureSheet_('Tags', TAG_COLS);
   ensureSheet_('Attachments', ATT_COLS);
   var s1 = ss.getSheetByName('Sheet1'); if (s1 && ss.getSheets().length > 1) ss.deleteSheet(s1);
   if (tags.getLastRow() < 2) seedTags_(tags);
-  return 'ArNote is set up. Folder: ' + root.getUrl();
+  return 'ArNotes is set up. Folder: ' + root.getUrl();
 }
 
 function getOrCreateFolder_(id, name, parent) {
@@ -85,15 +85,15 @@ function showAppLink() {
     'var KEY=' + JSON.stringify(key) + ',APP=' + JSON.stringify(APP_URL) + ',URL0=' + JSON.stringify(url) + ',RE=' + WEBAPP_URL_RE_.toString() + ';' +
     'function esc(x){return String(x).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c]})}' +
     'function link(u){return APP+"#pair="+btoa(u+"|"+KEY).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"")}' +
-    'function call(u,fn,a){return fetch(u,{method:"POST",body:JSON.stringify({k:KEY,fn:fn,a:a||[]})}).then(function(r){return r.text()}).then(function(t){var j;try{j=JSON.parse(t)}catch(e){throw new Error("no ArNote at that address")}if(!j.ok)throw new Error(j.error);return j.result})}' +
+    'function call(u,fn,a){return fetch(u,{method:"POST",body:JSON.stringify({k:KEY,fn:fn,a:a||[]})}).then(function(r){return r.text()}).then(function(t){var j;try{j=JSON.parse(t)}catch(e){throw new Error("no ArNotes at that address")}if(!j.ok)throw new Error(j.error);return j.result})}' +
     'function show(u){var l=link(u);document.getElementById("w").innerHTML="<p>Open this <b>pairing link</b> on each phone and computer you\'ll use (email it to yourself). Keep it private \\u2014 it is the key to your notes.</p>' +
-      '<textarea readonly style=\\"width:100%;height:70px;font:12px monospace\\" onclick=\\"this.select()\\">"+esc(l)+"</textarea><p><a href=\\""+esc(l)+"\\" target=\\"_blank\\">Open ArNote here</a> &nbsp; <a href=\\"#\\" onclick=\\"ask(\'\');return false\\" style=\\"font-size:12px;color:#666\\">change server address</a></p>"}' +
-    'function ask(msg){document.getElementById("w").innerHTML="<p><b>One-time step:</b> paste your ArNote web app address.</p><p style=\\"font-size:13px;color:#444\\">Find it: <b>Extensions \\u2192 Apps Script \\u2192 Deploy \\u2192 Manage deployments</b>, then click <b>Copy</b> under Web app URL. (Not published yet? In that window use <b>Deploy \\u2192 New deployment</b> \\u2192 \\u2699 <b>Web app</b>, Execute as <b>Me</b>, Who has access <b>Anyone</b>.)</p>' +
+      '<textarea readonly style=\\"width:100%;height:70px;font:12px monospace\\" onclick=\\"this.select()\\">"+esc(l)+"</textarea><p><a href=\\""+esc(l)+"\\" target=\\"_blank\\">Open ArNotes here</a> &nbsp; <a href=\\"#\\" onclick=\\"ask(\'\');return false\\" style=\\"font-size:12px;color:#666\\">change server address</a></p>"}' +
+    'function ask(msg){document.getElementById("w").innerHTML="<p><b>One-time step:</b> paste your ArNotes web app address.</p><p style=\\"font-size:13px;color:#444\\">Find it: <b>Extensions \\u2192 Apps Script \\u2192 Deploy \\u2192 Manage deployments</b>, then click <b>Copy</b> under Web app URL. (Not published yet? In that window use <b>Deploy \\u2192 New deployment</b> \\u2192 \\u2699 <b>Web app</b>, Execute as <b>Me</b>, Who has access <b>Anyone</b>.)</p>' +
       '<input id=\\"u\\" style=\\"width:100%;box-sizing:border-box;font:12px monospace;padding:6px\\" placeholder=\\"https://script.google.com/macros/s/\\u2026/exec\\"><p><button id=\\"b\\" style=\\"padding:6px 14px\\">Get my pairing link</button> <span id=\\"m\\" style=\\"color:#b00\\">"+esc(msg||"")+"</span></p>";' +
       'document.getElementById("b").onclick=function(){var u=document.getElementById("u").value.trim(),m=document.getElementById("m");if(!RE.test(u)){m.textContent="That doesn\'t look like a web app address (it ends in /exec).";return}' +
-      'm.style.color="#666";m.textContent="Checking\\u2026";call(u,"api_appInfo").then(function(){return call(u,"api_setAppUrl",[u])}).then(function(){show(u)}).catch(function(e){m.style.color="#b00";m.textContent="Couldn\'t reach ArNote there: "+e.message+". Check it is published for Anyone."})}}' +
+      'm.style.color="#666";m.textContent="Checking\\u2026";call(u,"api_appInfo").then(function(){return call(u,"api_setAppUrl",[u])}).then(function(){show(u)}).catch(function(e){m.style.color="#b00";m.textContent="Couldn\'t reach ArNotes there: "+e.message+". Check it is published for Anyone."})}}' +
     'if(URL0)show(URL0);else ask("");</script>';
-  SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(480).setHeight(280), 'ArNote');
+  SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(480).setHeight(280), 'ArNotes');
 }
 
 /* ---------------- sheet helpers ---------------- */
@@ -178,7 +178,7 @@ function arr_(x) { // tolerate PowerShell 5.1 JSON shapes
   return [x];
 }
 
-/** Index attachment files once: hash -> {id, name}; moves them into ArNote/Attachments. */
+/** Index attachment files once: hash -> {id, name}; moves them into ArNotes/Attachments. */
 function attachmentIndex_() {
   var p = props_();
   var cache = CacheService.getScriptCache();
@@ -388,9 +388,9 @@ function resetImport_DANGER() {
 function doGet() {
   // The page itself is only for the owner; everyone else (the installable app) talks to doPost with a key.
   if (Session.getActiveUser().getEmail() !== Session.getEffectiveUser().getEmail())
-    return ContentService.createTextOutput('ArNote server is running.');
+    return ContentService.createTextOutput('ArNotes server is running.');
   return HtmlService.createTemplateFromFile('Index').evaluate()
-    .setTitle('ArNote')
+    .setTitle('ArNotes')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

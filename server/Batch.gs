@@ -77,7 +77,7 @@ function api_tagOrder(parent, names) {
   sh.getRange(2, 3, n, 1).setValues(v.map(function (r) { return [String(r[1] || '') === parent ? (pos[String(r[0])] || '') : r[2]]; }));
   return true;
 }
-/** The tags ArNote makes for Google accounts (not to be mixed up with tags that happen to start with @). */
+/** The tags ArNotes makes for Google accounts (not to be mixed up with tags that happen to start with @). */
 function acctTags_() { var s = {}, m = accountMap_(); Object.keys(m).forEach(function (e) { if (m[e]) s[m[e]] = 1; }); return s; }
 
 function api_renameTag(oldName, newName) {
@@ -190,7 +190,7 @@ function moveUntaggedCabinetToInbox() {
 function api_flushHeaders() { return flushHeaders_(20000); }
 
 /* ---------------- Drop folder & file upload ----------------
- * Anything put in ArNote/Drop becomes an Inbox note:
+ * Anything put in ArNotes/Drop becomes an Inbox note:
  *   Google Doc            → becomes the note itself
  *   Word / text / HTML    → converted to a Doc note (original kept as an attachment)
  *   anything else         → a note named after the file, with the file attached (images shown inline)
@@ -210,7 +210,7 @@ function dropFolder_() {
   return f;
 }
 
-/** Run once: creates ArNote/Drop and the 15-minute check. */
+/** Run once: creates ArNotes/Drop and the 15-minute check. */
 function installDropTrigger() {
   var f = dropFolder_();
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'processDrop') ScriptApp.deleteTrigger(t); });
@@ -295,7 +295,7 @@ function inlineImg_(par, blob, maxW, maxH) {
   if (k < 1) img.setWidth(Math.round(w * k)).setHeight(Math.round(h * k));
   return img;
 }
-/** Typed in ArNote: add text to the end of a note (works on any phone, no Google Docs app needed). */
+/** Typed in ArNotes: add text to the end of a note (works on any phone, no Google Docs app needed). */
 function api_addText(id, text) {
   text = String(text || '').replace(/\r/g, ''); if (!text.trim()) return { ok: false };
   var n = readTable_('Notes').filter(function (x) { return x.id === id; })[0];
@@ -415,7 +415,7 @@ function trashImportFolder() {
   var attId = props_().getProperty('attId'), rootId = props_().getProperty('rootId');
   while (it.hasNext()) {
     var f = it.next(); if (f.isTrashed() || f.getId() === attId || f.getId() === rootId) continue;
-    // safety: only trash it if nothing ArNote uses lives inside (no sub-folders, no files besides the import list)
+    // safety: only trash it if nothing ArNotes uses lives inside (no sub-folders, no files besides the import list)
     var subs = f.getFolders(), full = false; while (subs.hasNext()) { var s = subs.next(); if (s.getFiles().hasNext() || s.getFolders().hasNext()) full = true; }
     if (full) { Logger.log('Skipped (a sub-folder still has files): ' + f.getUrl()); continue; }
     var fi = f.getFiles(), ok = true; while (fi.hasNext()) { if (!/notes\.jsonl$/i.test(fi.next().getName())) ok = false; }
@@ -493,12 +493,12 @@ function api_mergeNotes(ids, title) {
   return { id: ids[0], title: String(kr[col_('title')]), tags: tags, starred: starred, att: att, updated: now.toISOString() };
 }
 
-/* ---------------- JSON API for the installable ArNote app ----------------
+/* ---------------- JSON API for the installable ArNotes app ----------------
  * The app (served from GitHub Pages) POSTs {k: key, fn: 'api_x', a: [args]} as plain text.
  * Every call must carry this server's private key (Script Property 'apiKey').
  * Run apiSetup() once in the editor: it creates the key and logs the pairing link.
  */
-var APP_URL = 'https://mtnst8.github.io/ArNote/';
+var APP_URL = 'https://mtnst8.github.io/ArNotes/';
 
 function doPost(e) {
   var out;
@@ -520,14 +520,14 @@ function doPost(e) {
       out = { ok: true, result: isLicenceServer_() ? releaseFor_(req) : null };
       return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
     }
-    if (req.lic === 'check') {                     // another ArNote checking in with Brian's (no key: it only says yes/no)
+    if (req.lic === 'check') {                     // another ArNotes checking in with Brian's (no key: it only says yes/no)
       out = { ok: true, result: isLicenceServer_() ? licCheck_(req) : { ok: false, reason: 'not a licence server' } };
       return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
     }
     var key = props_().getProperty('apiKey');
     if (!key || typeof req.k !== 'string' || req.k !== key) throw new Error('Not authorized: this device needs to be paired again');
     var fn = String(req.fn || '');
-    if (fn !== 'api_appInfo' && !licenceState_().ok) throw new Error('ArNote access has ended for this account. Your notes and photos are still in your Google Drive.');
+    if (fn !== 'api_appInfo' && !licenceState_().ok) throw new Error('ArNotes access has ended for this account. Your notes and photos are still in your Google Drive.');
     if (!/^api_[A-Za-z0-9]+$/.test(fn) || typeof globalThis[fn] !== 'function') throw new Error('Unknown action: ' + fn);
     out = { ok: true, result: globalThis[fn].apply(null, Array.isArray(req.a) ? req.a : []) };
   } catch (err) {
@@ -566,7 +566,7 @@ function api_appInfo(dev) {
     release: +p.getProperty(own ? 'releaseN' : 'releaseInstalled') || 0, notes: notes };
 }
 
-/** Which kinds of device open this ArNote (e.g. "iPhone app", "Windows"), so Brian can see who has it on their phone.
+/** Which kinds of device open this ArNotes (e.g. "iPhone app", "Windows"), so Brian can see who has it on their phone.
  * Only the kind of device and the day last seen; a new kind is reported to Brian's list straight away. */
 function noteDevice_(dev) {
   dev = String(dev || '').replace(/[^A-Za-z ]/g, '').slice(0, 20); if (!dev) return;
@@ -580,8 +580,8 @@ function devicesText_() {
   return Object.keys(d).sort(function (a, b) { return d[b] < d[a] ? -1 : d[b] > d[a] ? 1 : 0; }).join(', ');
 }
 
-/* ---------------- People using ArNote (licence) ----------------
- * Brian's own ArNote (this script ID) is the licence server and keeps the "Users" sheet.
+/* ---------------- People using ArNotes (licence) ----------------
+ * Brian's own ArNotes (this script ID) is the licence server and keeps the "Users" sheet.
  * Every other copy checks in once a day with its owner's email, an install id, its build and the last day the app was opened —
  * nothing else (no notes, tags or photos). Someone removed (or never added) gets ok:false and their app shows
  * "access ended"; their notes and photos in their own Drive are never touched. */
@@ -622,34 +622,34 @@ function api_userSet(email, ch) {
   if (ch.note !== undefined) t.sh.getRange(u.row, 10).setValue(String(ch.note).slice(0, 200));
   return api_users();
 }
-/** Take someone off the list entirely (typos, test entries). To stop someone using ArNote, set them to removed instead — that keeps the record. */
+/** Take someone off the list entirely (typos, test entries). To stop someone using ArNotes, set them to removed instead — that keeps the record. */
 function api_userDelete(email) {
   email = String(email || '').toLowerCase(); var t = userRows_(), u = t.rows.filter(function (x) { return x.email === email; })[0];
   if (u) t.sh.deleteRow(u.row);
   return api_users();
 }
 /* ---------- Brian's editable notes: invite email, setup steps, getting started, release notes ----------
- * Each is an ordinary ArNote note in the Cabinet; ArNote reads it when it's needed, so edits take effect right away. */
+ * Each is an ordinary ArNotes note in the Cabinet; ArNotes reads it when it's needed, so edits take effect right away. */
 var STEPS_DEFAULT_HTML_ = '<p>Follow these once. Your notes and photos stay in your own Google Drive.</p>' +
   '<h2>On a computer (about 10 minutes)</h2><ol>' +
   '<li>Be signed in to Google as {account}. (If you use several Google accounts, sign out of the others or use a private window.) Then open {copy link} and click <b>Make a copy</b>.</li>' +
-  '<li>In your copy, wait a few seconds for the <b>ArNote</b> menu at the top (refresh the page if it doesn\'t appear), then choose <b>ArNote → Set up ArNote</b>.</li>' +
-  '<li>Google asks for permission: choose {account}. If you see <i>Google hasn\'t verified this app</i>, click <b>Advanced → Go to ArNote</b>, then <b>Allow</b>. (It\'s "unverified" only because it\'s a private app, not one from an app store.)</li>' +
-  '<li>When it says ArNote is set up: <b>Extensions → Apps Script</b>, then <b>Deploy</b> (blue button, top right) <b>→ New deployment →</b> the gear <b>→ Web app</b>. Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, click <b>Deploy</b>, allow the permissions, then click <b>Copy</b> under <i>Web app URL</i>. ("Anyone" only lets your phone reach your ArNote; it still needs your private pairing link.)</li>' +
-  '<li>Back in the spreadsheet: <b>ArNote → Open the app</b>, paste the address, and click <b>Get my pairing link</b>. Click <b>Open ArNote here</b> to start, and <b>email the pairing link to yourself</b> for your phone. Keep it private: it\'s the key to your notes.</li></ol>' +
-  '<h2>iPhone</h2><p>Open the pairing link from your email in <b>Safari</b> (or Chrome), tap <b>Share</b> (the square with the arrow) <b>→ Add to Home Screen</b>. ArNote is now an app on your phone.</p>' +
-  '<p>To send photos from your gallery or a text: iPhone doesn\'t let web apps appear in the Share menu, so tap <b>Share → Mail</b> and send them to your ArNote email address. You\'ll find it in ArNote under <b>Settings → Email to ArNote</b>; if your phone sends from a different address, allow that address there too. Or open ArNote and add photos from there.</p>' +
-  '<h2>Android</h2><p>Open the pairing link from your email in <b>Chrome</b>, tap the <b>⋮</b> menu <b>→ Install app</b> (or <b>Add to Home screen</b>). ArNote is now an app on your phone.</p>' +
-  '<p>Then in your gallery or a text, tap <b>Share → ArNote</b> to send photos straight in.</p>' +
+  '<li>In your copy, wait a few seconds for the <b>ArNotes</b> menu at the top (refresh the page if it doesn\'t appear), then choose <b>ArNotes → Set up ArNotes</b>.</li>' +
+  '<li>Google asks for permission: choose {account}. If you see <i>Google hasn\'t verified this app</i>, click <b>Advanced → Go to ArNotes</b>, then <b>Allow</b>. (It\'s "unverified" only because it\'s a private app, not one from an app store.)</li>' +
+  '<li>When it says ArNotes is set up: <b>Extensions → Apps Script</b>, then <b>Deploy</b> (blue button, top right) <b>→ New deployment →</b> the gear <b>→ Web app</b>. Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, click <b>Deploy</b>, allow the permissions, then click <b>Copy</b> under <i>Web app URL</i>. ("Anyone" only lets your phone reach your ArNotes; it still needs your private pairing link.)</li>' +
+  '<li>Back in the spreadsheet: <b>ArNotes → Open the app</b>, paste the address, and click <b>Get my pairing link</b>. Click <b>Open ArNotes here</b> to start, and <b>email the pairing link to yourself</b> for your phone. Keep it private: it\'s the key to your notes.</li></ol>' +
+  '<h2>iPhone</h2><p>Open the pairing link from your email in <b>Safari</b> (or Chrome), tap <b>Share</b> (the square with the arrow) <b>→ Add to Home Screen</b>. ArNotes is now an app on your phone.</p>' +
+  '<p>To send photos from your gallery or a text: iPhone doesn\'t let web apps appear in the Share menu, so tap <b>Share → Mail</b> and send them to your ArNotes email address. You\'ll find it in ArNotes under <b>Settings → Email to ArNotes</b>; if your phone sends from a different address, allow that address there too. Or open ArNotes and add photos from there.</p>' +
+  '<h2>Android</h2><p>Open the pairing link from your email in <b>Chrome</b>, tap the <b>⋮</b> menu <b>→ Install app</b> (or <b>Add to Home screen</b>). ArNotes is now an app on your phone.</p>' +
+  '<p>Then in your gallery or a text, tap <b>Share → ArNotes</b> to send photos straight in.</p>' +
   '<h2>No smartphone</h2><p>Use the pairing link on any computer or tablet. If you get a smartphone later, come back to this page.</p>';
-var GUIDE_DEFAULT_HTML_ = '<p>ArNote works like a mailbox and a filing cabinet: new things land in your <b>Inbox</b>, you give them a tag or two, and they go to the <b>Cabinet</b>, where you can always find them.</p>' +
+var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet: new things land in your <b>Inbox</b>, you give them a tag or two, and they go to the <b>Cabinet</b>, where you can always find them.</p>' +
   '<h2>1. Get things in</h2><ul>' +
   '<li><b>Write a note:</b> tap <b>+ Note</b>.</li>' +
-  '<li><b>Photos and files:</b> in the Inbox, tap <b>+ Add files</b> (on a computer you can also drag files onto ArNote). On Android, use <b>Share → ArNote</b> from your gallery or a text.</li>' +
-  '<li><b>Email:</b> forward any email to your ArNote address (<b>Settings → Email to ArNote</b>). On iPhone this is also how to send photos from your gallery or a text: <b>Share → Mail</b>.</li>' +
+  '<li><b>Photos and files:</b> in the Inbox, tap <b>+ Add files</b> (on a computer you can also drag files onto ArNotes). On Android, use <b>Share → ArNotes</b> from your gallery or a text.</li>' +
+  '<li><b>Email:</b> forward any email to your ArNotes address (<b>Settings → Email to ArNotes</b>). On iPhone this is also how to send photos from your gallery or a text: <b>Share → Mail</b>.</li>' +
   '<li><b>Receipts and business cards:</b> photos of them are read and tagged for you, ready to check in the Inbox.</li></ul>' +
   '<h2>2. Wrangle what\'s already in Google Drive</h2><ul>' +
-  '<li>Leave it where it is. In the Inbox choose <b>🔗 Link Drive files</b> and pick files or whole folders. ArNote lists them with your notes without moving or copying anything.</li>' +
+  '<li>Leave it where it is. In the Inbox choose <b>🔗 Link Drive files</b> and pick files or whole folders. ArNotes lists them with your notes without moving or copying anything.</li>' +
   '<li>Then wrangle them with tags, like any note, and drill down to them by tag instead of digging through folders.</li>' +
   '<li>New files that land in a linked folder show up in your Inbox to wrangle. Manage linked folders under <b>Settings → Linked Drive folders</b>.</li></ul>' +
   '<h2>3. Tag and file</h2><ul>' +
@@ -662,24 +662,24 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNote works like a mailbox and a filing cabinet: 
   '<h2>5. Photos</h2><ul><li><b>Photos</b> is one gallery for all your pictures: browse by tag, or by place on the map.</li></ul>' +
   '<h2>6. Receipts</h2><ul><li>Give each receipt a <b>Job</b> and an <b>Expense category</b>. <b>Receipts</b> shows them by job and category, billed or not, and prints a clean report.</li></ul>' +
   '<h2>7. Get help from AI</h2><ul><li>Tick the notes you want help with and choose <b>Export for AI</b>. You get one file (or text to paste) that Claude, ChatGPT or Gemini can read.</li></ul>' +
-  '<p>Your notes are Google Docs in the <b>ArNote</b> folder of your Google Drive, and a backup is made every day. See this guide again any time under <b>Settings → Getting started</b>.</p>';
+  '<p>Your notes are Google Docs in the <b>ArNotes</b> folder of your Google Drive, and a backup is made every day. See this guide again any time under <b>Settings → Getting started</b>.</p>';
 var RELEASES_DEFAULT_ = ['Next release',
-  '- What\'s new: after each update, ArNote shows you what changed, once (like this).',
-  '- Getting started: a short guide to ArNote, under Settings → Getting started.',
-  '- Getting started explains wrangling what you already keep in Google Drive: leave it there and tag it in ArNote.',
+  '- What\'s new: after each update, ArNotes shows you what changed, once (like this).',
+  '- Getting started: a short guide to ArNotes, under Settings → Getting started.',
+  '- Getting started explains wrangling what you already keep in Google Drive: leave it there and tag it in ArNotes.',
   '- Export for AI: tick some notes and choose Export for AI to get one file that Claude, ChatGPT or Gemini can read, so an AI can help with them.', '',
-  'Release 7 · Oct 26, 2026', '- Your ArNote tells its owner which kinds of device it is used on (for example iPhone or Windows), so setup help can be pointed at the right phone. Nothing else about your devices is shared.', '',
+  'Release 7 · Oct 26, 2026', '- Your ArNotes tells its owner which kinds of device it is used on (for example iPhone or Windows), so setup help can be pointed at the right phone. Nothing else about your devices is shared.', '',
   'Release 6 · Oct 26, 2026', '- "Open the app" in the spreadsheet: the address box fits the window.', '',
-  'Release 5 · Oct 26, 2026', '- ArNote repairs itself if an update ever arrives damaged.', '- The ArNote menu in the spreadsheet always shows Open the app.', '',
+  'Release 5 · Oct 26, 2026', '- ArNotes repairs itself if an update ever arrives damaged.', '- The ArNotes menu in the spreadsheet always shows Open the app.', '',
   'Release 4 · Oct 26, 2026', '- "Open the app" asks once for your web app address and checks it, so your pairing link always works.', '',
   'Release 3 · Oct 26, 2026', '- First automatic update test.', '',
   'Release 2 · Oct 26, 2026', '- Clearer setup wording.', '',
   'Release 1 · Oct 26, 2026', '- First release for friends and family.'].join('\n');
 var ADMIN_NOTES_ = {
-  invite: { prop: 'inviteNoteId', title: 'ArNote invite email' },
-  steps: { prop: 'stepsNoteId', title: 'ArNote setup steps', html: function () { return STEPS_DEFAULT_HTML_; } },
-  guide: { prop: 'guideNoteId', title: 'ArNote getting started', html: function () { return GUIDE_DEFAULT_HTML_; } },
-  releases: { prop: 'releasesNoteId', title: 'ArNote release notes' }
+  invite: { prop: 'inviteNoteId', title: 'ArNotes invite email' },
+  steps: { prop: 'stepsNoteId', title: 'ArNotes setup steps', html: function () { return STEPS_DEFAULT_HTML_; } },
+  guide: { prop: 'guideNoteId', title: 'ArNotes getting started', html: function () { return GUIDE_DEFAULT_HTML_; } },
+  releases: { prop: 'releasesNoteId', title: 'ArNotes release notes' }
 };
 /** Owner: the note for one of these (made from the default the first time). */
 function api_adminNote(kind) {
@@ -720,7 +720,7 @@ function cleanHtml_(h) {
   css.replace(/\.(c\d+)\{([^}]*)\}/g, function (m, c, d) { fmt[c] = { b: /font-weight:\s*(700|bold)/.test(d), i: /font-style:\s*italic/.test(d) }; return m; });
   var body = (h.match(/<body[^>]*>([\s\S]*)<\/body>/i) || [])[1] || h;
   body = body.replace(/<(script|style|title|head)\b[\s\S]*?<\/\1>/gi, '');
-  body = body.replace(/<p\b[^>]*>(?:(?!<\/p>)[\s\S])*?Notebook:(?:(?!<\/p>)[\s\S])*?<\/p>/, '');      // ArNote's header line
+  body = body.replace(/<p\b[^>]*>(?:(?!<\/p>)[\s\S])*?Notebook:(?:(?!<\/p>)[\s\S])*?<\/p>/, '');      // ArNotes' header line
   var out = [], stack = [];
   body.replace(/<(\/?)([a-zA-Z0-9]+)([^>]*)>|([^<]+)/g, function (m, close, tag, attrs, text) {
     if (text !== undefined) { out.push(text); return m; }
@@ -892,18 +892,18 @@ function api_userResend(email) {
   inviteEmail_(u.contact || u.email, u.name, tok);
   return api_users();
 }
-/* The invite email is an ordinary ArNote note ("ArNote invite email", in the Cabinet) that Brian can edit like any note.
+/* The invite email is an ordinary ArNotes note ("ArNotes invite email", in the Cabinet) that Brian can edit like any note.
  * First line "Subject: …"; {first name}, {invite button} and {from} are filled in when it is sent. */
-var INVITE_DEFAULT_ = ['Subject: You\'re invited to ArNote', '',
+var INVITE_DEFAULT_ = ['Subject: You\'re invited to ArNotes', '',
   'Hi {first name},', '',
-  'You\'re invited to ArNote, the notes-and-photos app I\'ve been building.', '',
+  'You\'re invited to ArNotes, the notes-and-photos app I\'ve been building.', '',
   'What it does:',
   '- Notes, photos, receipts, business cards and documents in one place, organized by tags (Who / What / When / Where to start).',
   '- Everything lives in YOUR own Google Drive. I can\'t see your notes, and nothing is stored anywhere else.',
   '- Photos: one gallery you can drill into by tag or by place on a map.',
   '- Receipts: tag by job and expense category, mark billed / not billed, print a clean report.',
-  '- Email in: forward any email (receipts, invoices, anything) to your ArNote address and it lands in your Inbox to tag.',
-  '- Already keep lots in Google Drive? Leave it where it is and wrangle it with tags in ArNote, so you can drill down to it.',
+  '- Email in: forward any email (receipts, invoices, anything) to your ArNotes address and it lands in your Inbox to tag.',
+  '- Already keep lots in Google Drive? Leave it where it is and wrangle it with tags in ArNotes, so you can drill down to it.',
   '- Works with AI: tick some notes and export them as one Markdown file that Claude, ChatGPT or Gemini can read, so an AI can help you with them.',
   '- Daily backup, and new features show up on their own.', '',
   'Start here (about 10 minutes, best on a computer; you\'ll need a Google account, a free Gmail is fine):',
@@ -917,13 +917,13 @@ function inviteText_() {
 }
 function inviteEmail_(to, name, tok) {
   var link = APP_URL + '#invite=' + tok, me = Session.getEffectiveUser().getEmail(), first = String(name || '').split(/\s+/)[0];
-  var t = inviteText_().replace(/\r/g, ''), subject = 'You\'re invited to ArNote';
+  var t = inviteText_().replace(/\r/g, ''), subject = 'You\'re invited to ArNotes';
   var m = t.match(/^\s*Subject:\s*(.+)\n?/i); if (m) { subject = m[1].trim(); t = t.slice(m[0].length); }
   t = t.replace(/^\s*\n/, '').replace(/[ \t]*\{first name\}/gi, first ? ' ' + first : '').replace(/\{from\}/gi, me);
   if (!/\{invite button\}/i.test(t)) t += '\n\n{invite button}';
   var esc = function (x) { return String(x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var plain = t.replace(/\{invite button\}/gi, link);
-  var html = esc(t).replace(/\{invite button\}/gi, '<a href="' + esc(link) + '" style="display:inline-block;background:#2f6f4f;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold">Set up ArNote</a>').replace(/\n/g, '<br>');
+  var html = esc(t).replace(/\{invite button\}/gi, '<a href="' + esc(link) + '" style="display:inline-block;background:#2f6f4f;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold">Set up ArNotes</a>').replace(/\n/g, '<br>');
   GmailApp.sendEmail(to, subject, plain, { htmlBody: '<div style="font:15px/1.5 sans-serif;max-width:560px">' + html + '</div>', replyTo: me });
 }
 /** Public (no key): the invite page reads and accepts an invite by its token. Says nothing unless the token matches. */
@@ -936,7 +936,7 @@ function inviteReq_(req) {
     if (req.inv === 'accept' && !u.accepted) {
       var acct = String(req.account || '').trim().toLowerCase();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(acct)) throw new Error('That isn\'t an email address');
-      if (t.rows.some(function (x) { return x.row !== u.row && x.email === acct; })) throw new Error(acct + ' is already in use for ArNote');
+      if (t.rows.some(function (x) { return x.row !== u.row && x.email === acct; })) throw new Error(acct + ' is already in use for ArNotes');
       t.sh.getRange(u.row, 1).setValue(acct); t.sh.getRange(u.row, 3).setValue('active'); t.sh.getRange(u.row, 14).setValue(today_());
       u.email = acct; u.accepted = today_();
     }
@@ -958,7 +958,7 @@ function licCheck_(req) {
     return { ok: u.status === 'active', status: u.status, plan: u.plan, release: +props_().getProperty('releaseN') || 0 };
   } finally { try { lock.releaseLock(); } catch (e) {} }
 }
-/* ---------- First-time setup of a friend's ArNote (called by the starter's "Set up ArNote") ---------- */
+/* ---------- First-time setup of a friend's ArNotes (called by the starter's "Set up ArNotes") ---------- */
 var STARTER_TAGS_ = [['Who', '', 1], ['What', '', 2], ['When', '', 3], ['Where', '', 4], ['Receipt', '', 5], ['Business Card', '', 6], ['Document', '', 7], ['Photos', '', 8],
   ['Family', 'Who', ''], ['Friends', 'Who', ''],
   ['Projects', 'What', ''], ['Jobs', 'What', ''], ['Example Job', 'Jobs', ''], ['Vehicles', 'What', ''], ['Equipment', 'What', ''], ['Finances', 'What', ''], ['Taxes', 'What', ''],
@@ -982,17 +982,17 @@ function arnoteSetupAll_() {
   if (!p.getProperty('receiptCfg')) p.setProperty('receiptCfg', JSON.stringify({ cols: [{ name: 'Job', parent: 'Jobs' }, { name: 'Category', parent: 'Expense Categories' }], cards: {} }));
   try { var cf = p.getProperty('codeFile'); if (cf) DriveApp.getFileById(cf).moveTo(DriveApp.getFolderById(p.getProperty('rootId'))); } catch (e) {}
   noteUsed_(); try { licenceCheck_(); } catch (e) {}
-  return 'Your ArNote folder, index and starter tags are ready.\n\nLast step (once): in this spreadsheet choose Extensions → Apps Script. In the window that opens click Deploy (top right) → New deployment → the gear ⚙ → Web app. Set "Execute as: Me" and "Who has access: Anyone", click Deploy and allow the permissions, then click Copy under "Web app URL".\n\nThen come back here, choose ArNote → Open the app and paste that address. You\'ll get your pairing link for your phone and computer.';
+  return 'Your ArNotes folder, index and starter tags are ready.\n\nLast step (once): in this spreadsheet choose Extensions → Apps Script. In the window that opens click Deploy (top right) → New deployment → the gear ⚙ → Web app. Set "Execute as: Me" and "Who has access: Anyone", click Deploy and allow the permissions, then click Copy under "Web app URL".\n\nThen come back here, choose ArNotes → Open the app and paste that address. You\'ll get your pairing link for your phone and computer.';
 }
 
 /* ---------- Updates: Brian releases a version; copies on the list load it ----------
- * A friend's ArNote is a small fixed starter (Loader.gs) that runs the ArNote code kept in a file in their own Drive.
+ * A friend's ArNotes is a small fixed starter (Loader.gs) that runs the ArNotes code kept in a file in their own Drive.
  * Brian's "Release this version" packages the server code from the GitHub repo (server/Code.gs + server/Batch.gs);
  * each copy's daily check downloads a newer release into its code file. No republishing, no Google switches. */
 var RELEASE_SOURCES = ['server/Code.gs', 'server/Batch.gs'];
 function releaseRaw_(path) {
   var tok = props_().getProperty('ghToken'), h = tok ? { Authorization: 'token ' + tok } : {};
-  var r = UrlFetchApp.fetch('https://raw.githubusercontent.com/mtnst8/ArNote/main/' + path + '?t=' + Date.now(), { headers: h, muteHttpExceptions: true });
+  var r = UrlFetchApp.fetch('https://raw.githubusercontent.com/mtnst8/ArNotes/main/' + path + '?t=' + Date.now(), { headers: h, muteHttpExceptions: true });
   if (r.getResponseCode() !== 200) throw new Error('Could not read ' + path + ' from GitHub (' + r.getResponseCode() + ')');
   return r.getContentText();
 }
@@ -1009,7 +1009,7 @@ function api_releaseNow(note) {
   var rel = JSON.stringify({ n: n, at: at, note: note, notes: hist, code: code });
   var root = DriveApp.getFolderById(p.getProperty('rootId')), id = p.getProperty('releaseFile'), f = null;
   if (id) { try { f = DriveApp.getFileById(id); if (f.isTrashed()) f = null; } catch (e) { f = null; } }
-  if (f) f.setContent(rel); else { f = root.createFile('ArNote release.json', rel, 'application/json'); p.setProperty('releaseFile', f.getId()); }
+  if (f) f.setContent(rel); else { f = root.createFile('ArNotes release.json', rel, 'application/json'); p.setProperty('releaseFile', f.getId()); }
   p.setProperties({ releaseN: String(n), releaseAt: at, releaseNote: note.slice(0, 2000) });
   try { rotateReleases_(n, note); } catch (e) { Logger.log('Release notes: ' + e); }
   return api_releaseInfo();
@@ -1027,9 +1027,9 @@ function releaseFor_(req) {
   return DriveApp.getFileById(id).getBlob().getDataAsString();
 }
 /** A copy (run by the starter): keep the starter's quick copy of the code fresh. When the sheet opens, Google
- * doesn't let the starter read Drive, so the ArNote menu only appears if this quick copy is there. Same keys as Loader.gs. */
+ * doesn't let the starter read Drive, so the ArNotes menu only appears if this quick copy is there. Same keys as Loader.gs. */
 function warmCode_(src) {
-  if (typeof ARNOTE_STUBS_ === 'undefined') return;           // Brian's own ArNote runs its code directly
+  if (typeof ARNOTE_STUBS_ === 'undefined') return;           // Brian's own ArNotes runs its code directly
   var p = props_(), at = +p.getProperty('codeWarmAt') || 0, cache = CacheService.getScriptCache();
   if (!src && Date.now() - at < 4 * 3600e3 && cache.get('arnote_code_n')) return;
   try {
@@ -1040,7 +1040,7 @@ function warmCode_(src) {
     p.setProperty('codeWarmAt', String(Date.now()));
   } catch (e) {}
 }
-/** A copy: download the latest release into this ArNote's code file; the starter uses it from the next run. */
+/** A copy: download the latest release into this ArNotes' code file; the starter uses it from the next run. */
 function selfUpdate_() {
   if (isLicenceServer_()) return null;
   var p = props_(), r = UrlFetchApp.fetch(LICENCE_URL, { method: 'post', contentType: 'text/plain', muteHttpExceptions: true,
@@ -1053,7 +1053,7 @@ function selfUpdate_() {
   var id = p.getProperty('codeFile'), f = null;
   if (id) { try { f = DriveApp.getFileById(id); if (f.isTrashed()) f = null; } catch (e) { f = null; } }
   if (f) f.setContent(rel.code);
-  else { f = (p.getProperty('rootId') ? DriveApp.getFolderById(p.getProperty('rootId')) : DriveApp.getRootFolder()).createFile('ArNote code.js', rel.code, 'text/plain'); p.setProperty('codeFile', f.getId()); }
+  else { f = (p.getProperty('rootId') ? DriveApp.getFolderById(p.getProperty('rootId')) : DriveApp.getRootFolder()).createFile('ArNotes code.js', rel.code, 'text/plain'); p.setProperty('codeFile', f.getId()); }
   warmCode_(rel.code);
   var notes = (rel.notes || [{ n: rel.n, title: 'Release ' + rel.n, text: rel.note || '' }]).slice(0, 12), nj = JSON.stringify(notes);
   while (nj.length > 8000 && notes.length > 1) { notes.pop(); nj = JSON.stringify(notes); }
@@ -1063,7 +1063,7 @@ function selfUpdate_() {
 }
 function api_updateNow() { licenceCheck_(); var n = selfUpdate_(); return { updated: n, info: api_releaseInfo() }; }
 
-/** This copy asks Brian's ArNote whether it may run. Stored with the time; failures keep the last answer. */
+/** This copy asks Brian's ArNotes whether it may run. Stored with the time; failures keep the last answer. */
 function licenceCheck_() {
   if (isLicenceServer_()) return { ok: true, owner: true };
   var p = props_(), inst = p.getProperty('installId'); if (!inst) { inst = Utilities.getUuid(); p.setProperty('installId', inst); }
@@ -1126,17 +1126,54 @@ function api_thumbs(ids) {
   return out;
 }
 
-/** One-time: rename the Drive folder and the Sheet to ArNote. */
-function renameToArNote() {
-  DriveApp.getFolderById(props_().getProperty('rootId')).setName('ArNote');
-  ss_().rename('ArNote');
-  return 'renamed';
+/** One-time (Nov 2026): the name changed from ArNote to ArNotes. Renames the Drive folders, the Sheet, the Gmail
+ *  labels and the help notes. Safe to run again: anything already renamed is left alone. dry = only report. */
+function api_renameToArNotes(dry) {
+  var p = props_(), out = { drive: [], gmail: [], notes: [], titlesLeft: [] };
+  function ren(f, to) { if (!f) return; var from = f.getName(); if (from === to) return; out.drive.push(from + ' → ' + to); if (!dry) f.setName(to); }
+  function byId(k, folder) { var id = p.getProperty(k); if (!id) return null; try { return folder ? DriveApp.getFolderById(id) : DriveApp.getFileById(id); } catch (e) { return null; } }
+  ren(byId('rootId', 1), 'ArNotes');
+  ren(DriveApp.getFileById(ss_().getId()), 'ArNotes');
+  ren(byId('photoRootId', 1), 'ArNotes Photos');
+  ren(byId('backupId', 1), 'ArNotes Backups');
+  var cf = byId('codeFile'); if (cf && /^ArNote code/.test(cf.getName())) ren(cf, 'ArNotes code.js');
+  if (isLicenceServer_()) { try { var tf = DriveApp.getFileById('1U4jJdCdPe7nZbzf2oSH7BCsAdAevRlnWYheZxxoFUTk'); ren(tf, String(tf.getName()).replace(/\bArNote\b/g, 'ArNotes')); } catch (e) { out.drive.push('template: ' + e.message); } }
+  // Gmail labels: the saved-emails label first, then its parent
+  [['ArNote/Saved', 'ArNotes/Saved'], ['ArNote', 'ArNotes']].forEach(function (x) {
+    var old = GmailApp.getUserLabelByName(x[0]); if (!old) return;
+    var neu = GmailApp.getUserLabelByName(x[1]);
+    if (!neu) {
+      out.gmail.push(x[0] + ' → ' + x[1]); if (dry) return;
+      var lab = JSON.parse(UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } }).getContentText()).labels
+        .filter(function (l) { return l.name === x[0]; })[0];
+      UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels/' + lab.id, { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ name: x[1] }), headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
+    } else {                                    // both exist (the new one was already made): move the emails over, remove the old label
+      var n = 0; for (var t = old.getThreads(0, 100); t.length; t = old.getThreads(0, 100)) { n += t.length; if (dry) break; neu.addToThreads(t); old.removeFromThreads(t); }
+      out.gmail.push(x[0] + ' merged into ' + x[1] + ' (' + n + ' conversations)'); if (!dry) old.deleteLabel();
+    }
+  });
+  // help notes (invite email, setup steps, guide, release notes): their Doc name, their text and their title in the index
+  var sh = ss_().getSheetByName('Notes'), notes = readTable_('Notes');
+  Object.keys(ADMIN_NOTES_).forEach(function (k) {
+    var id = p.getProperty(ADMIN_NOTES_[k].prop); if (!id) return;
+    var n = notes.filter(function (x) { return x.id === id; })[0]; if (!n) return;
+    try {
+      var d = DocumentApp.openById(n.docId), b = d.getBody(), before = b.getText();
+      if (!dry) { b.replaceText("ArNote's", "ArNotes'"); b.replaceText("ArNote’s", "ArNotes’"); b.replaceText('\\bArNote\\b', 'ArNotes'); b.replaceText('mtnst8\\.github\\.io/ArNote/', 'mtnst8.github.io/ArNotes/'); b.replaceText('\\+arnote@', '+arnotes@'); d.setName(String(d.getName()).replace(/\bArNote\b/g, 'ArNotes')); d.saveAndClose(); }
+      var c = (before.match(/\bArNote\b|\+arnote@/g) || []).length; if (c) out.notes.push(n.title + ': ' + c + ' change' + (c > 1 ? 's' : ''));
+      var t2 = String(n.title).replace(/\bArNote\b/g, 'ArNotes');
+      if (t2 !== n.title && !dry) sh.getRange(findNoteRow_(id), NOTE_COLS.indexOf('title') + 1).setValue(t2);
+    } catch (e) { out.notes.push(n.title + ': ' + e.message); }
+  });
+  var admin = {}; Object.keys(ADMIN_NOTES_).forEach(function (k) { admin[p.getProperty(ADMIN_NOTES_[k].prop)] = 1; });
+  notes.forEach(function (n) { if (!admin[n.id] && /\bArNote\b/.test(n.title)) out.titlesLeft.push(n.title); });
+  return out;
 }
 
 /* ---------------- Linked notes ----------------
  * A linked note points at a file that stays where it is in Drive (Notes row: source = 'link', docId = that file).
- * ArNote never renames, edits, stars or trashes a linked file. Removing the note only removes the link.
- * Ways in: a shortcut put in ArNote/Link (checked with the Drop folder every 15 minutes), pasted links
+ * ArNotes never renames, edits, stars or trashes a linked file. Removing the note only removes the link.
+ * Ways in: a shortcut put in ArNotes/Link (checked with the Drop folder every 15 minutes), pasted links
  * (api_linkFiles), or a linked folder: every file in it (and its sub-folders) gets a note in the Cabinet,
  * tagged with its folder's name, and new files are picked up on each check.
  */
@@ -1207,7 +1244,7 @@ function watchFolder_(folder, index, start) {
   return made;
 }
 
-/** Called from processDrop (every 15 minutes): shortcuts in ArNote/Link, plus new files in linked folders. */
+/** Called from processDrop (every 15 minutes): shortcuts in ArNotes/Link, plus new files in linked folders. */
 function processLinks_(start) {
   var index = linkedIndex_(), made = [];
   var it = linkFolder_().getFiles();
@@ -1292,12 +1329,12 @@ function linkedPreviewHtml_(id, meta) {
     '<p style="color:#888;font-size:12px">' + name + '</p></body></html>';
 }
 
-/* ---------------- Email → ArNote ----------------
- * Two ways in: send/forward to <you>+arnote@<domain> (only from allowed senders), or put the Gmail label "ArNote" on any email.
+/* ---------------- Email → ArNotes ----------------
+ * Two ways in: send/forward to <you>+arnotes@<domain> (only from allowed senders), or put the Gmail label "ArNotes" on any email.
  * Each email becomes an Inbox note (subject = title, the email = body, attachments attached, #Tags in the subject applied).
- * Done threads get the label "ArNote/Saved" and are archived.
+ * Done threads get the label "ArNotes/Saved" and are archived.
  */
-function mailAddress_() { var e = Session.getEffectiveUser().getEmail(), i = e.indexOf('@'); return e.slice(0, i) + '+arnote' + e.slice(i); }
+function mailAddress_() { var e = Session.getEffectiveUser().getEmail(), i = e.indexOf('@'); return e.slice(0, i) + '+arnotes' + e.slice(i); }
 function mailSenders_() {
   var v = []; try { v = JSON.parse(props_().getProperty('mailSenders') || '[]'); } catch (e) {}
   var me = Session.getEffectiveUser().getEmail().toLowerCase(); if (v.indexOf(me) < 0) v.unshift(me);
@@ -1315,7 +1352,7 @@ function api_setMailSenders(list) {
 /** Inbox "Check for new": everything the 15-minute job brings in, right now — email, the Drop folder, new files in linked folders,
  * and photos added from the app read for receipts, cards and documents. Returns counts. (Backups, maps, the full photo-library walk stay on the 15-minute job.) */
 function api_checkNow() {
-  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) throw new Error('ArNote is busy bringing things in already; try again in a minute');
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) throw new Error('ArNotes is busy bringing things in already; try again in a minute');
   var start = Date.now(), out = { mail: 0, files: 0, scanned: 0, ms: {} }, lap = start;
   var t = function (k) { var n = Date.now(); out.ms[k] = n - lap; lap = n; };
   try {
@@ -1334,11 +1371,11 @@ function api_checkNow() {
   } finally { lock.releaseLock(); }
 }
 function api_mailCheckNow() {
-  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) throw new Error('ArNote is busy; try again in a minute');
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) throw new Error('ArNotes is busy; try again in a minute');
   try { return processMail_(Date.now(), 150000); } finally { lock.releaseLock(); }
 }
 /** Run once in the script editor to approve Gmail access. */
-function authorizeMail() { GmailApp.getUserLabelByName('ArNote'); return mailAddress_(); }
+function authorizeMail() { GmailApp.getUserLabelByName('ArNotes'); return mailAddress_(); }
 
 function mailLabel_(name) { return GmailApp.getUserLabelByName(name) || GmailApp.createLabel(name); }
 
@@ -1346,16 +1383,17 @@ function processMail_(start, budget) {
   start = start || Date.now(); budget = budget || 60000;
   var addr = mailAddress_(), ok = {}, made = [];
   mailSenders_().forEach(function (s) { ok[s] = 1; });
-  var inLabel = mailLabel_('ArNote'), saved = mailLabel_('ArNote/Saved');
-  var threads = GmailApp.search('(to:' + addr + ' OR deliveredto:' + addr + ') -label:arnote-saved', 0, 15).concat(GmailApp.search('label:arnote -label:arnote-saved', 0, 15));
+  var inLabel = mailLabel_('ArNotes'), saved = mailLabel_('ArNotes/Saved');
+  var old = addr.replace('+arnotes@', '+arnote@');               // the address from before the rename (ArNote) still works
+  var threads = GmailApp.search('(to:' + addr + ' OR deliveredto:' + addr + ' OR to:' + old + ' OR deliveredto:' + old + ') -label:arnotes-saved', 0, 15).concat(GmailApp.search('label:arnotes -label:arnotes-saved', 0, 15));
   var seen = {};
   threads.forEach(function (th) {
     if (seen[th.getId()] || Date.now() - start > budget) return; seen[th.getId()] = 1;
-    var labelled = th.getLabels().some(function (l) { return l.getName() === 'ArNote'; });
+    var labelled = th.getLabels().some(function (l) { return l.getName() === 'ArNotes'; });
     var msgs = th.getMessages().filter(function (m) {
       if (labelled) return true;
       var to = [m.getTo(), m.getCc(), m.getBcc ? m.getBcc() : '', m.getHeader('Delivered-To') || ''].join(',').toLowerCase();
-      return to.indexOf(addr.toLowerCase()) >= 0 && ok[senderEmail_(m.getFrom())];
+      return (to.indexOf(addr.toLowerCase()) >= 0 || to.indexOf(old.toLowerCase()) >= 0) && ok[senderEmail_(m.getFrom())];
     });
     if (labelled) msgs = msgs.slice(-1);                          // a labelled conversation: keep its latest email
     msgs.forEach(function (m) { try { made.push(noteFromMail_(m, th)); } catch (e) { Logger.log('Mail note failed: ' + e); } });
@@ -1414,21 +1452,21 @@ function noteFromMail_(m, th) {
 }
 
 /* ---------------- Backup ----------------
- * Every day (after 3 AM) and on demand: "ArNote Backups/<date>" gets a copy of every tab of the index spreadsheet
+ * Every day (after 3 AM) and on demand: "ArNotes Backups/<date>" gets a copy of every tab of the index spreadsheet
  * (notes list + tags + filing, photo tags and places, receipts, attachments) and settings.json.
  * The notes and photos themselves are Drive files (Drive keeps their history and a 30-day trash); the index is what this protects.
  * Keeps the 30 newest daily backups and the 10 newest others. Restore puts a backup's tabs back (after a safety backup of now). */
 var BACKUP_KEEP_PROPS_ = ['shares', 'receiptCfg', 'places', 'mailSenders', 'bookmarkOrder', 'scratch', 'pinnedNote', 'watchFolders', 'accountTags'];
 function backupRoot_() {
   var p = props_(), root = DriveApp.getFolderById(p.getProperty('rootId'));
-  var f = getOrCreateFolder_(p.getProperty('backupId'), 'ArNote Backups', root);
+  var f = getOrCreateFolder_(p.getProperty('backupId'), 'ArNotes Backups', root);
   p.setProperty('backupId', f.getId()); return f;
 }
 function makeBackup_(label) {
   var tz = Session.getScriptTimeZone(), now = new Date(), ss = ss_();
   var name = Utilities.formatDate(now, tz, 'yyyy-MM-dd') + (label ? ' ' + Utilities.formatDate(now, tz, 'HH-mm') + ' (' + label + ')' : '');
   var folder = backupRoot_().createFolder(name);
-  var copy = SpreadsheetApp.create('ArNote index ' + name), first = copy.getSheets()[0];
+  var copy = SpreadsheetApp.create('ArNotes index ' + name), first = copy.getSheets()[0];
   ss.getSheets().forEach(function (sh) { if (sh.getName() !== 'Receipt report') sh.copyTo(copy).setName(sh.getName()); });
   copy.deleteSheet(first);
   DriveApp.getFileById(copy.getId()).moveTo(folder);
@@ -1464,7 +1502,7 @@ function api_backups() {
 /** Put a backup back: every tab of its index copy replaces the same tab now, plus its settings. A safety backup of now is made first. */
 function api_backupRestore(folderId) {
   var folder = DriveApp.getFolderById(folderId);
-  if (folder.getParents().next().getId() !== backupRoot_().getId()) throw new Error('Not an ArNote backup');
+  if (folder.getParents().next().getId() !== backupRoot_().getId()) throw new Error('Not an ArNotes backup');
   var files = folder.getFilesByType(MimeType.GOOGLE_SHEETS); if (!files.hasNext()) throw new Error('This backup has no index copy');
   var src = SpreadsheetApp.openById(files.next().getId());
   var safety = makeBackup_('before restore');
@@ -1506,7 +1544,7 @@ function fwdHeader_(plain) {
 function pdfText_(fileId) {
   var hdr = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
   var cp = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/copy?ocrLanguage=en&fields=id', { method: 'post', contentType: 'application/json',
-    payload: JSON.stringify({ name: 'ArNote read (temporary)', mimeType: 'application/vnd.google-apps.document' }), headers: hdr, muteHttpExceptions: true });
+    payload: JSON.stringify({ name: 'ArNotes read (temporary)', mimeType: 'application/vnd.google-apps.document' }), headers: hdr, muteHttpExceptions: true });
   if (cp.getResponseCode() !== 200) return '';
   var id = JSON.parse(cp.getContentText()).id;
   try {
@@ -1556,7 +1594,7 @@ function mailReceiptRow_(rc, noteId) {
   return [rc.date, rc.vendor, rc.total === null ? '' : rc.total, rc.tax === null ? '' : rc.tax, rc.card, '', rc.check, noteId, rc.fileId,
     'https://drive.google.com/file/d/' + rc.fileId + '/view', new Date().toISOString(), rc.pay, '', '', rc.kind];
 }
-/** Read email notes already in ArNote as receipts (also the "It's a receipt" button). Returns what was found for each. */
+/** Read email notes already in ArNotes as receipts (also the "It's a receipt" button). Returns what was found for each. */
 function api_mailReceiptFor(noteIds, force) {
   var want = {}; (noteIds || []).forEach(function (id) { want[id] = 1; });
   var have = {}, sh = receiptSheet_(), k = RECEIPT_COLS.indexOf('noteId');
@@ -1631,7 +1669,7 @@ function api_printPdf(ids) {
     (mt === MimeType.GOOGLE_DOCS ? docs : others).push({ n: n, mt: mt });
   });
   if (docs.length) {
-    var tmp = DocumentApp.create('ArNote print'), body = tmp.getBody();
+    var tmp = DocumentApp.create('ArNotes print'), body = tmp.getBody();
     docs.forEach(function (d, i) {
       if (i) body.appendPageBreak();
       body.appendParagraph(String(d.n.title)).setHeading(DocumentApp.ParagraphHeading.HEADING1);
@@ -1651,7 +1689,7 @@ function api_printPdf(ids) {
     tmp.saveAndClose();
     try {
       var pdf = exportPdf_(tmp.getId());
-      out.files.push({ name: docs.length > 1 ? 'ArNote - ' + docs.length + ' notes.pdf' : String(docs[0].n.title) + '.pdf', mime: 'application/pdf', count: docs.length, b64: Utilities.base64Encode(pdf) });
+      out.files.push({ name: docs.length > 1 ? 'ArNotes - ' + docs.length + ' notes.pdf' : String(docs[0].n.title) + '.pdf', mime: 'application/pdf', count: docs.length, b64: Utilities.base64Encode(pdf) });
     } finally { DriveApp.getFileById(tmp.getId()).setTrashed(true); }
   }
   others.forEach(function (o) {
@@ -1693,7 +1731,7 @@ function api_driveList(where, q) {
     if (mt === 'application/vnd.google-apps.shortcut' && f.shortcutDetails) { id = f.shortcutDetails.targetId; mt = f.shortcutDetails.targetMimeType; }
     return { id: id, name: f.name, folder: mt === FOLDER, mime: mt, modified: f.modifiedTime, owner: f.owners && f.owners[0] && f.owners[0].emailAddress,
       linked: !!linked[id], synced: !!synced[id] };
-  }).filter(function (x) { return x.id !== arnoteRoot; });   // don't offer ArNote's own folder
+  }).filter(function (x) { return x.id !== arnoteRoot; });   // don't offer ArNotes' own folder
   items.sort(function (a, b) { return (b.folder - a.folder) || a.name.localeCompare(b.name, undefined, { numeric: true }); });
   // breadcrumb for a folder: walk up to My Drive (or to the top of a shared folder)
   var path = [];
@@ -1941,7 +1979,7 @@ function api_linkTree() {
 }
 
 /* ---------------- Photos ----------------
- * Photos stay where they are in Drive (the "ArNote Photos" folder and everything under it). ArNote keeps only an index
+ * Photos stay where they are in Drive (the "ArNotes Photos" folder and everything under it). ArNotes keeps only an index
  * in the Photos sheet: tags, inbox/filed, and when each photo was taken. Nothing is copied.
  */
 var PHOTO_COLS = ['fileId', 'name', 'taken', 'mime', 'folder', 'tags', 'status', 'added', 'w', 'h', 'scan', 'lat', 'lng', 'town', 'region'];
@@ -1956,8 +1994,8 @@ function photoSheet_() {
 function photoRoot_() {
   var p = props_(), id = p.getProperty('photoRootId');
   if (id) { try { var f = DriveApp.getFolderById(id); if (!f.isTrashed()) return f; } catch (e) {} }
-  var it = DriveApp.getRootFolder().getFoldersByName('ArNote Photos');
-  var folder = it.hasNext() ? it.next() : DriveApp.getRootFolder().createFolder('ArNote Photos');
+  var it = DriveApp.getRootFolder().getFoldersByName('ArNotes Photos');
+  var folder = it.hasNext() ? it.next() : DriveApp.getRootFolder().createFolder('ArNotes Photos');
   p.setProperty('photoRootId', folder.getId());
   return folder;
 }
@@ -1974,7 +2012,7 @@ function photoTaken_(f, path) {
   return String(f.createdTime || '').slice(0, 19);
 }
 
-/** Find new photos/videos under ArNote Photos (all sub-folders) and add them to the index; drop ones that were deleted. */
+/** Find new photos/videos under ArNotes Photos (all sub-folders) and add them to the index; drop ones that were deleted. */
 function syncPhotos_(start) {
   start = start || Date.now();
   var root = photoRoot_().getId(), sh = photoSheet_();
@@ -2144,7 +2182,7 @@ function photoPhoneFolder_() {
 }
 
 /**
- * files: [{name, size, type, modified}]. For each: {skip: true} when the same name and size is already in ArNote,
+ * files: [{name, size, type, modified}]. For each: {skip: true} when the same name and size is already in ArNotes,
  * otherwise {url} — a Drive upload address the app sends the file to directly (no size limit, nothing passes through here).
  */
 function api_photoUploadStart(files, origin) {
@@ -2368,7 +2406,7 @@ function geoWork_(start, budget) {
   return { coords: coords, named: named, left: left };
 }
 function api_geoRun() {
-  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) throw new Error('ArNote is busy; try again in a minute');
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) throw new Error('ArNotes is busy; try again in a minute');
   try { return geoWork_(Date.now(), 200000); } finally { lock.releaseLock(); }
 }
 
@@ -2564,7 +2602,7 @@ function ocrText_(fileId) {
   }
   if (!blob) { if (+meta.size > 4 * 1024 * 1024 || !/^image\//.test(meta.mimeType)) return ''; blob = DriveApp.getFileById(fileId).getBlob(); }
   var b = 'arnote' + Date.now(), head = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' +
-    JSON.stringify({ name: 'ArNote OCR (temporary)', mimeType: 'application/vnd.google-apps.document' }) +
+    JSON.stringify({ name: 'ArNotes OCR (temporary)', mimeType: 'application/vnd.google-apps.document' }) +
     '\r\n--' + b + '\r\nContent-Type: ' + (blob.getContentType() || 'image/jpeg') + '\r\n\r\n';
   var payload = Utilities.newBlob(head).getBytes().concat(blob.getBytes()).concat(Utilities.newBlob('\r\n--' + b + '--').getBytes());
   var up = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&ocrLanguage=en&fields=id',
@@ -2863,13 +2901,13 @@ function last4_(v) { var s = String(v === null || v === undefined ? '' : v).repl
 
 /* ---------- "Receipt report" tab: one fact per cell, for tax and billing work in the spreadsheet ----------
  * Date | Vendor | <report columns, e.g. Job, Category> | Paid with | Tax | Total | Billed? | Billed on | Other tags | Check | Receipt | Note
- * Rebuilt from ArNote (every 15 minutes and after any receipt change); edits belong in the app. */
+ * Rebuilt from ArNotes (every 15 minutes and after any receipt change); edits belong in the app. */
 function reportSheet_() {
   var ss = ss_(), sh = ss.getSheetByName('Receipt report');
   if (!sh) {
     sh = ss.insertSheet('Receipt report', 0);
     var data = ss.getSheetByName('Receipts');
-    if (data) { try { data.protect().setDescription('ArNote data: change receipts in the app').setWarningOnly(true); data.setTabColor('#999999'); } catch (e) {} }
+    if (data) { try { data.protect().setDescription('ArNotes data: change receipts in the app').setWarningOnly(true); data.setTabColor('#999999'); } catch (e) {} }
   }
   return sh;
 }
@@ -2893,7 +2931,7 @@ function buildReceiptReport_(force) {
   sh.clear();
   sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#eeeeee');
   sh.setFrozenRows(1);
-  sh.getRange('A1').setNote('Built by ArNote. Change receipts, tags and "billed" in the app; this tab is rewritten to match.');
+  sh.getRange('A1').setNote('Built by ArNotes. Change receipts, tags and "billed" in the app; this tab is rewritten to match.');
   if (data.length) {
     sh.getRange(2, 1, data.length, head.length).setValues(data);
     var at = function (name) { return head.indexOf(name) + 1; };
@@ -3048,7 +3086,7 @@ function api_sendNotes(ids, to, message, opt) {
   var msg = String(message || '').trim();
   var htmlBody = '<div style="font:15px/1.5 sans-serif;max-width:720px">' + (msg ? '<p>' + esc_(msg).replace(/\n/g, '<br>') + '</p>' : '') + sections.join('') +
     (tooBig.length ? '<p style="color:#a33">Too big to attach: ' + esc_(tooBig.join(', ')) + '</p>' : '') +
-    '<p style="color:#888;font-size:12px;margin-top:24px">Sent from ArNote</p></div>';
+    '<p style="color:#888;font-size:12px;margin-top:24px">Sent from ArNotes</p></div>';
   var plain = (msg ? msg + '\n\n' : '') + notes.map(function (n) { return '• ' + n.title; }).join('\n') + '\n\n(The notes are in this email; open it in a mail app that shows formatting.)';
   if (opt.dry) return { dry: true, to: list, subject: subject, htmlBytes: htmlBody.length, pictures: imgN, attached: atts.map(function (b) { return b.getName(); }), bytes: used, tooBig: tooBig };
   GmailApp.sendEmail(list.join(','), subject, plain, { htmlBody: htmlBody, attachments: atts, inlineImages: inline });
@@ -3056,14 +3094,14 @@ function api_sendNotes(ids, to, message, opt) {
   return { ok: true, to: list, notes: notes.length, attached: atts.length, tooBig: tooBig };
 }
 function safeFile_(s) { return String(s || 'note').replace(/[\\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'note'; }
-/** Addresses this user has sent ArNote notes to, most recent first (kept so they come up first next time). */
+/** Addresses this user has sent ArNotes notes to, most recent first (kept so they come up first next time). */
 function remember_(list) {
   var p = props_(), prev = []; try { prev = JSON.parse(p.getProperty('sentTo') || '[]'); } catch (e) {}
   list.forEach(function (e) { e = e.toLowerCase(); prev = prev.filter(function (x) { return x !== e; }); prev.unshift(e); });
   p.setProperty('sentTo', JSON.stringify(prev.slice(0, 40)));
   try { CacheService.getUserCache().remove('arnote_contacts'); } catch (e) {}
 }
-/** People to suggest in the To box: who you've sent notes to, who you email (Sent mail, last year), and ArNote Users. */
+/** People to suggest in the To box: who you've sent notes to, who you email (Sent mail, last year), and ArNotes Users. */
 function api_contacts() {
   var cache = CacheService.getUserCache(), hit = cache.get('arnote_contacts'); if (hit) return JSON.parse(hit);
   var me = Session.getEffectiveUser().getEmail().toLowerCase(), seen = {}, out = [];
