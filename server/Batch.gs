@@ -266,17 +266,71 @@ function attachFile_(noteId, f) {
   ss_().getSheetByName('Attachments').appendRow([noteId, f.getId(), f.getName(), f.getMimeType(), f.getSize(), '']);
 }
 
-/** Adds a file to an open Doc body: inline picture for jpeg/png/gif, otherwise a 📎 link. */
-function appendFileToBody_(body, f) {
+/** Adds a file to an open Doc body. Photos show as a picture: the phone's preview if one came with it, else the
+ *  original (jpeg/png/gif Docs will take), else Drive's resized copy, with a link to the original under it.
+ *  Anything else (or a photo none of those work for) becomes a 📎 link. */
+function appendFileToBody_(body, f, preview) {
   var mime = f.getMimeType();
-  if (/^image\/(jpeg|png|gif)$/.test(mime) && f.getSize() <= MAX_INLINE_BYTES) {
-    try {
-      var img = body.appendParagraph('').appendInlineImage(f.getBlob());
-      var w = img.getWidth(); if (w > 600) img.setWidth(600).setHeight(Math.round(img.getHeight() * 600 / w));
-      return;
-    } catch (e) {}
+  if (/^image\//.test(mime)) {
+    if (!preview && /^image\/(jpeg|png|gif)$/.test(mime) && f.getSize() <= MAX_INLINE_BYTES) {
+      try { inlineImg_(body.appendParagraph(''), f.getBlob(), 600); return; } catch (e) {}
+    }
+    var b = preview || thumbBlob_(f.getId(), 3);
+    if (b) {
+      try {
+        inlineImg_(body.appendParagraph(''), b, 600);
+        body.appendParagraph('Original photo: ').appendText(f.getName()).setLinkUrl(f.getUrl());
+        return;
+      } catch (e) {}
+    }
   }
   body.appendParagraph('📎 ' + f.getName()).setLinkUrl(f.getUrl());
+}
+function inlineImg_(par, blob, maxW) {
+  var img = par.appendInlineImage(blob), w = img.getWidth();
+  if (w > maxW) img.setWidth(maxW).setHeight(Math.round(img.getHeight() * maxW / w));
+  return img;
+}
+/** Drive's resized copy of a picture (1600 px). Fresh uploads can take a few seconds to get one, so it retries. */
+function thumbBlob_(fileId, tries) {
+  var h = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
+  for (var i = 0; i < (tries || 1); i++) {
+    if (i) Utilities.sleep(2000);
+    try {
+      var m = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(fileId) + '?fields=thumbnailLink&supportsAllDrives=true', { headers: h, muteHttpExceptions: true });
+      var t = m.getResponseCode() === 200 ? JSON.parse(m.getContentText()).thumbnailLink : '';
+      if (!t) continue;
+      var r = UrlFetchApp.fetch(String(t).replace(/=s\d+$/, '=s1600'), { headers: h, muteHttpExceptions: true });
+      if (r.getResponseCode() === 200) return r.getBlob().setName('photo.jpg');
+    } catch (e) {}
+  }
+  return null;
+}
+/** Notes that got a 📎 link instead of their photo: put the picture in, keep a link to the original. Returns how many. */
+function api_inlinePhotos(noteId) {
+  var n = readTable_('Notes').filter(function (x) { return x.id === noteId; })[0];
+  if (!n || !n.docId) return 0;
+  var doc; try { doc = DocumentApp.openById(n.docId); } catch (e) { return 0; }
+  var body = doc.getBody(), fixed = 0;
+  for (var i = body.getNumChildren() - 1; i >= 0; i--) {
+    var el = body.getChild(i); if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var par = el.asParagraph(), txt = par.getText(); if (txt.indexOf('📎') !== 0) continue;
+    var url = par.getLinkUrl() || (par.editAsText().getLinkUrl(txt.length - 1)) || '';
+    var m = String(url).match(/\/d\/([A-Za-z0-9_-]{20,})|[?&]id=([A-Za-z0-9_-]{20,})/); if (!m) continue;
+    var id = m[1] || m[2], f; try { f = DriveApp.getFileById(id); } catch (e) { continue; }
+    if (!/^image\//.test(f.getMimeType())) continue;
+    var b = null;
+    if (/^image\/(jpeg|png|gif)$/.test(f.getMimeType()) && f.getSize() <= 4 * 1024 * 1024) b = f.getBlob();
+    var ok = false;
+    if (b) { try { inlineImg_(body.insertParagraph(i, ''), b, 600); ok = true; } catch (e) {} }
+    if (!ok) { b = thumbBlob_(id, 2); if (b) { try { inlineImg_(body.insertParagraph(i, ''), b, 600); ok = true; } catch (e) {} } }
+    if (!ok) continue;
+    var lp = body.getChild(i + 1).asParagraph();
+    lp.setText('Original photo: ' + f.getName()); lp.setLinkUrl(null); lp.editAsText().setLinkUrl(16, lp.getText().length - 1, f.getUrl());
+    fixed++;
+  }
+  doc.saveAndClose();
+  return fixed;
 }
 
 function newNoteDoc_(title) {
@@ -295,7 +349,7 @@ function convertToDoc_(f, title) {
   return JSON.parse(res.getContentText()).id;
 }
 
-function noteFromFile_(f) {
+function noteFromFile_(f, preview) {
   var mime = f.getMimeType(), title = baseName_(f.getName());
   if (mime === MimeType.GOOGLE_DOCS) {
     f.moveTo(DriveApp.getFolderById(props_().getProperty('notesId')));
@@ -310,7 +364,7 @@ function noteFromFile_(f) {
     return n;
   }
   var doc = newNoteDoc_(title);
-  appendFileToBody_(doc.getBody(), f);
+  appendFileToBody_(doc.getBody(), f, preview);
   doc.saveAndClose();
   var n2 = addNoteRow_(title, doc.getId(), 1);
   attachFile_(n2.id, f);
@@ -330,11 +384,12 @@ function noteFromFolder_(d) {
 }
 
 /** In-app upload: one file per call (base64). Lands in Drop, then becomes a note right away. */
-function api_uploadFile(name, mime, b64) {
+function api_uploadFile(name, mime, b64, previewB64) {
   var blob = Utilities.newBlob(Utilities.base64Decode(b64), mime || 'application/octet-stream', name);
   var f = dropFolder_().createFile(blob);
+  var pv = previewB64 ? Utilities.newBlob(Utilities.base64Decode(previewB64), 'image/jpeg', 'preview.jpg') : null;
   var lock = LockService.getScriptLock(); lock.waitLock(30000);
-  try { return noteFromFile_(f); } finally { lock.releaseLock(); }
+  try { return noteFromFile_(f, pv); } finally { lock.releaseLock(); }
 }
 
 function api_dropFolderUrl() { return dropFolder_().getUrl(); }

@@ -444,14 +444,19 @@ function fillReader(frame,id,fresh){
     if(frame.isConnected) frame.replaceWith(nf); frame=nf;
     var u=photoSrc(v); if(u&&!v._fb){var t=new Image();t.onerror=function(){        // browser not signed in to Drive: get the picture through the server instead
       call('api_photoView',v.photo).then(function(r){if(!r||!r.src||!frame.isConnected)return;var v2={};for(var k in v)v2[k]=v[k];v2._fb=1;v2.html=String(v.html).split(u).join(r.src).replace(/src="https:\/\/drive\.google\.com\/thumbnail[^"]*"/,'src="'+r.src+'"');put(v2)}).catch(function(){})};t.src=u}}
+  function fixPhotos(v){   // older notes that got a 📎 link instead of their photo: put the picture in once, then show it
+    if(G||PHFIX[id]||!v||!/(📎|&#128206;|&#x1f4ce;)[^<]{0,200}?\.(jpe?g|png|gif|heic|heif|webp|tiff?|bmp)\b/i.test(String(v.html||'')))return;
+    PHFIX[id]=1;call('api_inlinePhotos',id).then(function(n){if(n>0)return nvFetch(id).then(function(v2){if(frame.isConnected)put(v2)})}).catch(function(){});
+  }
   var c=nvGet(id);
-  if(c){ put(c);
+  if(c){ put(c); fixPhotos(c);
     // show the saved copy now; check for changes in the background (always when asked, otherwise if it's over 2 minutes old)
     if(fresh||Date.now()-(c._t||0)>120000) nvFetch(id).then(function(v){if(v.html!==c.html&&frame.isConnected)put(v)}).catch(function(){});
     return Promise.resolve(c);
   }
-  return nvFetch(id).then(function(v){if(frame.isConnected)put(v);return v});
+  return nvFetch(id).then(function(v){if(frame.isConnected)put(v);fixPhotos(v);return v});
 }
+var PHFIX={};
 /* ---------- linked PDFs: the real pages, drawn in the app (bytes come through ArNote, so no Google sign-in needed) ---------- */
 var PDFC={};
 function pdfBytes(id){if(PDFC[id])return PDFC[id];
@@ -1270,6 +1275,15 @@ function printNotes(ids){
       var url=URL.createObjectURL(new Blob([u8],{type:f.mime||'application/pdf'}));window.open(url,'_blank');}});
   }).catch(function(e){var el=$('#prl');if(el)el.innerHTML='<p class="muted">Could not prepare the PDFs.'+(G?' '+esc(e.message):'')+'</p>'});
 }
+/** A 1600 px JPEG of a photo, made on the phone, so the note shows the picture even when Google Docs won't take the original (too many megapixels, HEIC, WebP). */
+function photoPreview(f){
+  if(!/^image\//.test(f.type||'')||!window.createImageBitmap) return Promise.resolve(null);
+  return createImageBitmap(f).then(function(bm){
+    var k=Math.min(1,1600/Math.max(bm.width,bm.height)),c=document.createElement('canvas');
+    c.width=Math.round(bm.width*k);c.height=Math.round(bm.height*k);c.getContext('2d').drawImage(bm,0,0,c.width,c.height);if(bm.close)bm.close();
+    return new Promise(function(res){c.toBlob(function(b){if(!b)return res(null);readB64(b).then(res,function(){res(null)})},'image/jpeg',0.85)});
+  }).catch(function(){return null});
+}
 function readB64(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(String(r.result).split(',')[1]||'')};r.onerror=rej;r.readAsDataURL(f)})}
 /** Phone photos arrive as IMG_20261021_095512.jpg and the like: give them a readable name instead. */
 function photoName(f){
@@ -1287,7 +1301,7 @@ function uploadFiles(files,opt){
   var done=0, last=null;
   files.reduce(function(p,f,k){return p.then(function(){
     toast('Uploading '+(k+1)+'/'+files.length+': '+f.name);
-    return readB64(f).then(function(b){return call('api_uploadFile',photoName(f),f.type,b)}).then(function(n){
+    return Promise.all([readB64(f),photoPreview(f)]).then(function(x){return call('api_uploadFile',photoName(f),f.type,x[0],x[1])}).then(function(n){
       S.notes.push(n); S.byId[n.id]=n; done++; last=n.id;
     }).catch(function(){});
   })},Promise.resolve()).then(function(){
