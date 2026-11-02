@@ -3022,13 +3022,18 @@ function api_sendNotes(ids, to, message, opt) {
     // pictures: fetch each one and send it inside the email, so it shows without anyone signing in
     body = body.replace(/<img\b([^>]*?)src="([^"]+)"([^>]*)>/gi, function (m, a, src, b) {
       try {
-        var r = UrlFetchApp.fetch(src.replace(/&amp;/g, '&'), { headers: /googleapis|googleusercontent/.test(src) ? h : {}, muteHttpExceptions: true });
-        if (r.getResponseCode() !== 200) return '';
-        var blob = r.getBlob(), cid = 'img' + (++imgN);
+        var blob, d = src.match(/^data:([^;,]+);base64,([\s\S]+)$/);
+        if (d) blob = Utilities.newBlob(Utilities.base64Decode(d[2].replace(/\s+/g, '')), d[1], 'picture');   // Docs exports pictures inside the page
+        else {
+          var r = UrlFetchApp.fetch(src.replace(/&amp;/g, '&'), { headers: /googleapis|googleusercontent/.test(src) ? h : {}, muteHttpExceptions: true });
+          if (r.getResponseCode() !== 200) return '<p><i>(picture could not be included)</i></p>';
+          blob = r.getBlob();
+        }
+        var cid = 'img' + (++imgN);
         if (used + blob.getBytes().length > SEND_MAX_BYTES_) return '<p><i>(picture left out: email too big)</i></p>';
         used += blob.getBytes().length; inline[cid] = blob;
         return '<img' + a + 'src="cid:' + cid + '"' + b.replace(/style="[^"]*"/i, '') + ' style="max-width:100%;height:auto">';
-      } catch (e) { return ''; }
+      } catch (e) { return '<p><i>(picture could not be included)</i></p>'; }
     });
     var scoped = css ? '<style>' + css.replace(/(^|})\s*([^{}@]+)\{/g, function (m, close, sel) { return close + sel.split(',').map(function (s) { s = s.trim(); return /^(body|html)$/i.test(s) ? '.arn' + n.id.slice(0, 8) : '.arn' + n.id.slice(0, 8) + ' ' + s; }).join(',') + '{'; }) + '</style>' : '';
     sections.push(head + scoped + '<div class="arn' + n.id.slice(0, 8) + '" style="max-width:none;padding:0">' + body + '</div>');
