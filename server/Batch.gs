@@ -970,6 +970,7 @@ var STARTER_TAGS_ = [['Who', '', 1], ['What', '', 2], ['When', '', 3], ['Where',
   ['Insurance', 'What', ''], ['Manuals & Warranties', 'What', ''], ['Recipes', 'What', ''],
   ['Now', 'When', 1], ['Next', 'When', 2], ['Soon', 'When', 3], ['Later', 'When', 4], ['Someday', 'When', 5], ['Waiting', 'When', 6], ['Completed', 'When', 7],
   ['Home', 'Where', ''], ['Work', 'Where', ''], ['Videos', 'Photos', ''],
+  ['Google Drive Accounts', '', ''],
   ['Expense Categories', '', ''], ['Materials', 'Expense Categories', ''], ['Tools & Equipment', 'Expense Categories', ''], ['Fuel', 'Expense Categories', ''], ['Vehicle', 'Expense Categories', ''],
   ['Meals', 'Expense Categories', ''], ['Office', 'Expense Categories', ''], ['Utilities', 'Expense Categories', ''], ['Subcontractors', 'Expense Categories', ''],
   ['Fees & Permits', 'Expense Categories', ''], ['Other', 'Expense Categories', '']];
@@ -1788,7 +1789,7 @@ function accountTagFor_(email) {
 function accountParent_(m) {
   var parent = {}; readTable_('Tags').forEach(function (t) { parent[String(t.name)] = String(t.parent || ''); });
   for (var e in m) if (m[e] && parent.hasOwnProperty(m[e])) return parent[m[e]];
-  return 'Accounts';
+  return 'Google Drive Accounts';
 }
 
 function fileOwner_(f) { try { var o = f.getOwner(); return o ? o.getEmail() : ''; } catch (e) { return ''; } }
