@@ -306,6 +306,7 @@ nav button svg{display:none}
 .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--mute);text-align:center;padding:18px 6px}
 .pick{max-height:50vh;overflow:auto}
 iframe.editor{height:calc(100vh - 70px);min-height:420px}
+.sdto{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--card)}.sdto input{flex:1;min-width:160px;border:0;outline:0;background:transparent;color:inherit;font:inherit;padding:4px}.sdto .chip{background:var(--acc2);color:var(--ink);border:1px solid var(--acc);border-radius:12px;padding:2px 8px;font-size:13px}.sdto .chip b{cursor:pointer;margin-left:2px}.sdsug{border-radius:8px;overflow:hidden}.sdi{padding:6px 10px;cursor:pointer;font-size:14px}.sdi.on,.sdi:hover{background:var(--card)}
 .split .pcol iframe.pvedit{height:calc(100vh - 230px)}
 .reader{width:100%;height:75vh;border:1px solid var(--line);border-radius:10px;background:#fff}
 .pdfview{overflow:auto;background:#e9e9ec;padding:8px 12px;box-sizing:border-box;text-align:center}.pdfview canvas{display:block;margin:0 auto 10px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25)}.pdfhead{font-size:12px;margin:0 0 8px;text-align:left;color:#555}.pdfhead a{color:#2f6f4f}
@@ -365,6 +366,7 @@ body.guest #actbar,body.guest .row .nb{display:none!important}
   <button class="btn small" id="aMerge">⇲ Merge</button>
   <button class="btn small" id="aPrint">🖨 Print</button>
   <button class="btn small" id="aJp" title="Notes made from scanned photos: remove the note, put the photo back in Photos">📷 Just a photo</button>
+  <button class="btn small" id="aSend" title="Email these notes to someone">✉ Send</button>
   <button class="btn small" id="aDl" title="Download as PDF">⇩ Download</button>
   <button class="btn small" id="aAI" title="One Markdown file of the selected notes that Claude, ChatGPT or Gemini can read">✦ Export for AI</button>
   <button class="btn small danger" id="aDel">Delete</button>
@@ -645,6 +647,7 @@ $('#aDel').onclick=function(){
 $('#aPrint').onclick=function(){printNotes(Object.keys(S.sel))};
 $('#aAI').onclick=function(){exportForAI(Object.keys(S.sel))};
 $('#aDl').onclick=function(){downloadNotes(Object.keys(S.sel))};
+$('#aSend').onclick=function(){sendNotes(Object.keys(S.sel))};
 $('#aJp').onclick=function(){justPhoto(Object.keys(S.sel))};
 $('#aMerge').onclick=function(){
   var ids=Object.keys(S.sel).filter(function(id){return S.byId[id]});
@@ -968,7 +971,7 @@ function renderPv(){
   el.innerHTML='<input id="pvTitle" class="pvtitle" value="'+esc(n.title)+'" title="Click to rename" spellcheck="false">'+
     '<div class="muted" style="font-size:12px">Created '+fmt(n.created)+(n.att?' · 📎'+n.att:'')+'</div>'+
     '<div class="bar" id="tagbar"></div>'+
-    '<div class="bar"><button class="btn primary" id="pvFile">File → Cabinet</button><button class="btn" id="pvOpen">Open</button>'+(n.link?'':'<button class="btn" id="pvEd" title="Edit this note (Google Docs, inside ArNote)">✏️ Edit</button><button class="btn" id="pvAdd" title="Type some text and it goes at the end of this note">＋ Add text</button>')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" id="pvRc">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" id="pvMk" title="Read this email as a receipt or invoice">🧾 It\'s a receipt</button>':'')+(isScanNote(n)?'<button class="btn" id="pvNp" title="A new note with this picture in it, ready for you to write">📝 Note with this photo</button>':'')+(isScanNote(n)?'<button class="btn" id="pvJp" title="Not a document, receipt or card: remove this note and put the photo back in Photos">📷 Just a photo</button>':'')+'<button class="btn" id="pvPr">🖨 Print</button><button class="btn" id="pvDn" title="Download as PDF">⇩ Download</button>'+'<button class="btn danger" id="pvDel">Delete</button>'+
+    '<div class="bar"><button class="btn primary" id="pvFile">File → Cabinet</button><button class="btn" id="pvOpen">Open</button>'+(n.link?'':'<button class="btn" id="pvEd" title="Edit this note (Google Docs, inside ArNote)">✏️ Edit</button><button class="btn" id="pvAdd" title="Type some text and it goes at the end of this note">＋ Add text</button>')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" id="pvRc">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" id="pvMk" title="Read this email as a receipt or invoice">🧾 It\'s a receipt</button>':'')+(isScanNote(n)?'<button class="btn" id="pvNp" title="A new note with this picture in it, ready for you to write">📝 Note with this photo</button>':'')+(isScanNote(n)?'<button class="btn" id="pvJp" title="Not a document, receipt or card: remove this note and put the photo back in Photos">📷 Just a photo</button>':'')+'<button class="btn" id="pvSend" title="Email this note to someone">✉ Send</button><button class="btn" id="pvPr">🖨 Print</button><button class="btn" id="pvDn" title="Download as PDF">⇩ Download</button>'+'<button class="btn danger" id="pvDel">Delete</button>'+
     '<span class="kbd">Keys: ↑ ↓ move · T add tag · F file · Enter open</span></div><div id="pvloc"></div>'+
     (n.tags.indexOf('Receipt')>=0?'<div id="pvRcCard"><p class="muted">Loading receipt…</p></div><div id="pvFull" style="display:none">'+readerHtml()+'</div>':readerHtml());
   renderTags(n);
@@ -983,6 +986,7 @@ function renderPv(){
     var p=call('api_updateNote',n.id,{title:v}); undoToast('Renamed',function(){return p.then(function(){n.title=old;return call('api_updateNote',n.id,{title:old})}).then(function(){afterUndo([n.id])})})};
   $('#pvFile').onclick=function(){fileNote(n.id)};
   $('#pvPr').onclick=function(){printNotes([n.id])};
+  $('#pvSend').onclick=function(){sendNotes([n.id])};
   if($('#pvJp'))$('#pvJp').onclick=function(){justPhoto([n.id])};
   if($('#pvNp'))$('#pvNp').onclick=function(){noteFromScan(n.id,this)};
   pvLock();
@@ -1227,6 +1231,46 @@ function downloadPhotos(ids){
     if(!ok.length){toast('Nothing to download');return}
     dlRun('Download '+ok.length+' photo'+(ok.length>1?'s':''),ok.map(function(x){return {path:safeName(x.name),id:x.id,size:x.size,mime:x.mime}}),'ArNote photos '+today());
   });
+}
+/* ---------- send notes by email (from your own Gmail) ---------- */
+var CONTACTS=null;
+function sendNotes(ids){
+  ids=ids.filter(function(id){return S.byId[id]}); if(!ids.length) return;
+  if(ids.length>25){toast('Up to 25 notes at a time');return}
+  var names=ids.slice(0,3).map(function(id){return esc(S.byId[id].title)}).join(', ')+(ids.length>3?' and '+(ids.length-3)+' more':'');
+  modal('Send '+(ids.length>1?ids.length+' notes':'this note'),names,
+    '<div id="sdTo" class="sdto"><input id="sdIn" placeholder="Name or email address" autocomplete="off" spellcheck="false"></div><div id="sdSug" class="sdsug"></div>'+
+    '<textarea id="sdMsg" rows="3" style="width:100%;box-sizing:border-box;margin-top:8px" placeholder="Message (optional)"></textarea>'+
+    '<label style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:13px"><input type="checkbox" id="sdPdf" checked> Attach a PDF of '+(ids.length>1?'each note':'the note')+'</label>'+
+    '<p class="muted" style="font-size:12px;margin:6px 0 0">Goes from your Gmail'+(S.user?' ('+esc(S.user)+')':'')+'. The notes are in the email itself, pictures included.'+(isPhone()?' To <b>text</b> it instead, use <a href="#" id="sdTxt">Share as PDF</a> and pick Messages.':'')+'</p>',
+    '<button class="btn" id="sdX">Cancel</button><span class="grow"></span><button class="btn primary" id="sdGo">Send</button>');
+  var to=[],inp=$('#sdIn'),sug=$('#sdSug'),hi=0;
+  function draw(){$('#sdTo').querySelectorAll('.chip').forEach(function(c){c.remove()});
+    to.forEach(function(e,i){var c=document.createElement('span');c.className='chip';c.innerHTML=esc(e)+' <b title="Remove">×</b>';c.querySelector('b').onclick=function(){to.splice(i,1);draw()};$('#sdTo').insertBefore(c,inp)})}
+  function add(e){e=String(e||'').trim().replace(/[,;]+$/,'');if(!e)return;if(to.indexOf(e)<0)to.push(e);inp.value='';sug.innerHTML='';draw()}
+  function matches(){var q=inp.value.trim().toLowerCase();if(!q||!CONTACTS)return[];
+    return CONTACTS.filter(function(c){return c.email.indexOf(q)>=0||(c.name||'').toLowerCase().indexOf(q)>=0}).filter(function(c){return to.indexOf(c.email)<0}).slice(0,6)}
+  function showSug(){var m=matches();hi=Math.min(hi,Math.max(0,m.length-1));
+    sug.innerHTML=m.map(function(c,i){return '<div class="sdi'+(i===hi?' on':'')+'" data-e="'+esc(c.email)+'">'+(c.name?'<b>'+esc(c.name)+'</b> ':'')+'<span class="muted">'+esc(c.email)+'</span></div>'}).join('');
+    sug.querySelectorAll('.sdi').forEach(function(d){d.onmousedown=function(e){e.preventDefault();add(d.dataset.e);inp.focus()}})}
+  inp.oninput=function(){if(/[,;\s]$/.test(inp.value)&&/@/.test(inp.value)){add(inp.value);return}hi=0;showSug()};
+  inp.onkeydown=function(e){var m=matches();
+    if(e.key==='ArrowDown'){hi=Math.min(hi+1,m.length-1);showSug();e.preventDefault()}
+    else if(e.key==='ArrowUp'){hi=Math.max(hi-1,0);showSug();e.preventDefault()}
+    else if(e.key==='Enter'||e.key==='Tab'){if(m.length){add(m[hi].email);e.preventDefault()}else if(/@/.test(inp.value)){add(inp.value);e.preventDefault()}}
+    else if(e.key==='Backspace'&&!inp.value&&to.length){to.pop();draw()}};
+  inp.onblur=function(){if(/@.+\./.test(inp.value))add(inp.value)};
+  setTimeout(function(){inp.focus()},50);
+  if(!CONTACTS) call('api_contacts').then(function(c){CONTACTS=c||[];if(inp.value)showSug()}).catch(function(){CONTACTS=[]});
+  $('#sdX').onclick=closeModal;
+  if($('#sdTxt'))$('#sdTxt').onclick=function(e){e.preventDefault();closeModal();downloadNotes(ids)};
+  $('#sdGo').onclick=function(){if(inp.value.trim())add(inp.value);
+    if(!to.length){toast('Add who it goes to');inp.focus();return}
+    var b=this;b.disabled=true;b.textContent='Sending…';
+    call('api_sendNotes',ids,to.join(','),$('#sdMsg').value,{pdf:$('#sdPdf').checked}).then(function(r){closeModal();
+      toast('Sent to '+r.to.join(', ')+(r.tooBig&&r.tooBig.length?' · too big to attach: '+r.tooBig.join(', '):''));
+      r.to.forEach(function(e){if(CONTACTS&&!CONTACTS.some(function(c){return c.email===e}))CONTACTS.unshift({email:e,name:''})})})
+      .catch(function(e){b.disabled=false;b.textContent='Send';toast('Not sent: '+e.message)})};
 }
 function downloadNotes(ids){
   ids=ids.filter(function(id){return S.byId[id]}); if(!ids.length) return;
@@ -1632,6 +1676,7 @@ function viewNote(id,keep){
       (n.link?'<a class="btn" target="_blank" id="odocs" href="'+linkUrl(n)+'">Open in Drive ↗</a>'+(isScanNote(n)?'<button class="btn" id="nnp">📝 Note with this photo</button><button class="btn" id="njp">📷 Just a photo</button>':''):
         '<a class="btn" target="_blank" id="odocs" href="'+docUrl(n.docId,true)+'">Edit in Google Docs ↗</a><button class="btn" id="ehere">✏️ Edit here</button><button class="btn" id="eadd" title="Type some text and it goes at the end of this note">＋ Add text</button>'+
         (n.sourceUrl?'<a class="btn" target="_blank" href="'+esc(n.sourceUrl)+'">'+(/mail\.google\.com/.test(n.sourceUrl)?'Open in Gmail':'Source')+'</a>':'')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" onclick="S.rcData=null;rcDetails(\''+n.id+'\')">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" onclick="markReceipt(\''+n.id+'\',this)">🧾 It\'s a receipt</button>':''))+
+      '<button class="btn" id="nsend" title="Email this note to someone">✉ Send</button>'+
       '<button class="btn" id="nprint">🖨 Print</button>'+
       '<button class="btn" id="ndl" title="Download as PDF">⇩ Download</button>'+
       '<button class="btn" id="nai" title="This note as a Markdown file that Claude, ChatGPT or Gemini can read">✦ Export for AI</button>'+
@@ -1645,6 +1690,7 @@ function viewNote(id,keep){
   if(fr) fr.then(function(d){if(d&&d.atts&&d.atts.length&&$('#atts'))$('#atts').innerHTML=d.atts.map(function(a){return '<a target="_blank" href="'+fileUrl(a.fileId)+'">📎 '+esc(a.filename)+'</a>'}).join('')}).catch(function(){});
   $('#odocs').onclick=function(){S.editing=id};
   $('#nprint').onclick=function(){printNotes([id])};
+  $('#nsend').onclick=function(){sendNotes([id])};
   $('#nai').onclick=function(){exportForAI([id])};
   $('#ndl').onclick=function(){downloadNotes([id])};
   if($('#njp'))$('#njp').onclick=function(){justPhoto([id])};

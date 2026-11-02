@@ -2987,3 +2987,100 @@ function api_receiptUpdate(noteId, f) {
 
 /** Test only: read a photo and say what it would be, without changing anything. */
 function api_ocrTest(id) { var t0 = Date.now(), text = ocrText_(id), r = classifyText_(text); return { ms: Date.now() - t0, chars: text.length, kind: r.kind, fields: r.fields, sample: text.slice(0, 5000) }; }
+
+/* ---- Send notes by email ----
+ * From the user's own Gmail (shows in Sent; replies come back to them). Each note goes in the email body
+ * (text + pictures, pictures as inline images so they always show), plus a PDF of each note unless turned off.
+ * Linked Drive files are attached as the file itself when they fit; Gmail's limit is 25 MB per email.
+ */
+var SEND_MAX_BYTES_ = 22 * 1024 * 1024;
+function api_sendNotes(ids, to, message, opt) {
+  opt = opt || {};
+  var list = String(to || '').split(/[,;\s]+/).map(function (s) { return s.trim(); }).filter(String);
+  if (!list.length) throw new Error('Who should it go to? Add an email address.');
+  var bad = list.filter(function (s) { return !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s); });
+  if (bad.length) throw new Error('Not an email address: ' + bad.join(', '));
+  ids = (ids || []).slice(0, 25); if (!ids.length) throw new Error('No notes picked');
+  var byId = {}; readTable_('Notes').forEach(function (n) { byId[n.id] = n; });
+  var notes = ids.map(function (id) { return byId[id]; }).filter(Boolean);
+  if (!notes.length) throw new Error('Those notes were not found');
+  var h = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
+  var atts = [], inline = {}, used = 0, tooBig = [], sections = [], imgN = 0;
+  function addAtt(blob) { var b = blob.getBytes().length; if (used + b > SEND_MAX_BYTES_) return false; used += b; atts.push(blob); return true; }
+  notes.forEach(function (n) {
+    var title = String(n.title || 'Note'), head = '<h2 style="font:600 18px sans-serif;margin:24px 0 8px;border-top:1px solid #ddd;padding-top:14px">' + esc_(title) + '</h2>';
+    var mime = ''; try { mime = DriveApp.getFileById(n.docId).getMimeType(); } catch (e) { sections.push(head + '<p><i>(This note\'s file is missing.)</i></p>'); return; }
+    if (mime !== MimeType.GOOGLE_DOCS) {          // a linked Drive file: send the file itself
+      var f = DriveApp.getFileById(n.docId), ok = f.getSize() <= SEND_MAX_BYTES_ && addAtt(f.getBlob().setName(f.getName()));
+      if (!ok) tooBig.push(f.getName());
+      sections.push(head + '<p>📎 ' + esc_(f.getName()) + (ok ? ' (attached)' : ' <i>(too big to attach)</i>') + '</p>');
+      return;
+    }
+    var v = api_noteView(n.id), html = String(v.html || '');
+    var css = (html.match(/<style[^>]*>([\s\S]*?)<\/style>/i) || [, ''])[1];
+    var body = (html.match(/<body[^>]*>([\s\S]*)<\/body>/i) || [, html])[1];
+    // pictures: fetch each one and send it inside the email, so it shows without anyone signing in
+    body = body.replace(/<img\b([^>]*?)src="([^"]+)"([^>]*)>/gi, function (m, a, src, b) {
+      try {
+        var r = UrlFetchApp.fetch(src.replace(/&amp;/g, '&'), { headers: /googleapis|googleusercontent/.test(src) ? h : {}, muteHttpExceptions: true });
+        if (r.getResponseCode() !== 200) return '';
+        var blob = r.getBlob(), cid = 'img' + (++imgN);
+        if (used + blob.getBytes().length > SEND_MAX_BYTES_) return '<p><i>(picture left out: email too big)</i></p>';
+        used += blob.getBytes().length; inline[cid] = blob;
+        return '<img' + a + 'src="cid:' + cid + '"' + b.replace(/style="[^"]*"/i, '') + ' style="max-width:100%;height:auto">';
+      } catch (e) { return ''; }
+    });
+    var scoped = css ? '<style>' + css.replace(/(^|})\s*([^{}@]+)\{/g, function (m, close, sel) { return close + sel.split(',').map(function (s) { s = s.trim(); return /^(body|html)$/i.test(s) ? '.arn' + n.id.slice(0, 8) : '.arn' + n.id.slice(0, 8) + ' ' + s; }).join(',') + '{'; }) + '</style>' : '';
+    sections.push(head + scoped + '<div class="arn' + n.id.slice(0, 8) + '" style="max-width:none;padding:0">' + body + '</div>');
+    (v.atts || []).forEach(function (a) {
+      try { var af = DriveApp.getFileById(a.fileId); if (!(af.getSize() <= SEND_MAX_BYTES_ && addAtt(af.getBlob().setName(String(a.filename))))) tooBig.push(String(a.filename)); } catch (e) {}
+    });
+    if (opt.pdf !== false) {
+      try { var pdf = Utilities.newBlob(exportPdf_(n.docId), 'application/pdf', safeFile_(title) + '.pdf'); if (!addAtt(pdf)) tooBig.push(title + '.pdf'); } catch (e) {}
+    }
+  });
+  var subject = notes.length === 1 ? String(notes[0].title) : notes.length + ' notes: ' + notes.map(function (n) { return n.title; }).join(', ').slice(0, 120);
+  var msg = String(message || '').trim();
+  var htmlBody = '<div style="font:15px/1.5 sans-serif;max-width:720px">' + (msg ? '<p>' + esc_(msg).replace(/\n/g, '<br>') + '</p>' : '') + sections.join('') +
+    (tooBig.length ? '<p style="color:#a33">Too big to attach: ' + esc_(tooBig.join(', ')) + '</p>' : '') +
+    '<p style="color:#888;font-size:12px;margin-top:24px">Sent from ArNote</p></div>';
+  var plain = (msg ? msg + '\n\n' : '') + notes.map(function (n) { return '• ' + n.title; }).join('\n') + '\n\n(The notes are in this email; open it in a mail app that shows formatting.)';
+  if (opt.dry) return { dry: true, to: list, subject: subject, htmlBytes: htmlBody.length, pictures: imgN, attached: atts.map(function (b) { return b.getName(); }), bytes: used, tooBig: tooBig };
+  GmailApp.sendEmail(list.join(','), subject, plain, { htmlBody: htmlBody, attachments: atts, inlineImages: inline });
+  try { remember_(list); } catch (e) {}
+  return { ok: true, to: list, notes: notes.length, attached: atts.length, tooBig: tooBig };
+}
+function safeFile_(s) { return String(s || 'note').replace(/[\\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'note'; }
+/** Addresses this user has sent ArNote notes to, most recent first (kept so they come up first next time). */
+function remember_(list) {
+  var p = props_(), prev = []; try { prev = JSON.parse(p.getProperty('sentTo') || '[]'); } catch (e) {}
+  list.forEach(function (e) { e = e.toLowerCase(); prev = prev.filter(function (x) { return x !== e; }); prev.unshift(e); });
+  p.setProperty('sentTo', JSON.stringify(prev.slice(0, 40)));
+  try { CacheService.getUserCache().remove('arnote_contacts'); } catch (e) {}
+}
+/** People to suggest in the To box: who you've sent notes to, who you email (Sent mail, last year), and ArNote Users. */
+function api_contacts() {
+  var cache = CacheService.getUserCache(), hit = cache.get('arnote_contacts'); if (hit) return JSON.parse(hit);
+  var me = Session.getEffectiveUser().getEmail().toLowerCase(), seen = {}, out = [];
+  function add(name, email, w) {
+    email = String(email || '').trim().toLowerCase(); if (!email || email === me || !/@/.test(email) || /no-?reply|notifications?@|mailer-daemon/.test(email)) return;
+    var c = seen[email]; if (!c) { c = seen[email] = { email: email, name: '', n: 0 }; out.push(c); }
+    c.n += w; if (name && !c.name) c.name = String(name).replace(/^"|"$/g, '').trim();
+  }
+  try { JSON.parse(props_().getProperty('sentTo') || '[]').forEach(function (e, i) { add('', e, 100 - i); }); } catch (e) {}
+  try {
+    GmailApp.getMessagesForThreads(GmailApp.search('in:sent newer_than:1y', 0, 150)).forEach(function (ms) {
+      ms.forEach(function (m) {
+        if (String(m.getFrom()).toLowerCase().indexOf(me) < 0) return;
+        [m.getTo(), m.getCc()].join(',').split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).forEach(function (s) {
+          var mm = s.match(/^\s*(.*?)\s*<([^>]+)>\s*$/); if (mm) add(mm[1], mm[2], 1); else add('', s, 1);
+        });
+      });
+    });
+  } catch (e) {}
+  try { if (isLicenceServer_()) usersSheet_().rows.forEach(function (u) { add(u.name, u.contact || u.email, 2); }); } catch (e) {}
+  out.sort(function (a, b) { return b.n - a.n; });
+  out = out.slice(0, 300).map(function (c) { return { email: c.email, name: c.name }; });
+  try { cache.put('arnote_contacts', JSON.stringify(out), 21600); } catch (e) {}
+  return out;
+}
