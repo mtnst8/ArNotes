@@ -273,12 +273,12 @@ function appendFileToBody_(body, f, preview) {
   var mime = f.getMimeType();
   if (/^image\//.test(mime)) {
     if (!preview && /^image\/(jpeg|png|gif)$/.test(mime) && f.getSize() <= MAX_INLINE_BYTES) {
-      try { inlineImg_(body.appendParagraph(''), f.getBlob(), 600); return; } catch (e) {}
+      try { inlineImg_(body.appendParagraph(''), f.getBlob()); return; } catch (e) {}
     }
     var b = preview || thumbBlob_(f.getId(), 3);
     if (b) {
       try {
-        inlineImg_(body.appendParagraph(''), b, 600);
+        inlineImg_(body.appendParagraph(''), b);
         body.appendParagraph('Original photo: ').appendText(f.getName()).setLinkUrl(f.getUrl());
         return;
       } catch (e) {}
@@ -286,10 +286,25 @@ function appendFileToBody_(body, f, preview) {
   }
   body.appendParagraph('📎 ' + f.getName()).setLinkUrl(f.getUrl());
 }
-function inlineImg_(par, blob, maxW) {
-  var img = par.appendInlineImage(blob), w = img.getWidth();
-  if (w > maxW) img.setWidth(maxW).setHeight(Math.round(img.getHeight() * maxW / w));
+/** Picture sizes in notes: fits in a 520 px box, so a tall phone photo still leaves room to write under it. */
+var NOTE_IMG_ = 520;
+function inlineImg_(par, blob, maxW, maxH) {
+  var img = par.appendInlineImage(blob), w = img.getWidth(), h = img.getHeight();
+  maxW = maxW || NOTE_IMG_; maxH = maxH || maxW;
+  var k = Math.min(1, maxW / w, maxH / h);
+  if (k < 1) img.setWidth(Math.round(w * k)).setHeight(Math.round(h * k));
   return img;
+}
+/** Typed in ArNote: add text to the end of a note (works on any phone, no Google Docs app needed). */
+function api_addText(id, text) {
+  text = String(text || '').replace(/\r/g, ''); if (!text.trim()) return { ok: false };
+  var n = readTable_('Notes').filter(function (x) { return x.id === id; })[0];
+  if (!n) throw new Error('Note not found');
+  if (n.source === 'link') throw new Error('This is a linked Drive file: add text in the original');
+  var doc = DocumentApp.openById(n.docId), body = doc.getBody();
+  text.split('\n').forEach(function (line) { body.appendParagraph(line); });
+  doc.saveAndClose();
+  return api_updateNote(id, {});
 }
 /** Drive's resized copy of a picture (1600 px). Fresh uploads can take a few seconds to get one, so it retries. */
 function thumbBlob_(fileId, tries) {
@@ -322,8 +337,8 @@ function api_inlinePhotos(noteId) {
     var b = null;
     if (/^image\/(jpeg|png|gif)$/.test(f.getMimeType()) && f.getSize() <= 4 * 1024 * 1024) b = f.getBlob();
     var ok = false;
-    if (b) { try { inlineImg_(body.insertParagraph(i, ''), b, 600); ok = true; } catch (e) {} }
-    if (!ok) { b = thumbBlob_(id, 2); if (b) { try { inlineImg_(body.insertParagraph(i, ''), b, 600); ok = true; } catch (e) {} } }
+    if (b) { try { inlineImg_(body.insertParagraph(i, ''), b); ok = true; } catch (e) {} }
+    if (!ok) { b = thumbBlob_(id, 2); if (b) { try { inlineImg_(body.insertParagraph(i, ''), b); ok = true; } catch (e) {} } }
     if (!ok) continue;
     var lp = body.getChild(i + 1).asParagraph();
     lp.setText('Original photo: ' + f.getName()); lp.setLinkUrl(null); lp.editAsText().setLinkUrl(16, lp.getText().length - 1, f.getUrl());
@@ -2735,7 +2750,7 @@ function api_photoToNote(fileIds, extraTags) {
   body.getChild(0).asParagraph().setText(headerLine_('Inbox', tags));
   ids.forEach(function (id, k) {
     var m = metas[k] || {};
-    if (imgs[k]) { try { var im = body.appendParagraph('').appendInlineImage(imgs[k]); var w = im.getWidth(), hh = im.getHeight(), mw = 480; if (w > mw) { im.setWidth(mw); im.setHeight(Math.round(hh * mw / w)); } } catch (e) {} }
+    if (imgs[k]) { try { inlineImg_(body.appendParagraph(''), imgs[k]); } catch (e) {} }
     body.appendParagraph(ids.length > 1 ? 'Photo ' + (k + 1) + ': ' : 'Original photo: ').appendText(m.name || 'open').setLinkUrl(m.webViewLink || ('https://drive.google.com/file/d/' + id + '/view'));
   });
   body.appendParagraph('');

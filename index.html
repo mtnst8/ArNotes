@@ -305,6 +305,7 @@ nav button svg{display:none}
 .pin .pt{font-weight:700;cursor:pointer;margin-bottom:4px}
 .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--mute);text-align:center;padding:18px 6px}
 .pick{max-height:50vh;overflow:auto}
+iframe.editor{height:calc(100vh - 70px);min-height:420px}
 .reader{width:100%;height:75vh;border:1px solid var(--line);border-radius:10px;background:#fff}
 .pdfview{overflow:auto;background:#e9e9ec;padding:8px 12px;box-sizing:border-box;text-align:center}.pdfview canvas{display:block;margin:0 auto 10px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25)}.pdfhead{font-size:12px;margin:0 0 8px;text-align:left;color:#555}.pdfhead a{color:#2f6f4f}
 .split .pcol .reader{height:calc(100vh - 300px);min-height:360px}
@@ -966,7 +967,7 @@ function renderPv(){
   el.innerHTML='<input id="pvTitle" class="pvtitle" value="'+esc(n.title)+'" title="Click to rename" spellcheck="false">'+
     '<div class="muted" style="font-size:12px">Created '+fmt(n.created)+(n.att?' · 📎'+n.att:'')+'</div>'+
     '<div class="bar" id="tagbar"></div>'+
-    '<div class="bar"><button class="btn primary" id="pvFile">File → Cabinet</button><button class="btn" id="pvOpen">Open / edit</button>'+(n.tags.indexOf('Receipt')>=0?'<button class="btn" id="pvRc">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" id="pvMk" title="Read this email as a receipt or invoice">🧾 It\'s a receipt</button>':'')+(isScanNote(n)?'<button class="btn" id="pvNp" title="A new note with this picture in it, ready for you to write">📝 Note with this photo</button>':'')+(isScanNote(n)?'<button class="btn" id="pvJp" title="Not a document, receipt or card: remove this note and put the photo back in Photos">📷 Just a photo</button>':'')+'<button class="btn" id="pvPr">🖨 Print</button><button class="btn" id="pvDn" title="Download as PDF">⇩ Download</button>'+'<button class="btn danger" id="pvDel">Delete</button>'+
+    '<div class="bar"><button class="btn primary" id="pvFile">File → Cabinet</button><button class="btn" id="pvOpen">Open</button>'+(n.link?'':'<button class="btn" id="pvEd" title="Edit this note (Google Docs, inside ArNote)">✏️ Edit</button><button class="btn" id="pvAdd" title="Type some text and it goes at the end of this note">＋ Add text</button>')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" id="pvRc">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" id="pvMk" title="Read this email as a receipt or invoice">🧾 It\'s a receipt</button>':'')+(isScanNote(n)?'<button class="btn" id="pvNp" title="A new note with this picture in it, ready for you to write">📝 Note with this photo</button>':'')+(isScanNote(n)?'<button class="btn" id="pvJp" title="Not a document, receipt or card: remove this note and put the photo back in Photos">📷 Just a photo</button>':'')+'<button class="btn" id="pvPr">🖨 Print</button><button class="btn" id="pvDn" title="Download as PDF">⇩ Download</button>'+'<button class="btn danger" id="pvDel">Delete</button>'+
     '<span class="kbd">Keys: ↑ ↓ move · T add tag · F file · Enter open</span></div><div id="pvloc"></div>'+
     (n.tags.indexOf('Receipt')>=0?'<div id="pvRcCard"><p class="muted">Loading receipt…</p></div><div id="pvFull" style="display:none">'+readerHtml()+'</div>':readerHtml());
   renderTags(n);
@@ -986,6 +987,8 @@ function renderPv(){
   pvLock();
   $('#pvDn').onclick=function(){downloadNotes([n.id])};
   $('#pvOpen').onclick=function(){go('note',n.id)};
+  if($('#pvEd')) $('#pvEd').onclick=function(){S.editNow=n.id;go('note',n.id)};
+  if($('#pvAdd')) $('#pvAdd').onclick=function(){addText(n.id,function(){if(S.pv===n.id)renderPv()})};
   if($('#pvRc')) $('#pvRc').onclick=function(){S.rcData=null;rcDetails(n.id)};
   if($('#pvMk')) $('#pvMk').onclick=function(){markReceipt(n.id,this)};
   $('#pvDel').onclick=function(){var b=this;
@@ -1621,7 +1624,7 @@ function viewNote(id,keep){
       (n.notebook==='Inbox'?'<button class="btn primary" id="file">File → Cabinet</button>':'<button class="btn" id="unfile">Move to Inbox</button>')+
       (isTriage?'<button class="btn" id="skip">Skip</button>':'')+
       (n.link?'<a class="btn" target="_blank" id="odocs" href="'+linkUrl(n)+'">Open in Drive ↗</a>'+(isScanNote(n)?'<button class="btn" id="nnp">📝 Note with this photo</button><button class="btn" id="njp">📷 Just a photo</button>':''):
-        '<a class="btn" target="_blank" id="odocs" href="'+docUrl(n.docId,true)+'">Edit in Google Docs ↗</a><button class="btn" id="ehere">Edit here</button>'+
+        '<a class="btn" target="_blank" id="odocs" href="'+docUrl(n.docId,true)+'">Edit in Google Docs ↗</a><button class="btn" id="ehere">✏️ Edit here</button><button class="btn" id="eadd" title="Type some text and it goes at the end of this note">＋ Add text</button>'+
         (n.sourceUrl?'<a class="btn" target="_blank" href="'+esc(n.sourceUrl)+'">'+(/mail\.google\.com/.test(n.sourceUrl)?'Open in Gmail':'Source')+'</a>':'')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" onclick="S.rcData=null;rcDetails(\''+n.id+'\')">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" onclick="markReceipt(\''+n.id+'\',this)">🧾 It\'s a receipt</button>':''))+
       '<button class="btn" id="nprint">🖨 Print</button>'+
       '<button class="btn" id="ndl" title="Download as PDF">⇩ Download</button>'+
@@ -1640,8 +1643,9 @@ function viewNote(id,keep){
   $('#ndl').onclick=function(){downloadNotes([id])};
   if($('#njp'))$('#njp').onclick=function(){justPhoto([id])};
   if($('#nnp'))$('#nnp').onclick=function(){noteFromScan(id,this)};
-  if($('#ehere')) $('#ehere').onclick=function(){ $('#ehint').textContent='Editing in Google Docs. Changes save automatically. If this says you need access, use Edit in Google Docs instead (this browser is signed in to a different Google account).';
-    $('#nbody').innerHTML='<iframe src="https://docs.google.com/document/d/'+n.docId+'/edit?rm=minimal'+(S.user?'&authuser='+encodeURIComponent(S.user):'')+'" allow="clipboard-read; clipboard-write"></iframe>'; this.remove(); S.editing=id; };
+  if($('#ehere')) $('#ehere').onclick=function(){editHere(n)};
+  if($('#eadd')) $('#eadd').onclick=function(){addText(id,function(){viewNote(id)})};
+  if(S.editNow===id){S.editNow=null;editHere(n)}
   $('#star').onclick=function(){batch({starred:!n.starred},n.starred?'Bookmark removed':'Bookmarked',[id]);viewNote(id)};
   if($('#nBack')) $('#nBack').onclick=function(){if(history.state&&history.state.note)history.back();else noteGoBack()};
   $('#title').onchange=function(){var old=n.title;n.title=this.value;var p=call('api_updateNote',n.id,{title:n.title});
@@ -1656,6 +1660,26 @@ function viewNote(id,keep){
 
   function next(skipped){ if(isTriage){ if(!skipped&&S.triage[0]===id) S.triage.shift(); } refreshInboxCount();
     if(isTriage&&S.triage.length){S.view='note';viewNote(S.triage[0])} else go(isTriage?'inbox':'home'); }
+}
+/** Edit the note's Google Doc inside ArNote, full height, with Done to go back to reading. */
+function editHere(n){
+  var b=$('#nbody'),h=$('#ehint');if(!b)return;
+  if(h)h.innerHTML='Editing in Google Docs: changes save by themselves. <button class="btn small primary" id="edone">Done</button> <span class="muted">If it says you need access, use Edit in Google Docs (this browser is signed in to a different Google account).</span>';
+  b.innerHTML='<iframe class="editor" src="https://docs.google.com/document/d/'+n.docId+'/edit?rm=minimal'+(S.user?'&authuser='+encodeURIComponent(S.user):'')+'" allow="clipboard-read; clipboard-write"></iframe>';
+  if($('#ehere'))$('#ehere').remove(); S.editing=n.id;
+  setTimeout(function(){var y=(h||b).getBoundingClientRect().top+window.scrollY-8;window.scrollTo({top:y,behavior:'smooth'})},50);
+  $('#edone').onclick=function(){S.editing=null;nvFetch(n.id).catch(function(){}).then(function(){viewNote(n.id)})};
+}
+/** Type text and it goes at the end of the note: no Google Docs needed (handy on a phone, and under a photo). */
+function addText(id,after){
+  modal('Add text','It goes at the end of this note.','<textarea id="atxt" rows="7" style="width:100%;box-sizing:border-box" placeholder="Type here…"></textarea>',
+    '<button class="btn" id="atCancel">Cancel</button><span class="grow"></span><button class="btn primary" id="atSave">Save</button>');
+  var t=$('#atxt');setTimeout(function(){t.focus()},50);
+  $('#atCancel').onclick=closeModal;
+  t.onkeydown=function(e){if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))$('#atSave').click()};
+  $('#atSave').onclick=function(){var v=t.value;if(!v.trim()){closeModal();return}var b=this;b.disabled=true;b.textContent='Saving…';
+    call('api_addText',id,v).then(function(r){var n=S.byId[id];if(n&&r&&r.updated)n.updated=r.updated;closeModal();toast('Added');return nvFetch(id)}).then(function(){if(after)after()})
+      .catch(function(e){b.disabled=false;b.textContent='Save';toast('Couldn\'t add: '+e.message)})};
 }
 function renderTags(n){
   var bar=$('#tagbar'); if(!bar) return;
