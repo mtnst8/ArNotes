@@ -400,12 +400,17 @@ function noteFromFolder_(d) {
 
 /** In-app upload: one file per call (base64). Lands in Drop, then becomes a note right away. */
 function api_uploadFile(name, mime, b64, previewB64) {
-  var blob = Utilities.newBlob(Utilities.base64Decode(b64), mime || 'application/octet-stream', name);
+  var t0 = Date.now(), blob = Utilities.newBlob(Utilities.base64Decode(b64), mime || 'application/octet-stream', name);
   var f = dropFolder_().createFile(blob);
   var pv = previewB64 ? Utilities.newBlob(Utilities.base64Decode(previewB64), 'image/jpeg', 'preview.jpg') : null;
-  var lock = LockService.getScriptLock(); lock.waitLock(30000);
-  try { return noteFromFile_(f, pv); } finally { lock.releaseLock(); }
+  var t1 = Date.now(), lock = LockService.getScriptLock(); lock.waitLock(30000);
+  var t2 = Date.now();
+  try { var n = noteFromFile_(f, pv); n._ms = { save: t1 - t0, lock: t2 - t1, note: Date.now() - t2 }; return n; } finally { lock.releaseLock(); }
 }
+
+/** Timings of the last thing shared from a phone (for finding slow steps). */
+function api_logShare(t) { props_().setProperty('lastShare', JSON.stringify({ at: new Date().toISOString(), t: t }).slice(0, 8000)); return true; }
+function api_lastShare() { return JSON.parse(props_().getProperty('lastShare') || 'null'); }
 
 function api_dropFolderUrl() { return dropFolder_().getUrl(); }
 

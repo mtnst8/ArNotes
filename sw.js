@@ -1,5 +1,5 @@
 /* ArNotes service worker: makes the app installable, loads it fast, and receives things shared from other apps. */
-const VERSION = 'arnote-v80';
+const VERSION = 'arnote-v81';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -19,7 +19,7 @@ self.addEventListener('fetch', e => {
       const c = await caches.open('arnote-share');
       await Promise.all(files.map((f, i) => c.put('file-' + i, new Response(f))));
       await c.put('shared', new Response(JSON.stringify({
-        title: form.get('title') || '', text: form.get('text') || '', url: form.get('url') || '',
+        at: Date.now(), title: form.get('title') || '', text: form.get('text') || '', url: form.get('url') || '',
         files: files.map(f => ({ name: f.name || 'shared', type: f.type || 'application/octet-stream' }))
       })));
       return Response.redirect('./?share=1', 303);

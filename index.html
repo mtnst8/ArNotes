@@ -1348,16 +1348,20 @@ function photoName(f){
 }
 function uploadFiles(files,opt){
   opt=opt||{};
-  if(!files.length) return;
+  if(!files.length) return Promise.resolve();
   var big=files.filter(function(f){return f.size>UP_MAX}); files=files.filter(function(f){return f.size<=UP_MAX});
   if(big.length) toast(big.length+' file(s) over 35 MB skipped: put those in the Drive Drop folder');
-  var done=0, last=null;
-  files.reduce(function(p,f,k){return p.then(function(){
-    toast('Uploading '+(k+1)+'/'+files.length+': '+f.name);
-    return Promise.all([readB64(f),photoPreview(f)]).then(function(x){return call('api_uploadFile',photoName(f),f.type,x[0],x[1])}).then(function(n){
-      S.notes.push(n); S.byId[n.id]=n; done++; last=n.id;
-    }).catch(function(){});
-  })},Promise.resolve()).then(function(){
+  var done=0, last=null, made=[];
+  return files.reduce(function(p,f,k){return p.then(function(){
+    toast('Uploading '+(k+1)+'/'+files.length+': '+f.name); if(opt.progress)opt.progress(k,files.length);
+    var ft={bytes:f.size,type:f.type},a=Date.now();
+    return Promise.all([readB64(f).then(function(b){ft.read=Date.now()-a;return b}),photoPreview(f).then(function(v){ft.preview=Date.now()-a;return v})]).then(function(x){a=Date.now();return call('api_uploadFile',photoName(f),f.type,x[0],x[1])}).then(function(n){
+      ft.server=Date.now()-a; if(n&&n._ms){ft.inServer=n._ms;delete n._ms} if(opt.timing)opt.timing.files.push(ft);
+      made.push(n); done++; last=n.id;
+    }).catch(function(e){ft.err=String(e&&e.message||e);if(opt.timing)opt.timing.files.push(ft)});
+  })},Promise.resolve()).then(function(){return S.booted?null:(S.bootP||Promise.resolve()).catch(function(){})}).then(function(){
+    if(!S.notes)return;
+    made.forEach(function(n){if(!S.byId[n.id]){S.notes.push(n);S.byId[n.id]=n}});
     refreshInboxCount();
     if(!done) return;
     toast(done+' note'+(done>1?'s':'')+' added to Inbox');
@@ -2756,11 +2760,13 @@ function tryPair(c){
 }
 function start(){
   document.body.classList.remove('unpaired');
-  $('#main').innerHTML='<div class="loading">Loading notes…</div>';
-  Promise.all([load().catch(function(e){S.loadErr=e}),call('api_appInfo',devLabel()).then(function(i){DROP_URL=i.dropUrl||'';LINK_URL=i.linkUrl||'';if(i.user)S.user=i.user;S.lic=i.licence||null;S.build=i.build;S.rel=i.release;S.relNotes=i.notes}).catch(function(){})]).then(function(){
+  var sharing=location.search.indexOf('share=1')>=0;
+  $('#main').innerHTML='<div class="loading">'+(sharing?'Getting what you shared…':'Loading notes…')+'</div>';
+  if(sharing) receiveShare();                                   // don't wait for the notes list: start on the shared things now
+  S.bootP=Promise.all([load().catch(function(e){S.loadErr=e}),call('api_appInfo',devLabel()).then(function(i){DROP_URL=i.dropUrl||'';LINK_URL=i.linkUrl||'';if(i.user)S.user=i.user;S.lic=i.licence||null;S.build=i.build;S.rel=i.release;S.relNotes=i.notes}).catch(function(){})]).then(function(){
     if(S.lic&&!S.lic.ok){showEnded();return}
     if(S.loadErr) throw S.loadErr;
-    if(location.search.indexOf('share=1')>=0) receiveShare(); else go('home');
+    S.booted=true; if(sharing){if(S.afterBoot)S.afterBoot();else if(!S.shareBusy)go('inbox')} else go('home');
     whatsNew(S.rel,S.relNotes);
     if(S.justPaired&&!(S.lic&&S.lic.owner)){var g=0;try{g=localStorage.getItem('arnote.guideSeen')}catch(e){}if(!g){try{localStorage.setItem('arnote.guideSeen','1')}catch(e){}setTimeout(function(){showGuide(true)},600)}}
   });
@@ -2825,25 +2831,40 @@ function showInvite(tok){
   Promise.all([invCall({inv:'get',t:tok}),adminDoc('steps').then(function(r){SD.steps=r}).catch(function(){})]).then(function(x){draw(x[0])}).catch(function(e){box('<p class="err">'+esc(e.message)+'</p>')});
 }
 /* ---------- things shared into ArNotes from other apps (Android share sheet) ---------- */
+var SHT=null;   // timings of the last share, sent to the server so slow steps can be found
+function whenBooted(fn){if(S.booted)fn();else S.afterBoot=fn}
 function receiveShare(){
   history.replaceState(null,'',location.pathname);
+  var t0=Date.now();
   caches.open('arnote-share').then(function(c){return c.match('shared').then(function(r){return r?r.json():null}).then(function(meta){
-    if(!meta){go('inbox');return}
+    if(!meta){whenBooted(function(){go('inbox')});return}
+    SHT={open:meta.at?t0-meta.at:null,files:[]};
     return Promise.all((meta.files||[]).map(function(f,i){return c.match('file-'+i).then(function(r){return r.blob()}).then(function(b){return new File([b],f.name,{type:f.type})})})).then(function(files){
       c.delete('shared'); (meta.files||[]).forEach(function(f,i){c.delete('file-'+i)});
-      S.view='inbox'; go('inbox');
+      SHT.read=Date.now()-t0; S.shareBusy=true;
       var text=[meta.title,meta.text,meta.url].filter(Boolean).join('\n');
       var media=files.length&&files.every(function(f){return /^(image|video)\//.test(f.type)});
-      if(media){ go('photos');
+      if(media){
+        var tm=Date.now();
         modal('Add '+files.length+' to Photos?','You shared '+(files.length>1?files.length+' photos/videos':'a photo or video')+' with ArNotes.','<p class="muted" style="margin:0">Photos go to your gallery. Make notes instead if these are things to keep as notes.</p>',
           '<button class="btn" id="shNote">Make notes</button><span class="grow"></span><button class="btn primary" id="shPh">Add to Photos</button>');
-        $('#shPh').onclick=function(){closeModal();phAddFiles(files)};
-        $('#shNote').onclick=function(){closeModal();go('inbox');uploadFiles(files)};
+        $('#shPh').onclick=function(){closeModal();SHT.choose=Date.now()-tm;whenBooted(function(){go('photos');phAddFiles(files)})};
+        $('#shNote').onclick=function(){closeModal();SHT.choose=Date.now()-tm;shareUpload(files)};
       }
-      else if(files.length) uploadFiles(files);
-      else if(text) call('api_createNote',(meta.title||meta.text||'Shared').split('\n')[0].slice(0,90),text,[]).then(function(){return load()}).then(function(){toast('Saved to Inbox');go('inbox')});
+      else if(files.length) shareUpload(files);
+      else if(text) call('api_createNote',(meta.title||meta.text||'Shared').split('\n')[0].slice(0,90),text,[]).then(function(){return S.bootP}).then(function(){return load()}).then(function(){toast('Saved to Inbox');S.shareBusy=false;go('inbox')});
+      else S.shareBusy=false;
     });
-  })}).catch(function(){go('inbox')});
+  })}).catch(function(){S.shareBusy=false;whenBooted(function(){go('inbox')})});
+}
+/** Shared files → notes, started at once (the notes list loads alongside). */
+function shareUpload(files){
+  var t1=Date.now();
+  if(!S.booted)$('#main').innerHTML='<div class="loading" id="shProg">Saving '+files.length+' to your Inbox…</div>';
+  uploadFiles(files,{timing:SHT,progress:function(k,n){var e=$('#shProg');if(e)e.textContent='Saving '+(k+1)+' of '+n+' to your Inbox…'}}).then(function(){
+    SHT.total=Date.now()-t1; S.shareBusy=false; call('api_logShare',SHT).catch(function(){});
+    whenBooted(function(){go('inbox')});
+  });
 }
 (function boot(){
   var inv=location.hash.match(/#invite=([A-Za-z0-9_-]{20,})/); if(inv){showInvite(inv[1]);return}
