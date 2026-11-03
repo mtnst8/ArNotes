@@ -3151,6 +3151,12 @@ function soleUrl_(text) {
 }
 /** Title, description, site name and picture of a web page (from its og:/twitter: tags or its <title>). */
 function linkInfo_(url) {
+  if (/^https?:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//i.test(url)) {      // YouTube shows robots a cookie page: ask its oEmbed instead
+    try {
+      var y = UrlFetchApp.fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(url), { muteHttpExceptions: true });
+      if (y.getResponseCode() === 200) { var j = JSON.parse(y.getContentText()); return { url: url, title: String(j.title || '').slice(0, 200), desc: j.author_name ? 'Video by ' + j.author_name : '', site: 'YouTube', image: j.thumbnail_url || '' }; }
+    } catch (e) {}
+  }
   var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true,
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ArNotes link preview)', 'Accept': 'text/html,*/*;q=0.5' } });
   if (r.getResponseCode() >= 400) return null;
