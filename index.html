@@ -239,7 +239,7 @@ nav button svg{display:none}
 .who{display:none}
 @media (min-width:900px){
   #side{display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;width:236px;overflow-y:auto;background:var(--card);border-right:1px solid var(--line);z-index:6}
-  #side header{position:static;border:0;flex-direction:column;align-items:stretch;padding:16px 14px 6px;background:transparent}
+  #side header{position:relative;border:0;flex-direction:column;align-items:stretch;padding:16px 14px 6px;background:transparent}
   #side header .brand{font-size:18px;padding:0 4px 8px}
   #side nav{flex-direction:column;border:0;padding:6px 10px;gap:2px;overflow:visible}
   #side nav button{display:flex;align-items:center;gap:12px;border:0;background:none;border-radius:8px;padding:8px 10px;text-align:left;font-size:15px;color:var(--ink)}
@@ -306,6 +306,7 @@ nav button svg{display:none}
 .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--mute);text-align:center;padding:18px 6px}
 .pick{max-height:50vh;overflow:auto}
 iframe.editor{height:calc(100vh - 70px);min-height:420px}
+#qdrop{display:none;position:absolute;left:8px;right:8px;top:100%;z-index:60;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-height:70vh;overflow:auto;padding:4px 0}.qdh{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute);padding:8px 12px 2px}.qdi{display:flex;gap:8px;align-items:baseline;padding:6px 12px;cursor:pointer;font-size:14px}.qdi:hover,.qdi.on{background:var(--acc2)}.qdic{flex:none;width:18px}.qdt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.qds{flex:none;font-size:11px;color:var(--mute)}.qdclr{padding:6px 12px 4px;text-align:right}
 .wg.sgrps{background:none;border:0;box-shadow:none;padding:0}.sgrp{border:1px solid var(--line);border-radius:10px;background:var(--card);margin:0 0 10px}.sgrp>summary{cursor:pointer;list-style:none;padding:12px 14px;display:flex;flex-direction:column;gap:2px}.sgrp>summary::-webkit-details-marker{display:none}.sgrp>summary b{font-size:15px}.sgrp>summary b::before{content:'▸ ';color:var(--mute)}.sgrp[open]>summary b::before{content:'▾ '}.sgrp>summary span{font-size:12px;color:var(--mute)}.sbody{padding:0 14px 12px}.sh3{margin:14px 0 4px;font-size:14px}.sbody>.sh3:first-child{margin-top:4px}
 .sdto{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--card)}.sdto input{flex:1;min-width:160px;border:0;outline:0;background:transparent;color:inherit;font:inherit;padding:4px}.sdto .chip{background:var(--acc2);color:var(--ink);border:1px solid var(--acc);border-radius:12px;padding:2px 8px;font-size:13px}.sdto .chip b{cursor:pointer;margin-left:2px}.sdsug{border-radius:8px;overflow:hidden}.sdi{padding:6px 10px;cursor:pointer;font-size:14px}.sdi.on,.sdi:hover{background:var(--card)}
 .split .pcol iframe.pvedit{height:calc(100vh - 230px)}
@@ -1638,10 +1639,54 @@ function openTagPanel(ids,onDone,why,prefill,ext){
 
 /* ---------- search ---------- */
 var qTimer, qSeq=0;
+/* Search history: recent searches and recently opened notes (kept on this device), shown under the search box. */
+var hist=(function(){
+  function get(k){try{return JSON.parse(localStorage.getItem('arnote.h.'+k)||'[]')}catch(e){return []}}
+  function put(k,v){try{localStorage.setItem('arnote.h.'+k,JSON.stringify(v))}catch(e){}}
+  return {
+    search:function(q){q=String(q).trim();if(q.length<2)return;var a=get('q').filter(function(x){var lx=x.toLowerCase(),lq=q.toLowerCase();return lx!==lq&&lq.indexOf(lx)!==0&&lx.indexOf(lq)!==0});
+      clearTimeout(hist._t);hist._t=setTimeout(function(){a.unshift(q);put('q',a.slice(0,8))},1500)},   // a search you stop on, not every letter typed
+    opened:function(id){if(!id)return;var a=get('o').filter(function(x){return x!==id});a.unshift(id);put('o',a.slice(0,12))},
+    searches:function(){return get('q')}, recent:function(){return get('o').filter(function(id){return S.byId&&S.byId[id]}).slice(0,8)},
+    clear:function(){put('q',[]);put('o',[])}
+  };
+})();
+var QD={on:false,items:[],hi:-1,keep:false};
+function qdShow(){
+  if($('#q').value.trim()||!S.notes||G) return qdHide();
+  var d=$('#qdrop'); if(!d){d=document.createElement('div');d.id='qdrop';$('#q').parentNode.appendChild(d);
+    d.addEventListener('mouseenter',function(){QD.keep=true});d.addEventListener('mouseleave',function(){QD.keep=false;if(document.activeElement!==$('#q'))qdHide()})}
+  var srch=hist.searches(), op=hist.recent(), added=byRecent(S.notes.slice()).slice(0,5), items=[], h='';
+  var row=function(kind,val,icon,txt,sub){items.push({kind:kind,val:val});return '<div class="qdi" data-i="'+(items.length-1)+'"><span class="qdic">'+icon+'</span><span class="qdt">'+esc(txt)+'</span>'+(sub?'<span class="qds">'+esc(sub)+'</span>':'')+'</div>'};
+  if(srch.length) h+='<div class="qdh">Recent searches</div>'+srch.map(function(q){return row('q',q,'🔍',q)}).join('');
+  if(op.length) h+='<div class="qdh">Recently opened</div>'+op.map(function(id){var n=S.byId[id];return row('n',id,noteIcon(n),n.title,n.notebook)}).join('');
+  if(added.length) h+='<div class="qdh">Just added</div>'+added.map(function(n){return row('n',n.id,noteIcon(n),n.title,fmt(n.created))}).join('');
+  if(srch.length||op.length) h+='<div class="qdclr"><button class="btn small" id="qdClr">Clear history</button></div>';
+  if(!h) return qdHide();
+  d.innerHTML=h; d.style.display='block'; QD.on=true; QD.items=items; QD.hi=-1;
+  $$('#qdrop .qdi').forEach(function(r){r.onmousedown=function(e){e.preventDefault();qdPick(+r.dataset.i)}});
+  if($('#qdClr'))$('#qdClr').onmousedown=function(e){e.preventDefault();hist.clear();qdShow()};
+}
+function qdHide(){var d=$('#qdrop');if(d)d.style.display='none';QD.on=false}
+function qdPick(i){var it=QD.items[i];if(!it)return;qdHide();
+  if(it.kind==='q'){$('#q').value=it.val;runSearch()} else {$('#q').blur();S.view='note';go('note',it.val)}}
+function noteIcon(n){if(!n)return '📝';if(n.tags.indexOf('Receipt')>=0)return '🧾';if(n.link)return '🔗';if(/mail\.google\.com/.test(n.sourceUrl||''))return '✉️';return '📝'}
+(function(){var q=$('#q'),hov=window.matchMedia&&matchMedia('(hover:hover)').matches;
+  q.addEventListener('focus',qdShow);
+  q.addEventListener('blur',function(){setTimeout(function(){if(!QD.keep)qdHide()},150)});
+  if(hov){q.addEventListener('mouseenter',function(){clearTimeout(QD.t);QD.t=setTimeout(qdShow,250)});
+    q.addEventListener('mouseleave',function(){clearTimeout(QD.t);setTimeout(function(){if(!QD.keep&&document.activeElement!==q)qdHide()},250)})}
+  q.addEventListener('input',function(){if(q.value.trim())qdHide();else qdShow()});
+  q.addEventListener('keydown',function(e){if(!QD.on)return;var n=QD.items.length;
+    if(e.key==='ArrowDown'){QD.hi=(QD.hi+1)%n;e.preventDefault()}else if(e.key==='ArrowUp'){QD.hi=(QD.hi-1+n)%n;e.preventDefault()}
+    else if(e.key==='Enter'&&QD.hi>=0){e.preventDefault();e.stopImmediatePropagation();qdPick(QD.hi);return}else if(e.key==='Escape'){qdHide();return}else return;
+    $$('#qdrop .qdi').forEach(function(r){r.classList.toggle('on',+r.dataset.i===QD.hi)})},true);
+})();
 $('#q').addEventListener('input',function(){clearTimeout(qTimer);qTimer=setTimeout(runSearch,250)});
 $('#q').addEventListener('keydown',function(e){if(e.key==='Enter'){clearTimeout(qTimer);runSearch()}});
 function runSearch(){
   var raw=$('#q').value.trim(); if(!raw){go('home');return}
+  hist.search(raw); qdHide();
   S.lastList=null;
   var words=[],tagF=[],nb=null;
   raw.split(/\s+/).forEach(function(w){
@@ -1672,6 +1717,7 @@ window.addEventListener('popstate',function(){if(S.view==='note'&&S.noteBack&&!(
 function backLabel(v){return {home:'Home',inbox:'Inbox',cabinet:'Cabinet',list:'list',all:'All notes',shortcuts:'Shortcuts',tags:'Tags',photos:'Photos',receipts:'Receipts',settings:'Settings'}[v]||'back'}
 function viewNote(id,keep){
   var n=S.byId[id]; if(!n){go('home');return}
+  if(!keep) hist.opened(id);
   var isTriage=S.triage.length&&S.triage[0]===id;
   if(keep&&$('#tagbar')&&$('#title')&&$('#title').dataset.id===id){renderTags(n);return}
   $('#main').innerHTML=
