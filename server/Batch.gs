@@ -643,7 +643,7 @@ var STEPS_DEFAULT_HTML_ = '<p>Follow these once. Your notes and photos stay in y
   '<li>When it says ArNotes is set up: <b>Extensions → Apps Script</b>, then <b>Deploy</b> (blue button, top right) <b>→ New deployment →</b> the gear <b>→ Web app</b>. Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, click <b>Deploy</b>, allow the permissions, then click <b>Copy</b> under <i>Web app URL</i>. ("Anyone" only lets your phone reach your ArNotes; it still needs your private pairing link.)</li>' +
   '<li>Back in the spreadsheet: <b>ArNotes → Open the app</b>, paste the address, and click <b>Get my pairing link</b>. Click <b>Open ArNotes here</b> to start, and <b>email the pairing link to yourself</b> for your phone. Keep it private: it\'s the key to your notes.</li></ol>' +
   '<h2>iPhone</h2><p>Open the pairing link from your email in <b>Safari</b> (or Chrome), tap <b>Share</b> (the square with the arrow) <b>→ Add to Home Screen</b>. ArNotes is now an app on your phone.</p>' +
-  '<p>To send photos from your gallery or a text: iPhone doesn\'t let web apps appear in the Share menu, so tap <b>Share → Mail</b> and send them to your ArNotes email address. You\'ll find it in ArNotes under <b>Settings → Email to ArNotes</b>; if your phone sends from a different address, allow that address there too. Or open ArNotes and add photos from there.</p>' +
+  '<p>To send photos from your gallery or a text: iPhone doesn\'t let web apps appear in the Share menu, so tap <b>Share → Mail</b> and send them to your ArNotes email address. You\'ll find it in ArNotes under <b>Settings → Getting things in → Email to ArNotes</b>; if your phone sends from a different address, allow that address there too. Or open ArNotes and add photos from there.</p>' +
   '<h2>Android</h2><p>Open the pairing link from your email in <b>Chrome</b>, tap the <b>⋮</b> menu <b>→ Install app</b> (or <b>Add to Home screen</b>). ArNotes is now an app on your phone.</p>' +
   '<p>Then in your gallery or a text, tap <b>Share → ArNotes</b> to send photos straight in.</p>' +
   '<h2>No smartphone</h2><p>Use the pairing link on any computer or tablet. If you get a smartphone later, come back to this page.</p>';
@@ -652,14 +652,14 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li><b>Write a note:</b> tap <b>+ Note</b>. A note that is just a web link gets the page\'s title, a short description and its picture.</li>' +
   '<li><b>Photos and files:</b> in the Inbox, tap <b>+ Add files</b> (on a computer you can also drag files onto ArNotes). On Android, use <b>Share → ArNotes</b> from your gallery or a text, then choose <b>Make notes</b> (a note for each) or <b>Add to Photos</b> (your gallery).</li>' +
   '<li><b>Web pages and bookmarks, from an Android phone:</b> in Chrome open the page, tap <b>⋮ → Share → ArNotes</b>. It lands in your Inbox with its title, description and picture.</li>' +
-  '<li><b>Web pages and bookmarks, from a computer:</b> once, go to <b>Settings → Save to ArNotes button</b> and drag the <b>📌 Save to ArNotes</b> button to your bookmarks bar (<b>Ctrl+Shift+B</b> shows the bar; do this in each Chrome profile you use). Then on any page click <b>Save to ArNotes</b>. Select some text on the page first and it\'s saved with it.</li>' +
-  '<li><b>Email:</b> forward any email to your ArNotes address (<b>Settings → Email to ArNotes</b>). An email that is just a link becomes a web-page note. On iPhone this is also how to send photos, texts and web pages: <b>Share → Mail</b>.</li>' +
+  '<li><b>Web pages and bookmarks, from a computer:</b> once, go to <b>Settings → Getting things in → Save to ArNotes button</b> and drag the <b>📌 Save to ArNotes</b> button to your bookmarks bar (<b>Ctrl+Shift+B</b> shows the bar; do this in each Chrome profile you use). Then on any page click <b>Save to ArNotes</b>. Select some text on the page first and it\'s saved with it.</li>' +
+  '<li><b>Email:</b> forward any email to your ArNotes address (<b>Settings → Getting things in → Email to ArNotes</b>). An email that is just a link becomes a web-page note. On iPhone this is also how to send photos, texts and web pages: <b>Share → Mail</b>.</li>' +
   '<li><b>Receipts and business cards:</b> photos of them are read and tagged for you, ready to check in the Inbox.</li>' +
   '<li><b>Check for new</b> in the Inbox brings in new emails and Drive files right away; otherwise ArNotes checks every 15 minutes.</li></ul>' +
   '<h2>2. Wrangle what\'s already in Google Drive</h2><ul>' +
   '<li>Leave it where it is. In the Inbox choose <b>🔗 Link Drive files</b> and pick files or whole folders. ArNotes lists them with your notes without moving or copying anything.</li>' +
   '<li>Then wrangle them with tags, like any note, and drill down to them by tag instead of digging through folders.</li>' +
-  '<li>New files that land in a linked folder show up in your Inbox to wrangle. Manage linked folders under <b>Settings → Linked Drive folders</b>.</li></ul>' +
+  '<li>New files that land in a linked folder show up in your Inbox to wrangle. Manage linked folders under <b>Settings → Getting things in → Linked Drive folders</b>.</li></ul>' +
   '<h2>3. Tag and file</h2><ul>' +
   '<li>Open a note in your <b>Inbox</b> and add tags. Tags are grouped under <b>Who</b>, <b>What</b>, <b>When</b> and <b>Where</b>; add your own under any of them in <b>Tags</b>.</li>' +
   '<li>Then file it to the <b>Cabinet</b>. To tag several notes at once, tick their checkboxes and choose <b>Tags…</b> While notes are ticked, the single-note buttons are greyed out so changes go to all of them.</li></ul>' +
@@ -679,10 +679,10 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li>Download photos and videos as the original files; on a phone, <b>Save to phone</b> puts them in your camera roll.</li></ul>' +
   '<h2>7. Receipts</h2><ul><li>Give each receipt a <b>Job</b> and an <b>Expense category</b>. <b>Receipts</b> shows them by job and category, billed or not, and prints a clean report.</li></ul>' +
   '<h2>8. Get help from AI</h2><ul><li>Tick the notes you want help with (or open one) and choose <b>Export for AI</b>. You get one file (or text to paste) that Claude, ChatGPT or Gemini can read.</li></ul>' +
-  '<p>Your notes are Google Docs in the <b>ArNotes</b> folder of your Google Drive, and a backup is made every day. See this guide again any time under <b>Settings → Getting started</b>.</p>';
+  '<p>Your notes are Google Docs in the <b>ArNotes</b> folder of your Google Drive, and a backup is made every day. See this guide again any time under <b>Settings → Help & backup → Getting started</b>.</p>';
 var RELEASES_DEFAULT_ = ['Next release',
   '- What\'s new: after each update, ArNotes shows you what changed, once (like this).',
-  '- Getting started: a short guide to ArNotes, under Settings → Getting started.',
+  '- Getting started: a short guide to ArNotes, under Settings → Help & backup → Getting started.',
   '- Getting started explains wrangling what you already keep in Google Drive: leave it there and tag it in ArNotes.',
   '- Export for AI: tick some notes and choose Export for AI to get one file that Claude, ChatGPT or Gemini can read, so an AI can help with them.', '',
   'Release 7 · Oct 26, 2026', '- Your ArNotes tells its owner which kinds of device it is used on (for example iPhone or Windows), so setup help can be pointed at the right phone. Nothing else about your devices is shared.', '',

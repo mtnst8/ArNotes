@@ -306,6 +306,7 @@ nav button svg{display:none}
 .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--mute);text-align:center;padding:18px 6px}
 .pick{max-height:50vh;overflow:auto}
 iframe.editor{height:calc(100vh - 70px);min-height:420px}
+.sgrp{border:1px solid var(--line);border-radius:10px;background:var(--card);margin:0 0 10px}.sgrp>summary{cursor:pointer;list-style:none;padding:12px 14px;display:flex;flex-direction:column;gap:2px}.sgrp>summary::-webkit-details-marker{display:none}.sgrp>summary b{font-size:15px}.sgrp>summary b::before{content:'▸ ';color:var(--mute)}.sgrp[open]>summary b::before{content:'▾ '}.sgrp>summary span{font-size:12px;color:var(--mute)}.sbody{padding:0 14px 12px}.sh3{margin:14px 0 4px;font-size:14px}.sbody>.sh3:first-child{margin-top:4px}
 .sdto{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--card)}.sdto input{flex:1;min-width:160px;border:0;outline:0;background:transparent;color:inherit;font:inherit;padding:4px}.sdto .chip{background:var(--acc2);color:var(--ink);border:1px solid var(--acc);border-radius:12px;padding:2px 8px;font-size:13px}.sdto .chip b{cursor:pointer;margin-left:2px}.sdsug{border-radius:8px;overflow:hidden}.sdi{padding:6px 10px;cursor:pointer;font-size:14px}.sdi.on,.sdi:hover{background:var(--card)}
 .split .pcol iframe.pvedit{height:calc(100vh - 230px)}
 .reader{width:100%;height:75vh;border:1px solid var(--line);border-radius:10px;background:#fff}
@@ -1098,7 +1099,7 @@ function linkExplain(r){
     :'<p><b>You linked '+files+' file'+(files===1?'':'s')+'.</b> '+(files===1?'It is':'They are')+' now in your Inbox as notes, tagged with the Google account they belong to.</p>';
   modal('What linking does','','<div class="guide">'+what+
     '<p><b>Nothing is copied or moved.</b> The files stay where they are in Google Drive; ArNotes only keeps a note that points to each one, with your tags. Removing a linked note never deletes the file.</p>'+
-    '<p>Manage linked folders under <b>Settings → Linked Drive folders</b>, and the account tags under <b>Settings → Google accounts</b>.</p></div>'+
+    '<p>Manage linked folders under <b>Settings → Getting things in → Linked Drive folders</b>, and the account tags under <b>Settings → Getting things in → Google accounts</b>.</p></div>'+
     '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="lxNo"> Don\'t show this again</label>',
     '<span class="grow"></span><button class="btn primary" id="lxOk">Got it</button>');
   $('#lxOk').onclick=function(){if($('#lxNo').checked){try{localStorage.setItem(k,'1')}catch(e){}}closeModal()};
@@ -1300,7 +1301,7 @@ function downloadNotes(ids){
 /* ---------- help text kept by Brian as notes (read from his ArNotes; public how-to) ---------- */
 function adminDoc(kind){return invCall({inv:'doc',kind:kind})}
 function showGuide(first){
-  modal(first?'Welcome to ArNotes':'Getting started',first?'A two-minute tour. You can open it again any time under Settings → Getting started.':'','<div class="guide" id="gdw"><p class="muted">Loading…</p></div>','<span class="grow"></span><button class="btn primary" id="gdC">'+(first?'Let\'s go':'Close')+'</button>');
+  modal(first?'Welcome to ArNotes':'Getting started',first?'A two-minute tour. You can open it again any time under Settings → Help & backup → Getting started.':'','<div class="guide" id="gdw"><p class="muted">Loading…</p></div>','<span class="grow"></span><button class="btn primary" id="gdC">'+(first?'Let\'s go':'Close')+'</button>');
   $('#gdC').onclick=closeModal;
   adminDoc('guide').then(function(r){var w=$('#gdw');if(w)w.innerHTML=(r&&r.html)||'<p>Not available right now.</p>'}).catch(function(e){var w=$('#gdw');if(w)w.innerHTML='<p class="err">'+esc(e.message)+'</p>'});
 }
@@ -1836,51 +1837,66 @@ function quickAdd(q){
   }).catch(function(e){box('<h3 style="margin:0 0 8px">Couldn\'t save</h3><p>'+esc(e.message)+'</p><button onclick="location.reload()">Try again</button>')});
 }
 function viewSettings(){
-  $('#main').innerHTML='<div class="lhead"><h2>Settings</h2></div><div class="wg">'+
-    '<div class="setrow"><b>Account</b><span>'+esc(S.user||'?')+'</span></div>'+
-    '<div class="setrow"><b>Server</b><span class="mono">'+esc(CFG.api)+'</span></div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Add another device</h3>'+
-    '<p class="muted" style="margin:0 0 8px;font-size:13px">Open this pairing link on your phone or another computer (email it to yourself). Anyone with this link can open your notes — keep it private.</p>'+
-    '<div class="setrow"><button class="btn primary" id="cpPair">Copy pairing link</button>'+(navigator.share?'<button class="btn" id="shPair">Share…</button>':'')+'</div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Save to ArNotes button (computer)</h3><div class="muted" style="font-size:13px">'+
+  var H=function(t){return '<h3 class="sh3">'+t+'</h3>'}, L=function(id){return '<div id="'+id+'" class="muted" style="font-size:13px">Loading…</div>'};
+  var own=!!(S.lic&&S.lic.owner);
+  var G=[
+    {k:'in',t:'Getting things in',sub:'Email to ArNotes · Save to ArNotes button · Linked Drive folders · Google accounts',
+      html:H('Email to ArNotes')+L('mset')+
+    '<h3 class="sh3">Save to ArNotes button (computer)</h3><div class="muted" style="font-size:13px">'+
       '<p style="margin:0 0 8px">One click saves the page you\'re on as a note, with its title, description and picture. Select some text on the page first and it\'s saved with it.</p>'+
       '<div class="setrow"><a class="btn primary" id="bmBtn" href="'+esc(bookmarklet())+'" title="Drag me to your bookmarks bar" onclick="toast(\'Drag this button up to your bookmarks bar\');return false">📌 Save to ArNotes</a><span>← drag this to your bookmarks bar</span></div>'+
       '<p style="margin:6px 0 0">No bookmarks bar? Press <b>Ctrl+Shift+B</b> (Mac: <b>⌘+Shift+B</b>) to show it. Do this once in each Chrome profile you use.</p></div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Email to ArNotes</h3><div id="mset" class="muted" style="font-size:13px">Loading…</div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Receipts</h3><div id="rcpt" class="muted" style="font-size:13px">Loading…</div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Photo places</h3><div id="plset" class="muted" style="font-size:13px">Loading…</div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Backup</h3><div id="bkset" class="muted" style="font-size:13px">Loading…</div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Getting started</h3><div class="muted" style="font-size:13px"><div class="setrow"><button class="btn small" id="gdOpen">Open the guide</button><span>A short tour of ArNotes.</span></div></div>'+
-    (S.lic&&S.lic.owner?'<h3 style="margin:16px 0 4px;font-size:15px">Users</h3><div id="ppl" class="muted" style="font-size:13px">Loading…</div>':'<h3 style="margin:16px 0 4px;font-size:15px">Updates</h3><div id="upd" class="muted" style="font-size:13px">Loading…</div>')+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Shared links</h3><div id="sset" class="muted" style="font-size:13px">Loading…</div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Google accounts</h3><div id="acct" class="muted" style="font-size:13px">Loading…</div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">Linked Drive folders</h3><div id="lfold" class="muted" style="font-size:13px">Loading…</div>'+
-    '<h3 style="margin:16px 0 4px;font-size:15px">This device</h3>'+
-    '<div class="setrow"><button class="btn" id="reload">Reload notes</button><button class="btn danger" id="unpair">Unpair this device</button></div>'+
-    '<p class="muted" style="font-size:12px;margin-top:14px">ArNotes · your notes stay in your own Google Drive.</p></div>';
-  $('#cpPair').onclick=function(){var l=pairLink();(navigator.clipboard?navigator.clipboard.writeText(l):Promise.reject()).then(function(){toast('Pairing link copied')}).catch(function(){prompt('Copy this link:',l)})};
-  if($('#shPair')) $('#shPair').onclick=function(){navigator.share({title:'ArNotes pairing link',text:pairLink()}).catch(function(){})};
-  drawMailSet(); drawPlaceSet(); drawBackupSet(); if(S.lic&&S.lic.owner) drawPeople(); else drawUpdates();
-  if($('#gdOpen')) $('#gdOpen').onclick=function(){showGuide(false)};
+        H('Linked Drive folders')+L('lfold')+H('Google accounts')+L('acct'),
+      load:function(){drawMailSet();
   call('api_linkedFolders').then(function(fs){var el=$('#lfold');if(!el)return;
     el.innerHTML=fs.length?fs.map(function(f){return '<div class="setrow"><span>📁 '+esc(f.name)+'</span><button class="btn small" data-uw="'+esc(f.id)+'">Stop syncing</button></div>'}).join('')+
       '<p style="margin:4px 0 0">New files in these folders are added to the Cabinet every 15 minutes. Stopping keeps the notes already made.</p>':'None yet. Link a folder from Inbox → 🔗 Link Drive files.';
     $$('#lfold [data-uw]').forEach(function(b){b.onclick=function(){call('api_unwatchFolder',b.dataset.uw).then(function(){toast('Folder no longer syncs');viewSettings()})}});}).catch(function(){});
-  function drawShares(){call('api_shares').then(function(all){var el=$('#sset');if(!el)return;
-    el.innerHTML=(all.length?shareRows(all,true):'<p style="margin:4px 0">None yet. Open a tag and choose <b>Share…</b> to give someone a read-only link to its notes.</p>');
-    bindShareRows('#sset',all,drawShares)}).catch(function(){})}
-  drawShares();
-  drawRcSet();
   call('api_accounts').then(function(ac){var el=$('#acct');if(!el)return;
     el.innerHTML=(ac.length?ac.map(function(a){return '<div class="acrow"><span class="mono">'+esc(a.email)+'</span>'+
       (a.tag?'<button class="chip" data-at="'+esc(a.tag)+'">'+esc(a.tag)+'</button><span>'+a.count+' linked</span><button class="btn small" data-ar="'+esc(a.tag)+'">Rename tag</button>':'<span>not tagged (tag was deleted)</span>')+'</div>'}).join(''):'')+
-      '<p style="margin:6px 0 0">Linked Drive files are tagged with the Google account that owns them, under <b>Accounts</b>. To bring in files from another account (like a work account), share its folders with <b>'+esc(S.user||'this account')+'</b> from that account, then link them here from Inbox → 🔗 Link Drive files → Shared with me.</p>';
+      '<p style="margin:6px 0 0">Linked Drive files are tagged with the Google account that owns them, under <b>Google Drive Accounts</b>. To bring in files from another account (like a work account), share its folders with <b>'+esc(S.user||'this account')+'</b> from that account, then link them here from Inbox → 🔗 Link Drive files → Shared with me.</p>';
     $$('#acct [data-at]').forEach(function(b){b.onclick=function(){showTag(b.dataset.at)}});
     $$('#acct [data-ar]').forEach(function(b){b.onclick=function(){tagDialog('rename',b.dataset.ar)}});
     load(true).catch(function(){});
   }).catch(function(){});
+      }},
+    {k:'rp',t:'Receipts & photos',sub:'Receipt details and categories · Photo places',html:H('Receipts')+L('rcpt')+H('Photo places')+L('plset'),load:function(){drawRcSet();drawPlaceSet()}},
+    {k:'dev',t:'Devices',sub:'Add another device (pairing link) · This device · Account',
+      html:'<div class="setrow"><b>Account</b><span>'+esc(S.user||'?')+'</span></div><div class="setrow"><b>Server</b><span class="mono">'+esc(CFG.api)+'</span></div>'+
+        H('Add another device')+'<p class="muted" style="margin:0 0 8px;font-size:13px">Open this pairing link on your phone or another computer (email it to yourself). Anyone with this link can open your notes — keep it private.</p>'+
+        '<div class="setrow"><button class="btn primary" id="cpPair">Copy pairing link</button>'+(navigator.share?'<button class="btn" id="shPair">Share…</button>':'')+'</div>'+
+        H('This device')+'<div class="setrow"><button class="btn" id="reload">Reload notes</button><button class="btn danger" id="unpair">Unpair this device</button></div>',
+      load:function(){
+  $('#cpPair').onclick=function(){var l=pairLink();(navigator.clipboard?navigator.clipboard.writeText(l):Promise.reject()).then(function(){toast('Pairing link copied')}).catch(function(){prompt('Copy this link:',l)})};
+  if($('#shPair')) $('#shPair').onclick=function(){navigator.share({title:'ArNotes pairing link',text:pairLink()}).catch(function(){})};
   $('#reload').onclick=function(){load().then(function(){toast('Notes reloaded');go('home')})};
   $('#unpair').onclick=function(){var b=this;if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tap again to unpair';return}saveCfg(null);try{Object.keys(localStorage).forEach(function(k){if(/^arnote\.nv/.test(k))localStorage.removeItem(k)})}catch(e){}location.hash='';location.reload()};
+      }},
+    {k:'sh',t:'Sharing & people',sub:(own?'Users and releases':'Updates')+' · Shared links',
+      html:(own?H('Users')+L('ppl'):H('Updates')+L('upd'))+H('Shared links')+L('sset'),
+      load:function(){if(own)drawPeople();else drawUpdates();
+  function drawShares(){call('api_shares').then(function(all){var el=$('#sset');if(!el)return;
+    el.innerHTML=(all.length?shareRows(all,true):'<p style="margin:4px 0">None yet. Open a tag and choose <b>Share…</b> to give someone a read-only link to its notes.</p>');
+    bindShareRows('#sset',all,drawShares)}).catch(function(){})}
+  drawShares();
+  drawShares();}},
+    {k:'help',t:'Help & backup',sub:'Getting started guide · Daily backup',
+      html:H('Getting started')+'<div class="muted" style="font-size:13px"><div class="setrow"><button class="btn small" id="gdOpen">Open the guide</button><span>A short tour of ArNotes.</span></div></div>'+H('Backup')+L('bkset'),
+      load:function(){$('#gdOpen').onclick=function(){showGuide(false)};drawBackupSet()}}
+  ];
+  var open={};try{open=JSON.parse(localStorage.getItem('arnote.setOpen')||'{}')}catch(e){}
+  if(S.setOpen){open={};open[S.setOpen]=1;S.setOpen=null}
+  $('#main').innerHTML='<div class="lhead"><h2>Settings</h2><span class="grow"></span><input id="setQ" class="field" placeholder="Find a setting…" autocomplete="off" style="max-width:220px"></div><div class="wg sgrps">'+
+    G.map(function(g){return '<details class="sgrp" data-k="'+g.k+'"'+(open[g.k]?' open':'')+'><summary><b>'+esc(g.t)+'</b><span>'+esc(g.sub)+'</span></summary><div class="sbody">'+g.html+'</div></details>'}).join('')+
+    '<p class="muted" style="font-size:12px;margin-top:14px">ArNotes · your notes stay in your own Google Drive.</p></div>';
+  var loaded={};
+  function ld(g){if(loaded[g.k])return;loaded[g.k]=1;try{g.load()}catch(e){}}
+  $$('#main details.sgrp').forEach(function(d){var g=G.filter(function(x){return x.k===d.dataset.k})[0];if(d.open)ld(g);
+    d.addEventListener('toggle',function(){if(d.open)ld(g);if(!$('#setQ').value){open[g.k]=d.open?1:0;try{localStorage.setItem('arnote.setOpen',JSON.stringify(open))}catch(e){}}})});
+  $('#setQ').oninput=function(){var q=this.value.trim().toLowerCase();
+    $$('#main details.sgrp').forEach(function(d){var hit=!q||d.textContent.toLowerCase().indexOf(q)>=0;d.style.display=hit?'':'none';
+      if(q&&hit&&!d.open)d.open=true; if(!q)d.open=!!open[d.dataset.k]})};
 }
 
 /* ---------- Receipts: one clean report over the receipts that were read from photos ---------- */
@@ -1925,7 +1941,7 @@ function rcDraw(){
   if(nSel){var selRows=d.rows.filter(function(r){return S.rcSel[r.noteId]});
     h+='<div class="rcselbar"><b>'+nSel+' selected</b><span class="muted">'+money(sum(selRows,'total'))+'</span><button class="btn small primary" id="rcBill">✓ Mark billed</button><button class="btn small" id="rcUnbill">Mark not billed</button><button class="btn small" id="rcSelX">Clear</button></div>'}
   h+='<div class="rcsum"><b>'+rows.length+'</b> receipt'+(rows.length===1?'':'s')+' · Total <b>'+money(sum(rows,'total'))+'</b> · Tax <b>'+money(sum(rows,'tax'))+'</b> <span class="muted" style="font-size:12px;margin-left:8px">Tap a receipt to fix anything on it</span></div>';
-  if(!cols.length) h+='<p class="muted" style="font-size:13px;margin:0 0 8px">Tip: add report columns like Job and Category in <a href="#" id="rcSet">Settings → Receipts</a> — they come from your tags.</p>';
+  if(!cols.length) h+='<p class="muted" style="font-size:13px;margin:0 0 8px">Tip: add report columns like Job and Category in <a href="#" id="rcSet">Settings → Receipts & photos → Receipts</a> — they come from your tags.</p>';
   // the table
   var ncol=5+cols.length;
   var row=function(r){var warn=r.check?'<span class="rcw" title="Vendor, date or total missing">⚠</span>':'';
@@ -1970,7 +1986,7 @@ function rcDraw(){
   $('#rcGrp').onchange=function(){RC.grp=this.value;redo()};
   $$('#rcBody [data-rcf]').forEach(function(s){s.onchange=function(){RC.f[s.dataset.rcf]=s.value;redo()}});
   var qt;$('#rcQ').oninput=function(){var v=this.value;clearTimeout(qt);qt=setTimeout(function(){RC.q=v;rcSave();rcDraw();var x=$('#rcQ');if(x){x.focus();x.setSelectionRange(v.length,v.length)}},300)};
-  if($('#rcSet'))$('#rcSet').onclick=function(e){e.preventDefault();go('settings')};
+  if($('#rcSet'))$('#rcSet').onclick=function(e){e.preventDefault();S.setOpen='rp';go('settings')};
   $$('#rcBody tr[data-n]').forEach(function(tr){tr.onclick=function(){rcDetails(tr.dataset.n)}});
   var title=(crumb.length?crumb.map(function(c){return c[1]==='__none'?'No '+cols[c[0]].name:c[1]}).join(' › ')+' — ':'')+'Receipts '+(rg[0]||'')+(rg[1]?' to '+rg[1]:'');
   $('#rcCsv').onclick=function(){
@@ -2052,7 +2068,7 @@ function rcDetails(noteId){
       tagP.then(function(){return billCh?call('api_receiptBilled',[noteId],bill):0}).then(function(){return call('api_receiptUpdate',noteId,f)}).then(function(){closeModal();toast('Receipt saved');return call('api_receipts')}).then(function(d2){S.rcData=d2;if(S.view==='receipts')rcDraw()}).catch(function(){b.disabled=false})};
   }).catch(function(){});
 }
-/** Settings → Receipts: report columns (any parent tags) and card names. */
+/** Settings → Receipts & photos → Receipts: report columns (any parent tags) and card names. */
 function drawRcSet(){
   call('api_receipts').then(function(d){var el=$('#rcpt');if(!el)return;S.rcData=d;
     var y=String(new Date().getFullYear()),ty=d.rows.filter(function(r){return r.date.slice(0,4)===y});
@@ -2153,7 +2169,7 @@ function drawBackupSet(){
         '<span class="grow"></span><button class="btn" id="bkX">Cancel</button><button class="btn danger" id="bkGo">Restore</button>');
       $('#bkX').onclick=closeModal;
       $('#bkGo').onclick=function(){var g=this;g.disabled=true;g.textContent='Restoring…';
-        call('api_backupRestore',id).then(function(r){closeModal();toast('Restored '+nm+' — safety copy: '+r.safety);return load(true)}).then(function(){go('settings')}).catch(function(e){toast(e.message);g.disabled=false;g.textContent='Restore'})}}});
+        call('api_backupRestore',id).then(function(r){closeModal();toast('Restored '+nm+' — safety copy: '+r.safety);return load(true)}).then(function(){S.setOpen='help';go('settings')}).catch(function(e){toast(e.message);g.disabled=false;g.textContent='Restore'})}}});
   }).catch(function(e){var el=$('#bkset');if(el)el.textContent='Not available yet ('+e.message+').'});
 }
 /* ---------- photo places settings ---------- */
@@ -2320,7 +2336,7 @@ function phSavePlace(lat,lng,town){
   modal('Save as a place','Photos taken inside the circle show up under this name in Photos → By place. Only the places you save are listed — towns are grouped for you automatically.',
     '<label class="muted" style="font-size:13px">Name</label><input class="field" id="spN" placeholder="e.g. Home, Camp, Smith job" autocomplete="off" value="">'+
     '<p class="muted" style="font-size:13px;margin:12px 0 4px">How big is it?</p>'+PLACE_SIZES.map(function(s){return '<label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin:6px 0;font-size:14px"><input type="radio" name="spR" value="'+s[0]+'"'+(s[0]===1000?' checked':'')+' style="margin:0;flex:none"><span><b>'+s[1]+'</b> <span class="muted">'+esc(s[2])+'</span></span></label>'}).join('')+
-    (town?'<p class="muted" style="font-size:12px;margin:8px 0 0">Near '+esc(town)+'. You can change the size later in Settings → Places.</p>':''),
+    (town?'<p class="muted" style="font-size:12px;margin:8px 0 0">Near '+esc(town)+'. You can change the size later in Settings → Receipts & photos → Photo places.</p>':''),
     '<span class="grow"></span><button class="btn" id="spC">Cancel</button><button class="btn primary" id="spS">Save</button>');
   setTimeout(function(){var x=$('#spN');if(x)x.focus()},30);
   $('#spC').onclick=closeModal;
@@ -2398,7 +2414,7 @@ function phTop(){
       }
       el.innerHTML=crumbs+body;
       $$('#phPl [data-pl]').forEach(function(b){b.onclick=function(){P.pl=JSON.parse(b.dataset.pl);viewPhotos();window.scrollTo(0,0)}});
-      if($('#plMng')) $('#plMng').onclick=function(){go('settings');setTimeout(function(){var x=$('#plset');if(x)x.scrollIntoView({block:'start'})},300)};
+      if($('#plMng')) $('#plMng').onclick=function(){S.setOpen='rp';go('settings');setTimeout(function(){var x=$('#plset');if(x)x.scrollIntoView({block:'start'})},300)};
     }).catch(function(){var el=$('#phPl');if(el)el.innerHTML='<p class="muted">Places aren\'t ready yet.</p>'});
   } else if(P.tab==='folder'){
     var fc=st.folders||{}, pre=P.folder?P.folder+'/':'', sub={};
@@ -2842,7 +2858,7 @@ function showInvite(tok){
       '<li>When it says ArNotes is set up: <b>Extensions → Apps Script</b>, then <b>Deploy</b> (blue button, top right) <b>→ New deployment →</b> the gear ⚙ <b>→ Web app</b>. Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, click <b>Deploy</b>, allow the permissions, then click <b>Copy</b> under <i>Web app URL</i>. ("Anyone" only lets your phone reach your ArNotes; it still needs your private pairing link.)</li>'+
       '<li>Back in the spreadsheet: <b>ArNotes → Open the app</b>, paste the address, and click <b>Get my pairing link</b>. Click <b>Open ArNotes here</b> to start, and <b>email the pairing link to yourself</b> for your phone. Keep it private: it\'s the key to your notes.</li></ol>';
     var ph2=phone==='ios'?'<p style="margin:0 0 6px">Open the pairing link from your email in <b>Safari</b> (or Chrome), tap <b>Share</b> (the square with the arrow) <b>→ Add to Home Screen</b>. ArNotes is now an app on your phone.</p>'+
-        '<p style="margin:0">To send photos from your gallery or a text: iPhone doesn\'t let web apps appear in the Share menu, so tap <b>Share → Mail</b> and send them to your ArNotes email address. You\'ll find it in ArNotes under <b>Settings → Email to ArNotes</b>; if your phone sends from a different address, allow that address there too. Or open ArNotes and add photos from there.</p>'
+        '<p style="margin:0">To send photos from your gallery or a text: iPhone doesn\'t let web apps appear in the Share menu, so tap <b>Share → Mail</b> and send them to your ArNotes email address. You\'ll find it in ArNotes under <b>Settings → Getting things in → Email to ArNotes</b>; if your phone sends from a different address, allow that address there too. Or open ArNotes and add photos from there.</p>'
       :phone==='android'?'<p style="margin:0 0 6px">Open the pairing link from your email in <b>Chrome</b>, tap the <b>⋮</b> menu <b>→ Install app</b> (or <b>Add to Home screen</b>). ArNotes is now an app on your phone.</p>'+
         '<p style="margin:0">Then in your gallery or a text, tap <b>Share → ArNotes</b> to send photos straight in.</p>'
       :'<p style="margin:0">Use the pairing link on any computer or tablet. If you get a smartphone later, come back to this page.</p>';

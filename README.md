@@ -13,17 +13,17 @@ Simple notes that live in **your own Google Drive**: each note is a Google Doc, 
    - **iPhone (Safari):** Share → *Add to Home Screen*.
    - **Computer (Chrome/Edge):** the install icon in the address bar.
 
-To add another device, open **Settings → Copy pairing link** in ArNotes and open that link on the new device. Anyone with the pairing link can open your notes, so keep it private. To cut off every device, run `apiRotateKey` in your server's script editor and pair again.
+To add another device, open **Settings → Devices → Copy pairing link** in ArNotes and open that link on the new device. Anyone with the pairing link can open your notes, so keep it private. To cut off every device, run `apiRotateKey` in your server's script editor and pair again.
 
 ### Saving web pages and bookmarks
 
 - **Android phone:** in Chrome open the page, then ⋮ → **Share → ArNotes**.
-- **Computer:** in ArNotes open **Settings → Save to ArNotes button** and drag the **📌 Save to ArNotes** button to your bookmarks bar (Ctrl+Shift+B shows the bar; do it once per Chrome profile). Click it on any page to save it; select text first to keep it with the page.
+- **Computer:** in ArNotes open **Settings → Getting things in → Save to ArNotes button** and drag the **📌 Save to ArNotes** button to your bookmarks bar (Ctrl+Shift+B shows the bar; do it once per Chrome profile). Click it on any page to save it; select text first to keep it with the page.
 - **Anywhere:** email the link to your ArNotes address.
 
 A note that is just a link gets the page's title, a short description and its picture. Some big store sites block this; those notes are named after the address.
 
-The full how-to for users is the **Getting started** guide inside the app (Settings → Getting started).
+The full how-to for users is the **Getting started** guide inside the app (Settings → Help & backup → Getting started).
 
 ## Set up your own ArNotes
 
@@ -35,7 +35,7 @@ Each person runs their own small, free "server" in their own Google account, so 
 4. Run **`installDropTrigger`**. This creates `ArNotes/Drop`, where any file you put becomes an Inbox note within 15 minutes.
 5. Run **`apiSetup`**. The log shows your **private key**.
 6. **Deploy → New deployment → Web app**, with *Execute as: Me* and *Who has access: Anyone*. Copy the **Web app URL**.
-7. Open the app, choose **Or enter server address and key**, and paste the URL and key. Then use **Settings → Copy pairing link** to set up your other devices.
+7. Open the app, choose **Or enter server address and key**, and paste the URL and key. Then use **Settings → Devices → Copy pairing link** to set up your other devices.
 
 "Who has access: Anyone" only lets the app reach your server. Every request must carry your private key, and anything without it is refused.
 
@@ -49,13 +49,13 @@ Keep files where they are in Drive and still have them in ArNotes:
 
 - **Inbox → 🔗 Link Drive files**: browse My Drive or Shared with me (or search by name), tick files or folders, or paste links.
 - Or in Drive (or the Drive phone app): **Organize → Add shortcut → ArNotes › Link**. They show up within 15 minutes.
-- A linked **folder** puts every file in it (and its sub-folders) in the Cabinet, tagged with the folder's name. New files are added on each check; stop it in **Settings → Linked Drive folders**.
+- A linked **folder** puts every file in it (and its sub-folders) in the Cabinet, tagged with the folder's name. New files are added on each check; stop it in **Settings → Getting things in → Linked Drive folders**.
 
 ArNotes never renames, edits, stars or deletes a linked file. "Remove link" only removes the note.
 
 ## Other Google accounts
 
-Linked files are tagged with the Google account that owns them (for example `@brian-mountainstatebrewing`), under the tag **Accounts**. To bring in files from a second account, such as a work account, share its folders from that account with the Google account your ArNotes runs in. Then link them from **🔗 Link Drive files → Shared with me**. Rename account tags like any other tag. **Settings → Google accounts** lists them.
+Linked files are tagged with the Google account that owns them (for example `@brian-mountainstatebrewing`), under the tag **Accounts**. To bring in files from a second account, such as a work account, share its folders from that account with the Google account your ArNotes runs in. Then link them from **🔗 Link Drive files → Shared with me**. Rename account tags like any other tag. **Settings → Getting things in → Google accounts** lists them.
 
 ## Sharing a tag with other people
 
@@ -63,7 +63,7 @@ Open a tag and choose **Share…** (or ⋯ → Share… on the Tags page). Type 
 
 - People with the link see that tag's notes, including sub-tags, read-only. They can search, read, print and download attachments. They don't need a Google account or their own ArNotes.
 - Notes you add to the tag later show up for them automatically.
-- Give each person or group their own link, so you can **Switch off** or delete one without affecting the others. **Settings → Shared links** lists them all.
+- Give each person or group their own link, so you can **Switch off** or delete one without affecting the others. **Settings → Sharing & people → Shared links** lists them all.
 - Renaming the tag keeps its links working. Deleting the tag switches its links off.
 - A share link only reaches the notes in that tag. It can't change anything or see the rest of your notes.
 
