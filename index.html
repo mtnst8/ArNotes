@@ -452,15 +452,21 @@ function fillReader(frame,id,fresh){
     if(G||PHFIX[id]||!v||!/(📎|&#128206;|&#x1f4ce;)[^<]{0,200}?\.(jpe?g|png|gif|heic|heif|webp|tiff?|bmp)\b/i.test(String(v.html||'')))return;
     PHFIX[id]=1;call('api_inlinePhotos',id).then(function(n){if(n>0)return nvFetch(id).then(function(v2){if(frame.isConnected)put(v2)})}).catch(function(){});
   }
+  function fixLink(v){     // older notes that are only a web link: add the page's preview once, then show it
+    if(G||LKFIX[id]||!v||v.link||/<img/i.test(String(v.html||'')))return;
+    var t=document.createElement('div');t.innerHTML=String(v.html||'').replace(/<style[\s\S]*?<\/style>/gi,'');var tx=t.textContent.replace(/\s+/g,' ').trim(),u=tx.match(/https?:\/\/\S+/g)||[];
+    if(u.length!==1||tx.replace(u[0],'').trim().length>300)return;
+    LKFIX[id]=1;call('api_linkCard',id).then(function(r){if(!r||!r.n)return;var x=S.byId[id];if(x&&r.title){x.title=r.title;var ti=$('#title');if(ti&&ti.dataset.id===id)ti.value=r.title;var pt=$('#pvTitle');if(pt&&S.pv===id)pt.value=r.title}return nvFetch(id).then(function(v2){if(frame.isConnected)put(v2)})}).catch(function(){});
+  }
   var c=nvGet(id);
-  if(c){ put(c); fixPhotos(c);
+  if(c){ put(c); fixPhotos(c); fixLink(c);
     // show the saved copy now; check for changes in the background (always when asked, otherwise if it's over 2 minutes old)
     if(fresh||Date.now()-(c._t||0)>120000) nvFetch(id).then(function(v){if(v.html!==c.html&&frame.isConnected)put(v)}).catch(function(){});
     return Promise.resolve(c);
   }
-  return nvFetch(id).then(function(v){if(frame.isConnected)put(v);fixPhotos(v);return v});
+  return nvFetch(id).then(function(v){if(frame.isConnected)put(v);fixPhotos(v);fixLink(v);return v});
 }
-var PHFIX={};
+var PHFIX={},LKFIX={};
 /* ---------- linked PDFs: the real pages, drawn in the app (bytes come through ArNotes, so no Google sign-in needed) ---------- */
 var PDFC={};
 function pdfBytes(id){if(PDFC[id])return PDFC[id];

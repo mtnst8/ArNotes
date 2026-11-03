@@ -480,9 +480,11 @@ function api_createNote(title, text, tags) {
   doc.saveAndClose();
   DriveApp.getFileById(doc.getId()).moveTo(DriveApp.getFolderById(props_().getProperty('notesId')));
   var now = new Date(), id = Utilities.getUuid();
+  var url = '', info = null; try { url = soleUrl_(text); if (url) info = addLinkCard_(doc.getId(), url); } catch (e) {}   // just a link: add the page's preview
+  if (info && info.title && (soleUrl_(title) || /^(Untitled Note|Shared)$/i.test(title))) { title = info.title.slice(0, 120); try { DriveApp.getFileById(doc.getId()).setName(title); } catch (e) {} }
   var n = { id: id, title: title, notebook: 'Inbox', tags: tags.join(TAG_SEP), created: now, updated: now, docId: doc.getId(), starred: false, source: 'arenote', sourceUrl: '', author: '', attachments: 0 };
   ss_().getSheetByName('Notes').appendRow(noteToRow_(n));
-  return { id: id, docId: doc.getId() };
+  return { id: id, docId: doc.getId(), title: title };
 }
 
 function api_trashNote(id) {

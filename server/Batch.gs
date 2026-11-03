@@ -1444,6 +1444,9 @@ function noteFromMail_(m, th) {
     atts.forEach(function (a) { var f = attFolder.createFile(a.copyBlob().setName(a.getName() || 'attachment')); files.push(f); appendFileToBody_(b, f); });
     doc.saveAndClose();
   }
+  try {                                                         // an email that is just a link: add the page's preview, and its title if the subject was empty
+    var lu = soleUrl_(m.getPlainBody()); if (lu && !files.length) { var li = addLinkCard_(docId, lu); if (li && li.title && (st.title === 'Email' || soleUrl_(st.title))) { st.title = li.title.slice(0, 120); DriveApp.getFileById(docId).setName(st.title); } }
+  } catch (e) { Logger.log('Mail link preview: ' + e); }
   var rc = null; try { rc = mailReceipt_(m, files, docId); } catch (e) { Logger.log('Mail receipt: ' + e); }
   if (rc && st.tags.indexOf('Receipt') < 0) st.tags.push('Receipt');
   if (st.tags.length) ensureTags_(st.tags);
@@ -3132,4 +3135,75 @@ function api_contacts() {
   out = out.slice(0, 300).map(function (c) { return { email: c.email, name: c.name }; });
   try { cache.put('arnote_contacts', JSON.stringify(out), 21600); } catch (e) {}
   return out;
+}
+
+
+/* ---- Link notes: a note that is just a web link gets the page's title, description and preview picture ----
+ * Works for links shared from a phone, links emailed in, notes typed with only a link, and older such notes
+ * (they get their preview the first time they're opened). The link itself always stays in the note. */
+var URL_RE_ = /https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]]/g;
+/** The single link in a short bit of text (a shared page, an email that is just a link), else ''. */
+function soleUrl_(text) {
+  text = String(text || ''); var m = text.match(URL_RE_) || [];
+  var uniq = m.filter(function (u, i) { return m.indexOf(u) === i; });
+  if (uniq.length !== 1) return '';
+  return text.replace(URL_RE_, '').replace(/\s+/g, ' ').trim().length <= 300 ? uniq[0] : '';
+}
+/** Title, description, site name and picture of a web page (from its og:/twitter: tags or its <title>). */
+function linkInfo_(url) {
+  var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true,
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ArNotes link preview)', 'Accept': 'text/html,*/*;q=0.5' } });
+  if (r.getResponseCode() >= 400) return null;
+  var hd = r.getHeaders() || {}, ct = String(hd['Content-Type'] || hd['content-type'] || '');
+  if (ct && !/html/i.test(ct)) return null;
+  var html = r.getContentText().slice(0, 400000), head = (html.match(/<head[\s\S]*?<\/head>/i) || [html.slice(0, 120000)])[0];
+  function meta(k) {
+    var re = new RegExp('<meta[^>]+(?:property|name)=["\']' + k + '["\'][^>]*>', 'i'), t = head.match(re); if (!t) return '';
+    var c = t[0].match(/content=["']([^"']*)["']/i); return c ? decode_(c[1]) : '';
+  }
+  var title = meta('og:title') || meta('twitter:title') || decode_(((head.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [, ''])[1]));
+  var img = meta('og:image') || meta('og:image:url') || meta('twitter:image');
+  if (img && !/^https?:/i.test(img)) img = img.indexOf('//') === 0 ? 'https:' + img : url.replace(/^(https?:\/\/[^\/]+).*$/, '$1') + (img[0] === '/' ? '' : '/') + img;
+  return { url: url, title: title.replace(/\s+/g, ' ').trim().slice(0, 200), desc: (meta('og:description') || meta('description') || meta('twitter:description')).replace(/\s+/g, ' ').trim().slice(0, 500),
+    site: meta('og:site_name') || url.replace(/^https?:\/\/(www\.)?([^\/]+).*$/, '$2'), image: img };
+}
+function decode_(s) {
+  return String(s || '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, function (m, n) { return String.fromCharCode(+n); }).replace(/&#x([0-9a-f]+);/gi, function (m, n) { return String.fromCharCode(parseInt(n, 16)); });
+}
+/** Put the page's preview at the top of a note's Doc (under the Notebook line). Returns the page info, or null. */
+function addLinkCard_(docId, url) {
+  var info = null; try { info = linkInfo_(url); } catch (e) { Logger.log('Link preview ' + url + ': ' + e); }
+  if (!info || (!info.title && !info.desc && !info.image)) return null;
+  var doc = DocumentApp.openById(docId), b = doc.getBody(), at = 1;
+  var first = b.getChild(0); if (!(first.getType() === DocumentApp.ElementType.PARAGRAPH && /^Notebook:/.test(first.asParagraph().getText()))) at = 0;
+  if (info.image) {
+    try {
+      var ir = UrlFetchApp.fetch(info.image, { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ArNotes link preview)' } });
+      var blob = ir.getResponseCode() === 200 ? ir.getBlob() : null;
+      if (blob && /^image\/(jpeg|png|gif)/i.test(blob.getContentType() || '') && blob.getBytes().length < 4 * 1024 * 1024) { inlineImg_(b.insertParagraph(at, ''), blob, 420, 260); at++; }
+    } catch (e) {}
+  }
+  if (info.title) { var tp = b.insertParagraph(at++, info.title); tp.editAsText().setBold(true).setFontSize(13).setLinkUrl(info.url); }
+  if (info.desc) b.insertParagraph(at++, info.desc).editAsText().setBold(false).setFontSize(11).setLinkUrl(null);
+  var sp = b.insertParagraph(at++, '🔗 ' + info.site); sp.editAsText().setBold(false).setFontSize(10).setForegroundColor('#666666').setLinkUrl(null);
+  sp.editAsText().setLinkUrl(sp.getText().length - info.site.length, sp.getText().length - 1, info.url);
+  b.insertParagraph(at, '').editAsText().setBold(false).setFontSize(11).setForegroundColor('#000000').setLinkUrl(null);
+  doc.saveAndClose();
+  return info;
+}
+/** Older notes that are only a link: add the page preview once (the app asks when such a note is opened). */
+function api_linkCard(noteId) {
+  var p = props_(), done = []; try { done = JSON.parse(p.getProperty('linkCards') || '[]'); } catch (e) {}
+  if (done.indexOf(noteId) >= 0) return 0;
+  var n = readTable_('Notes').filter(function (x) { return x.id === noteId; })[0];
+  if (!n || n.source === 'link') return 0;
+  var doc; try { doc = DocumentApp.openById(n.docId); } catch (e) { return 0; }
+  var b = doc.getBody(), txt = b.getText().replace(/^Notebook:[^\n]*\n?/, ''), hasImg = b.getImages().length > 0; doc.saveAndClose();
+  done.push(noteId); p.setProperty('linkCards', JSON.stringify(done.slice(-400)));
+  var url = soleUrl_(txt); if (!url || hasImg) return 0;
+  var info = addLinkCard_(n.docId, url); if (!info) return 0;
+  var t = (info.title && (soleUrl_(n.title) || /^(Untitled Note|Shared|Email)$/i.test(String(n.title)))) ? info.title.slice(0, 120) : '';
+  api_updateNote(noteId, t ? { title: t } : {});
+  return { n: 1, title: t };
 }
