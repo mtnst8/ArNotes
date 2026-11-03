@@ -15,6 +15,16 @@ Simple notes that live in **your own Google Drive**: each note is a Google Doc, 
 
 To add another device, open **Settings → Copy pairing link** in ArNotes and open that link on the new device. Anyone with the pairing link can open your notes, so keep it private. To cut off every device, run `apiRotateKey` in your server's script editor and pair again.
 
+### Saving web pages and bookmarks
+
+- **Android phone:** in Chrome open the page, then ⋮ → **Share → ArNotes**.
+- **Computer:** in ArNotes open **Settings → Save to ArNotes button** and drag the **📌 Save to ArNotes** button to your bookmarks bar (Ctrl+Shift+B shows the bar; do it once per Chrome profile). Click it on any page to save it; select text first to keep it with the page.
+- **Anywhere:** email the link to your ArNotes address.
+
+A note that is just a link gets the page's title, a short description and its picture. Some big store sites block this; those notes are named after the address.
+
+The full how-to for users is the **Getting started** guide inside the app (Settings → Getting started).
+
 ## Set up your own ArNotes
 
 Each person runs their own small, free "server" in their own Google account, so nobody else can see your notes, including the person who made the app.
