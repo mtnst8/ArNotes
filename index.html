@@ -1813,6 +1813,28 @@ function viewNew(){
 
 /* ---------- settings ---------- */
 function pairLink(){return location.origin+location.pathname+'#pair='+btoa(CFG.api+'|'+CFG.key).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+/** The "Save to ArNotes" bookmarks-bar button: opens a small ArNotes window that saves the page you're on. */
+function bookmarklet(){
+  var app=location.origin+location.pathname;
+  return "javascript:(function(){var s=String(window.getSelection?getSelection():'').slice(0,4000);window.open('"+app+"?add='+encodeURIComponent(location.href)+'&t='+encodeURIComponent(document.title.slice(0,200))+'&s='+encodeURIComponent(s),'arnotesadd','width=440,height=360')})()";
+}
+/** Opened by that button: save the page as a note right away (no notes list needed), then close. */
+function quickAdd(q){
+  document.body.classList.add('unpaired');
+  var url=q.get('add'),title=(q.get('t')||'').trim(),sel=(q.get('s')||'').trim();
+  history.replaceState(null,'',location.pathname);
+  var box=function(h){document.body.innerHTML='<div style="font:15px/1.5 system-ui,sans-serif;padding:22px;max-width:400px;margin:auto">'+h+'</div>'};
+  box('<h3 style="margin:0 0 8px">Saving to ArNotes…</h3><p style="margin:0;opacity:.7;word-break:break-all">'+esc(title||url)+'</p>');
+  call('api_createNote',title,url,[]).then(function(r){
+    return (sel?call('api_addText',r.id,'Selected text:\n'+sel):Promise.resolve()).then(function(){return r});
+  }).then(function(r){
+    box('<h3 style="margin:0 0 8px">✓ Saved to your Inbox</h3><p style="margin:0 0 14px;opacity:.8">'+esc(r.title||title||url)+'</p>'+
+      '<button id="qaOpen" style="padding:8px 14px;margin-right:8px">Open ArNotes</button><button id="qaX" style="padding:8px 14px">Close</button>');
+    document.getElementById('qaX').onclick=function(){window.close()};
+    document.getElementById('qaOpen').onclick=function(){location.href=location.pathname};
+    setTimeout(function(){try{window.close()}catch(e){}},4000);
+  }).catch(function(e){box('<h3 style="margin:0 0 8px">Couldn\'t save</h3><p>'+esc(e.message)+'</p><button onclick="location.reload()">Try again</button>')});
+}
 function viewSettings(){
   $('#main').innerHTML='<div class="lhead"><h2>Settings</h2></div><div class="wg">'+
     '<div class="setrow"><b>Account</b><span>'+esc(S.user||'?')+'</span></div>'+
@@ -1820,6 +1842,10 @@ function viewSettings(){
     '<h3 style="margin:16px 0 4px;font-size:15px">Add another device</h3>'+
     '<p class="muted" style="margin:0 0 8px;font-size:13px">Open this pairing link on your phone or another computer (email it to yourself). Anyone with this link can open your notes — keep it private.</p>'+
     '<div class="setrow"><button class="btn primary" id="cpPair">Copy pairing link</button>'+(navigator.share?'<button class="btn" id="shPair">Share…</button>':'')+'</div>'+
+    '<h3 style="margin:16px 0 4px;font-size:15px">Save to ArNotes button (computer)</h3><div class="muted" style="font-size:13px">'+
+      '<p style="margin:0 0 8px">One click saves the page you\'re on as a note, with its title, description and picture. Select some text on the page first and it\'s saved with it.</p>'+
+      '<div class="setrow"><a class="btn primary" id="bmBtn" href="'+esc(bookmarklet())+'" title="Drag me to your bookmarks bar" onclick="toast(\'Drag this button up to your bookmarks bar\');return false">📌 Save to ArNotes</a><span>← drag this to your bookmarks bar</span></div>'+
+      '<p style="margin:6px 0 0">No bookmarks bar? Press <b>Ctrl+Shift+B</b> (Mac: <b>⌘+Shift+B</b>) to show it. Do this once in each Chrome profile you use.</p></div>'+
     '<h3 style="margin:16px 0 4px;font-size:15px">Email to ArNotes</h3><div id="mset" class="muted" style="font-size:13px">Loading…</div>'+
     '<h3 style="margin:16px 0 4px;font-size:15px">Receipts</h3><div id="rcpt" class="muted" style="font-size:13px">Loading…</div>'+
     '<h3 style="margin:16px 0 4px;font-size:15px">Photo places</h3><div id="plset" class="muted" style="font-size:13px">Loading…</div>'+
@@ -2766,6 +2792,7 @@ function tryPair(c){
 }
 function start(){
   document.body.classList.remove('unpaired');
+  var qa=new URLSearchParams(location.search); if(qa.get('add')){quickAdd(qa);return}   // the Save to ArNotes button
   var sharing=location.search.indexOf('share=1')>=0;
   $('#main').innerHTML='<div class="loading">'+(sharing?'Getting what you shared…':'Loading notes…')+'</div>';
   if(sharing) receiveShare();                                   // don't wait for the notes list: start on the shared things now
