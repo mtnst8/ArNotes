@@ -649,24 +649,36 @@ var STEPS_DEFAULT_HTML_ = '<p>Follow these once. Your notes and photos stay in y
   '<h2>No smartphone</h2><p>Use the pairing link on any computer or tablet. If you get a smartphone later, come back to this page.</p>';
 var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet: new things land in your <b>Inbox</b>, you give them a tag or two, and they go to the <b>Cabinet</b>, where you can always find them.</p>' +
   '<h2>1. Get things in</h2><ul>' +
-  '<li><b>Write a note:</b> tap <b>+ Note</b>.</li>' +
-  '<li><b>Photos and files:</b> in the Inbox, tap <b>+ Add files</b> (on a computer you can also drag files onto ArNotes). On Android, use <b>Share → ArNotes</b> from your gallery or a text.</li>' +
-  '<li><b>Email:</b> forward any email to your ArNotes address (<b>Settings → Email to ArNotes</b>). On iPhone this is also how to send photos from your gallery or a text: <b>Share → Mail</b>.</li>' +
-  '<li><b>Receipts and business cards:</b> photos of them are read and tagged for you, ready to check in the Inbox.</li></ul>' +
+  '<li><b>Write a note:</b> tap <b>+ Note</b>. A note that is just a web link gets the page\'s title, a short description and its picture.</li>' +
+  '<li><b>Photos and files:</b> in the Inbox, tap <b>+ Add files</b> (on a computer you can also drag files onto ArNotes). On Android, use <b>Share → ArNotes</b> from your gallery or a text, then choose <b>Make notes</b> (a note for each) or <b>Add to Photos</b> (your gallery).</li>' +
+  '<li><b>Web pages and bookmarks, from an Android phone:</b> in Chrome open the page, tap <b>⋮ → Share → ArNotes</b>. It lands in your Inbox with its title, description and picture.</li>' +
+  '<li><b>Web pages and bookmarks, from a computer:</b> once, go to <b>Settings → Save to ArNotes button</b> and drag the <b>📌 Save to ArNotes</b> button to your bookmarks bar (<b>Ctrl+Shift+B</b> shows the bar; do this in each Chrome profile you use). Then on any page click <b>Save to ArNotes</b>. Select some text on the page first and it\'s saved with it.</li>' +
+  '<li><b>Email:</b> forward any email to your ArNotes address (<b>Settings → Email to ArNotes</b>). An email that is just a link becomes a web-page note. On iPhone this is also how to send photos, texts and web pages: <b>Share → Mail</b>.</li>' +
+  '<li><b>Receipts and business cards:</b> photos of them are read and tagged for you, ready to check in the Inbox.</li>' +
+  '<li><b>Check for new</b> in the Inbox brings in new emails and Drive files right away; otherwise ArNotes checks every 15 minutes.</li></ul>' +
   '<h2>2. Wrangle what\'s already in Google Drive</h2><ul>' +
   '<li>Leave it where it is. In the Inbox choose <b>🔗 Link Drive files</b> and pick files or whole folders. ArNotes lists them with your notes without moving or copying anything.</li>' +
   '<li>Then wrangle them with tags, like any note, and drill down to them by tag instead of digging through folders.</li>' +
   '<li>New files that land in a linked folder show up in your Inbox to wrangle. Manage linked folders under <b>Settings → Linked Drive folders</b>.</li></ul>' +
   '<h2>3. Tag and file</h2><ul>' +
   '<li>Open a note in your <b>Inbox</b> and add tags. Tags are grouped under <b>Who</b>, <b>What</b>, <b>When</b> and <b>Where</b>; add your own under any of them in <b>Tags</b>.</li>' +
-  '<li>Then file it to the <b>Cabinet</b>. To tag several notes at once, tick their checkboxes and choose <b>Tags…</b></li></ul>' +
+  '<li>Then file it to the <b>Cabinet</b>. To tag several notes at once, tick their checkboxes and choose <b>Tags…</b> While notes are ticked, the single-note buttons are greyed out so changes go to all of them.</li></ul>' +
   '<h2>4. Find things</h2><ul>' +
   '<li><b>Search</b> (top left) looks through titles and text.</li>' +
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li></ul>' +
-  '<h2>5. Photos</h2><ul><li><b>Photos</b> is one gallery for all your pictures: browse by tag, or by place on the map.</li></ul>' +
-  '<h2>6. Receipts</h2><ul><li>Give each receipt a <b>Job</b> and an <b>Expense category</b>. <b>Receipts</b> shows them by job and category, billed or not, and prints a clean report.</li></ul>' +
-  '<h2>7. Get help from AI</h2><ul><li>Tick the notes you want help with and choose <b>Export for AI</b>. You get one file (or text to paste) that Claude, ChatGPT or Gemini can read.</li></ul>' +
+  '<h2>5. Edit, add to and share notes</h2><ul>' +
+  '<li><b>✏️ Edit:</b> in the Inbox preview or on the note page, opens the note for editing right in ArNotes (it is a Google Doc; changes save by themselves). Press <b>Done</b> when finished. On a phone, <b>Edit in Google Docs</b> opens the Docs app.</li>' +
+  '<li><b>＋ Add text:</b> type a few lines and they go at the end of the note, with no Google Docs needed. Handy on a phone, or to write under a photo.</li>' +
+  '<li><b>✉ Send:</b> emails one note, or several ticked notes, to anyone from your own Gmail. The text and pictures are in the email, with a PDF attached. Start typing a name to pick someone you have emailed.</li>' +
+  '<li><b>To text a note from your phone:</b> in the Send box choose <b>Share as PDF</b>, then pick Messages.</li>' +
+  '<li><b>🖨 Print</b> and <b>⇩ Download</b> (PDF) are on the note page and in the Inbox preview.</li></ul>' +
+  '<h2>6. Photos</h2><ul><li><b>Photos</b> is one gallery for all your pictures: browse by tag, or by place on the map.</li>' +
+  '<li><b>📝 Note with this photo</b> starts a note with the picture in it, ready to write about. Tick several photos for <b>Note with these photos</b>.</li>' +
+  '<li>A photo that was mistaken for a document? <b>📷 Just a photo</b> removes the note and puts the photo back in Photos.</li>' +
+  '<li>Download photos and videos as the original files; on a phone, <b>Save to phone</b> puts them in your camera roll.</li></ul>' +
+  '<h2>7. Receipts</h2><ul><li>Give each receipt a <b>Job</b> and an <b>Expense category</b>. <b>Receipts</b> shows them by job and category, billed or not, and prints a clean report.</li></ul>' +
+  '<h2>8. Get help from AI</h2><ul><li>Tick the notes you want help with (or open one) and choose <b>Export for AI</b>. You get one file (or text to paste) that Claude, ChatGPT or Gemini can read.</li></ul>' +
   '<p>Your notes are Google Docs in the <b>ArNotes</b> folder of your Google Drive, and a backup is made every day. See this guide again any time under <b>Settings → Getting started</b>.</p>';
 var RELEASES_DEFAULT_ = ['Next release',
   '- What\'s new: after each update, ArNotes shows you what changed, once (like this).',
@@ -699,6 +711,28 @@ function api_adminNote(kind) {
 }
 function api_inviteNote() { return api_adminNote('invite'); }
 /** A note made from HTML (Drive converts it to a formatted Google Doc), registered like api_createNote. */
+/** Replace a Doc's contents (below its Notebook line) with HTML, converted by Google Docs. */
+function replaceDocFromHtml_(docId, html) {
+  var b = 'arnote' + Date.now(), meta = { name: 'ArNotes temp', mimeType: 'application/vnd.google-apps.document' };
+  var body = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + b +
+    '\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<html><body>' + html + '</body></html>\r\n--' + b + '--';
+  var r = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'post', contentType: 'multipart/related; boundary=' + b,
+    payload: Utilities.newBlob(body).getBytes(), headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+  if (r.getResponseCode() >= 300) throw new Error('Could not convert the text (' + r.getResponseCode() + ')');
+  var tmpId = JSON.parse(r.getContentText()).id, T = DocumentApp.ElementType;
+  try {
+    var src = DocumentApp.openById(tmpId).getBody(), doc = DocumentApp.openById(docId), dst = doc.getBody();
+    var first = dst.getChild(0), head = first.getType() === T.PARAGRAPH && /^Notebook:/.test(first.asParagraph().getText()) ? first.asParagraph().getText() : '';
+    dst.clear();
+    var p0 = dst.getChild(0).asParagraph(); p0.setText(head || '');
+    for (var i = 0; i < src.getNumChildren(); i++) {
+      var el = src.getChild(i).copy(), ty = el.getType();
+      if (ty === T.PARAGRAPH) dst.appendParagraph(el.asParagraph()); else if (ty === T.LIST_ITEM) dst.appendListItem(el.asListItem()); else if (ty === T.TABLE) dst.appendTable(el.asTable());
+    }
+    if (!head) dst.removeChild(dst.getChild(0));
+    doc.saveAndClose();
+  } finally { try { DriveApp.getFileById(tmpId).setTrashed(true); } catch (e) {} }
+}
 function createHtmlNote_(title, html) {
   var b = 'arnote' + Date.now(), meta = { name: title, mimeType: 'application/vnd.google-apps.document', parents: [props_().getProperty('notesId')] };
   var body = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + b +
@@ -773,6 +807,12 @@ function adminDocPublic_(kind) {
 function api_adminEdit(kind, edits) {
   if (!isLicenceServer_()) throw new Error('Only the owner can edit this');
   api_adminNote(kind); edits = edits || {};
+  if (edits.rebuild) {                 // replace the note's text with the built-in version (used when the guide is brought up to date)
+    var def = ADMIN_NOTES_[kind] && ADMIN_NOTES_[kind].html ? ADMIN_NOTES_[kind].html() : ''; if (!def) throw new Error('No built-in text for ' + kind);
+    replaceDocFromHtml_(adminDocId_(kind), def);
+    try { CacheService.getScriptCache().remove('adm_' + kind); } catch (e) {}
+    return { rebuilt: true };
+  }
   var doc = DocumentApp.openById(adminDocId_(kind)), body = doc.getBody(), done = 0;
   var rx = function (x) { return String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
   (edits.replace || []).forEach(function (r) {
