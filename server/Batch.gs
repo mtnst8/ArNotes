@@ -3253,3 +3253,42 @@ function api_linkCard(noteId) {
   api_updateNote(noteId, t ? { title: t } : {});
   return { n: 1, title: t };
 }
+
+/* ---- Storage check: how much Drive space ArNotes uses, and how much older photo notes could give back ----
+ * Notes made before Nov 2026 could hold a full-size copy of a photo inside the note's Doc as well as the original
+ * attachment. This only measures (read-only); it changes nothing. */
+function api_storageReport() {
+  var p = props_(), h = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
+  function list(folderId) {
+    var out = [], tok = '';
+    do {
+      var u = 'https://www.googleapis.com/drive/v3/files?pageSize=1000&fields=nextPageToken,files(id,name,mimeType,quotaBytesUsed,createdTime)&q=' +
+        encodeURIComponent("'" + folderId + "' in parents and trashed = false") + (tok ? '&pageToken=' + tok : '');
+      var j = JSON.parse(UrlFetchApp.fetch(u, { headers: h }).getContentText()); out = out.concat(j.files || []); tok = j.nextPageToken || '';
+    } while (tok);
+    return out;
+  }
+  var docs = list(p.getProperty('notesId')), atts = list(p.getProperty('attId'));
+  var about = JSON.parse(UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/about?fields=storageQuota', { headers: h }).getContentText()).storageQuota || {};
+  var byDoc = {}; readTable_('Notes').forEach(function (n) { byDoc[n.docId] = n; });
+  var imgAtts = {}; readTable_('Attachments').forEach(function (a) { if (/^image\//.test(String(a.mime))) (imgAtts[a.noteId] = imgAtts[a.noteId] || []).push(+a.bytes || 0); });
+  var sum = function (a, k) { return a.reduce(function (s, x) { return s + (+x[k] || 0); }, 0); };
+  var cands = [];
+  docs.forEach(function (d) {
+    var n = byDoc[d.id], size = +d.quotaBytesUsed || 0; if (!n || size < 1024 * 1024) return;
+    var imgs = imgAtts[n.id] || [];
+    var keep = Math.max(imgs.length, 1) * 350 * 1024;                  // what small previews would take
+    cands.push({ title: String(n.title), created: d.createdTime, docMB: +(size / 1048576).toFixed(1), photos: imgs.length, saveMB: +(Math.max(0, size - keep) / 1048576).toFixed(1) });
+  });
+  cands.sort(function (a, b) { return b.saveMB - a.saveMB; });
+  var MB = function (b) { return +(b / 1048576).toFixed(0); };
+  return {
+    driveUsedMB: MB(+about.usage || 0), driveLimitMB: MB(+about.limit || 0),
+    notes: { count: docs.length, MB: MB(sum(docs, 'quotaBytesUsed')) },
+    attachments: { count: atts.length, MB: MB(sum(atts, 'quotaBytesUsed')) },
+    bigNotes: { count: cands.length, MB: +cands.reduce(function (s, c) { return s + c.docMB; }, 0).toFixed(0),
+      withPhotoAttachments: cands.filter(function (c) { return c.photos; }).length,
+      couldSaveMB: +cands.filter(function (c) { return c.photos; }).reduce(function (s, c) { return s + c.saveMB; }, 0).toFixed(0) },
+    top: cands.slice(0, 15)
+  };
+}
