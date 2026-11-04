@@ -531,11 +531,19 @@ function syncNow(force){
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')syncNow(Date.now()-(S.lastSync||0)>5000)});
 window.addEventListener('focus',function(){syncNow(Date.now()-(S.lastSync||0)>5000)});
 setInterval(function(){syncNow(false)},60000);
+var SHIP_ORDER_={When:['Now','Next','Soon','Later','Someday','Waiting','Completed']};
 function setTags(tags){
   S.tags=tags; S.children={}; S.parent={};
   tags.forEach(function(t){S.parent[t.name]=t.parent;(S.children[t.parent]=S.children[t.parent]||[]).push(t.name)});
-  var ord={}; tags.forEach(function(t){ord[t.name]=+t.order||0});      // pinned / hand-ordered first, then A–Z
-  Object.keys(S.children).forEach(function(k){S.children[k].sort(function(a,b){return (ord[a]||1e9)-(ord[b]||1e9)||a.localeCompare(b,undefined,{numeric:true})})});
+  var ord={}; tags.forEach(function(t){ord[t.name]=+t.order||0});
+  // Order: at the top level, tags kept at top (in their order) then A–Z. Under a parent, always A–Z, except the
+  // tags ArNotes ships in a fixed order (When: Now → Completed), which come first in that order.
+  var az=function(a,b){return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'})};
+  Object.keys(S.children).forEach(function(k){var fixed=SHIP_ORDER_[k]||[];
+    S.children[k].sort(function(a,b){
+      if(!k) return (ord[a]||1e9)-(ord[b]||1e9)||az(a,b);
+      var ia=fixed.indexOf(a),ib=fixed.indexOf(b); ia=ia<0?1e9:ia; ib=ib<0?1e9:ib;
+      return ia-ib||az(a,b)})});
   S.tagOrd=ord;
 }
 function tagPath(t){var p=[],x=t,g=0;while(x&&g++<12){p.unshift(x);x=S.parent[x]}return p.join(' › ')}
@@ -1469,7 +1477,7 @@ function tagMenu(t,anchor){
 /* tag order: pinned top-level tags come first (in your order); under a parent, ↑ ↓ set the order */
 function tagOrderItems(t){var p=S.parent[t]||'', pinned=!!(S.tagOrd||{})[t];
   if(!p) return (pinned?'<button data-a="up">↑ Move up</button><button data-a="down">↓ Move down</button><button data-a="unpin">Unpin from top</button>':'<button data-a="pin">📌 Keep at top</button>');
-  return '<button data-a="up">↑ Move up</button><button data-a="down">↓ Move down</button>'}
+  return ''}                                  // under a parent tags stay A–Z, so there's nothing to move
 function tagOrderDo(t,a){
   var p=S.parent[t]||'', sibs=(S.children[p]||[]).slice(), ord=S.tagOrd||{};
   var list=p?sibs:sibs.filter(function(x){return ord[x]});                   // top level: only the pinned ones have an order
@@ -1584,7 +1592,7 @@ function openTagPanel(ids,onDone,why,prefill,ext){
       var exact=S.tags.some(function(t){return t.name.toLowerCase()===f});
       if(!exact) html+='<div class="trow" style="flex-wrap:wrap"><span class="nm" style="cursor:default">+ Create “'+esc(q.value.trim())+'” — parent tag:</span>'+
         '<input class="field" id="pnp" list="pnpl" placeholder="parent: type to find (blank = top level)" autocomplete="off" style="width:auto;flex:1;min-width:150px;padding:4px 8px"><datalist id="pnpl">'+
-        S.tags.map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.parent?tagPath(t.parent):'')+'</option>'}).join('')+'</datalist><button class="btn small primary" id="pnew">Create</button></div>';
+        S.tags.slice().sort(function(x,y){return x.name.localeCompare(y.name,undefined,{numeric:true,sensitivity:'base'})}).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.parent?tagPath(t.parent):'')+'</option>'}).join('')+'</datalist><button class="btn small primary" id="pnew">Create</button></div>';
     } else {
       var rec=(store('recentTags')||[]).filter(function(t){return S.parent[t]!==undefined});
       if(rec.length) html+='<div class="sect">Recent</div><div class="recent">'+rec.map(function(t){return '<button class="chip" data-rt="'+esc(t)+'"'+(state[t]===1?' style="background:var(--acc);color:#fff"':'')+'>'+esc(t)+'</button>'}).join('')+'</div>';
@@ -1812,7 +1820,7 @@ function renderTags(n){
       sug.querySelectorAll('[data-t]').forEach(function(b){b.onmousedown=function(e){e.preventDefault();var t=b.dataset.t;if(n.tags.indexOf(t)<0)addTagTo(n,t,true)}});
       return}
     var names=S.tags.map(function(t){return t.name}).filter(function(t){return n.tags.indexOf(t)<0&&t.toLowerCase().indexOf(q)>=0});
-    names.sort(function(a,b){var pa=a.toLowerCase().indexOf(q)===0?0:1,pb=b.toLowerCase().indexOf(q)===0?0:1;return pa-pb||a.length-b.length||a.localeCompare(b)});
+    names.sort(function(a,b){var pa=a.toLowerCase().indexOf(q)===0?0:1,pb=b.toLowerCase().indexOf(q)===0?0:1;return pa-pb||a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'})});
     items=names.slice(0,8).map(function(t){return {t:t,label:esc(t)+(S.parent[t]?' <span class="muted">'+esc(tagPath(S.parent[t]))+'</span>':'')}});
     var exact=S.tags.some(function(t){return t.name.toLowerCase()===q});
     if(!exact){ items.push({t:inp.value.trim(),label:'Create tag “'+esc(inp.value.trim())+'”',neu:true});
@@ -2675,7 +2683,7 @@ function tagInput(inp,sug,onPick){
   function draw(){var q=inp.value.trim().toLowerCase();items=[];k=0;
     if(!q){sug.classList.remove('on');sug.innerHTML='';return}
     var names=S.tags.map(function(t){return t.name}).filter(function(t){return t.toLowerCase().indexOf(q)>=0});
-    names.sort(function(a,b){var pa=a.toLowerCase().indexOf(q)===0?0:1,pb=b.toLowerCase().indexOf(q)===0?0:1;return pa-pb||a.length-b.length||a.localeCompare(b)});
+    names.sort(function(a,b){var pa=a.toLowerCase().indexOf(q)===0?0:1,pb=b.toLowerCase().indexOf(q)===0?0:1;return pa-pb||a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'})});
     items=names.slice(0,8).map(function(t){return {t:t,label:esc(t)+(S.parent[t]?' <span class="muted">'+esc(tagPath(S.parent[t]))+'</span>':'')}});
     if(!S.tags.some(function(t){return t.name.toLowerCase()===q})) items.push({t:inp.value.trim(),label:'Create tag “'+esc(inp.value.trim())+'”'});
     sug.innerHTML=items.map(function(it,i){return '<div class="sg'+(i===k?' on':'')+'" data-i="'+i+'">'+it.label+'</div>'}).join('');sug.classList.add('on');
