@@ -661,7 +661,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li>Then wrangle them with tags, like any note, and drill down to them by tag instead of digging through folders.</li>' +
   '<li>New files that land in a linked folder show up in your Inbox to wrangle. Manage linked folders under <b>Settings → Getting things in → Linked Drive folders</b>.</li></ul>' +
   '<h2>3. Tag and file</h2><ul>' +
-  '<li>Open a note in your <b>Inbox</b> and add tags. Tags are grouped under <b>Who</b>, <b>What</b>, <b>When</b> and <b>Where</b>; add your own under any of them in <b>Tags</b>.</li>' +
+  '<li>Open a note in your <b>Inbox</b> and add tags. Tags are grouped under <b>Who</b>, <b>What</b>, <b>When</b> and <b>Where</b>; add your own under any of them in <b>Tags</b>. To make a new tag while tagging, type its name and choose <b>Create…</b>, then pick where it goes in the tag tree (it starts at the top) and press <b>Create here</b>.</li>' +
   '<li>Then file it to the <b>Cabinet</b>. To tag several notes at once, tick their checkboxes and choose <b>Tags…</b> While notes are ticked, the single-note buttons are greyed out so changes go to all of them.</li></ul>' +
   '<h2>4. Find things</h2><ul>' +
   '<li><b>Search</b> (top left) looks through titles and text. Hover over it or click it (on a phone, tap it) to see your recent searches, the notes you opened lately and what just came in.</li>' +
