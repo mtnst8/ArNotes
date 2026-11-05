@@ -1590,9 +1590,7 @@ function openTagPanel(ids,onDone,why,prefill,ext){
         var ai=a.name.toLowerCase().indexOf(f),bi=b.name.toLowerCase().indexOf(f);return ai-bi||a.name.localeCompare(b.name)}).slice(0,60);
       hits.forEach(function(t){html+='<div class="trow" data-tag="'+esc(t.name)+'">'+cb(t.name)+'<span class="nm">'+esc(t.name)+'<span class="path">'+esc(tagPath(t.parent))+'</span></span></div>'});
       var exact=S.tags.some(function(t){return t.name.toLowerCase()===f});
-      if(!exact) html+='<div class="trow" style="flex-wrap:wrap"><span class="nm" style="cursor:default">+ Create “'+esc(q.value.trim())+'” — parent tag:</span>'+
-        '<input class="field" id="pnp" list="pnpl" placeholder="parent: type to find (blank = top level)" autocomplete="off" style="width:auto;flex:1;min-width:150px;padding:4px 8px"><datalist id="pnpl">'+
-        S.tags.slice().sort(function(x,y){return x.name.localeCompare(y.name,undefined,{numeric:true,sensitivity:'base'})}).map(function(t){return '<option value="'+esc(t.name)+'">'+esc(t.parent?tagPath(t.parent):'')+'</option>'}).join('')+'</datalist><button class="btn small primary" id="pnew">Create</button></div>';
+      if(!exact) html+='<div class="trow"><span class="nm" style="cursor:default">+ New tag “'+esc(q.value.trim())+'”</span><button class="btn small primary" id="pnew">Create… choose where</button></div>';
     } else {
       var rec=(store('recentTags')||[]).filter(function(t){return S.parent[t]!==undefined});
       if(rec.length) html+='<div class="sect">Recent</div><div class="recent">'+rec.map(function(t){return '<button class="chip" data-rt="'+esc(t)+'"'+(state[t]===1?' style="background:var(--acc);color:#fff"':'')+'>'+esc(t)+'</button>'}).join('')+'</div>';
@@ -1630,13 +1628,26 @@ function openTagPanel(ids,onDone,why,prefill,ext){
   function toggle(t){var s=state[t]||0, o=orig[t]||0;
     state[t]= s===0.5?1 : s===1?0 : (o===0.5?0.5:1);   // mixed → all → none → (mixed again)
     draw(); }
-  function createNew(){var name=q.value.trim(),par=$('#pnp').value.trim();if(!name)return;
-    if(par&&!S.parent.hasOwnProperty(par)){toast('No tag called “'+par+'”: pick one from the list or leave it blank');$('#pnp').focus();return}
-    call('api_createTag',name,par).then(function(){S.tags.push({name:name,parent:par});setTags(S.tags);state[name]=1;q.value='';var x=par;while(x){po[x]=1;x=S.parent[x]}draw();toast('Created “'+name+'”')})}
+  /* making a new tag: pick where it goes in the tag tree (starts at the top, nothing expanded) */
+  var cm=false;
+  function createNew(){var name=q.value.trim();if(!name)return;cm=true;
+    $('#pbody').innerHTML='<div class="sect">New tag “<span id="cmName">'+esc(name)+'</span>” — put it under:</div>'+parentPicker()+
+      '<div class="bar" style="margin-top:8px"><button class="btn" id="cmBack">Back</button><span class="grow"></span><button class="btn primary" id="cmGo">Create here</button></div>';
+    bindParentPicker(null,'');
+    $('#cmBack').onclick=function(){cm=false;draw()};
+    $('#cmGo').onclick=cmCreate;
+  }
+  function cmCreate(){var name=q.value.trim(),par=$('#dp').value||'';if(!name)return;
+    var ex=S.tags.filter(function(t){return t.name.toLowerCase()===name.toLowerCase()})[0];
+    if(ex){cm=false;state[ex.name]=1;var y=ex.parent;while(y){po[y]=1;y=S.parent[y]}q.value='';draw();toast('“'+ex.name+'” already exists'+(ex.parent?' under '+ex.parent:'')+' — ticked it');return}
+    var b=$('#cmGo');b.disabled=true;b.textContent='Creating…';
+    call('api_createTag',name,par).then(function(){S.tags.push({name:name,parent:par});setTags(S.tags);state[name]=1;cm=false;q.value='';var x=par;while(x){po[x]=1;x=S.parent[x]}draw();
+      toast('Created “'+name+'”'+(par?' under '+par:' at the top level')+' and ticked it — press Apply')}).catch(function(e){b.disabled=false;b.textContent='Create here';toast(e.message)})}
   function diff(){var add=[],rem=[];Object.keys(state).forEach(function(t){var s=state[t],o=orig[t]||0;if(s===o)return;if(s===1)add.push(t);else if(s===0)rem.push(t)});return{add:add,rem:rem}}
   function info(){var d=diff();$('#pinfo').textContent=(d.add.length?'+'+d.add.length+' ':'')+(d.rem.length?'−'+d.rem.length:'')||'No changes';$('#pa').disabled=!d.add.length&&!d.rem.length}
-  q.oninput=draw;
-  q.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();var first=$('#pbody .trow[data-tag]');if(first&&q.value.trim()){toggle(first.dataset.tag);q.select()}else if($('#pnew'))createNew();else $('#pa').click()}};
+  q.oninput=function(){if(cm){var c=$('#cmName');if(c)c.textContent=q.value.trim();return}draw()};
+  q.onkeydown=function(e){if(cm){if(e.key==='Enter'){e.preventDefault();cmCreate()}return}
+    if(e.key==='Enter'){e.preventDefault();var first=$('#pbody .trow[data-tag]');if(first&&q.value.trim()){toggle(first.dataset.tag);q.select()}else if($('#pnew'))createNew();else $('#pa').click()}};
   $('#pc').onclick=closeModal;
   $('#pa').onclick=function(){var d=diff();closeModal();rememberTags(d.add);
     if(ext){ext.apply(d);return}
