@@ -3298,8 +3298,16 @@ function api_storageReport() {
 /** Tags ArNotes ships that older set-ups don't have yet (When › Now › Tasks, Cash under the receipt category tag).
  *  Runs once per set-up, from the app's first load after an update; never renames or moves anything. */
 function ensureShipTags_() {
-  var p = props_(); if (p.getProperty('shipTags') === '2') return false;
+  var p = props_(); if (p.getProperty('shipTags') === '3') return false;
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) return false;   // two app windows opening at once must not both add the tags
+  try {
+  if (p.getProperty('shipTags') === '3') return false;
   var sh = ss_().getSheetByName('Tags'), have = {}, added = [];
+  // remove any tag listed twice (keeps the first)
+  var rows = sh.getDataRange().getValues(), seen = {};
+  for (var i = 1; i < rows.length; i++) { var k = String(rows[i][0]).toLowerCase(); if (k && seen[k]) seen[k].push(i + 1); else seen[k] = []; }
+  var dup = []; Object.keys(seen).forEach(function (k) { dup = dup.concat(seen[k]); });
+  dup.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
   readTable_('Tags').forEach(function (t) { have[String(t.name).toLowerCase()] = String(t.parent || ''); });
   function add(name, parent) { if (have.hasOwnProperty(name.toLowerCase())) return; sh.appendRow([name, parent]); have[name.toLowerCase()] = parent; added.push(name); }
   if (!have.hasOwnProperty('when')) add('When', '');
@@ -3310,6 +3318,7 @@ function ensureShipTags_() {
   try { (receiptCfg_().cols || []).forEach(function (c) { if (/categor/i.test(c.name || '') && c.parent) cat = c.parent; }); } catch (e) {}
   if (!have.hasOwnProperty(cat.toLowerCase())) add(cat, '');
   add('Cash', cat);
-  p.setProperty('shipTags', '2');
+  p.setProperty('shipTags', '3');
   return added;
+  } finally { lock.releaseLock(); }
 }

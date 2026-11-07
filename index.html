@@ -535,7 +535,7 @@ setInterval(function(){syncNow(false)},60000);
 var SHIP_ORDER_={When:['Now','Next','Soon','Later','Someday','Waiting','Completed']};
 function setTags(tags){
   S.tags=tags; S.children={}; S.parent={};
-  tags.forEach(function(t){S.parent[t.name]=t.parent;(S.children[t.parent]=S.children[t.parent]||[]).push(t.name)});
+  tags.forEach(function(t){if(S.parent.hasOwnProperty(t.name))return;S.parent[t.name]=t.parent;(S.children[t.parent]=S.children[t.parent]||[]).push(t.name)});
   var ord={}; tags.forEach(function(t){ord[t.name]=+t.order||0});
   // Order: at the top level, tags kept at top (in their order) then A–Z. Under a parent, always A–Z, except the
   // tags ArNotes ships in a fixed order (When: Now → Completed), which come first in that order.
