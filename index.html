@@ -977,7 +977,7 @@ function drawTasks(){
   el.style.display='';
   var list=byRecent(S.notes.filter(function(n){return n.tags.indexOf(TASK_TAG)>=0})), sel={};
   el.innerHTML='<div class="wh"><h3>Tasks</h3><span class="muted" style="margin-left:6px">'+list.length+'</span><span class="grow"></span><button class="lnk" id="tkAll">See all</button></div>'+
-    '<div class="tkadd"><input class="field" id="tkNew" placeholder="Type a task, then press Enter" maxlength="200"><button class="btn small" id="tkAdd" title="Add a task and open it to write more">＋ Add task</button></div>'+
+    '<div class="tkadd"><input class="field" id="tkNew" placeholder="Type a task, then press Enter" maxlength="200"><button class="btn small" id="tkAdd" title="Add the task you typed">＋ Add task</button></div>'+
     (list.length?'<div class="tklist">'+list.slice(0,10).map(function(n){var w=n.tags.filter(function(t){return whenTags().indexOf(t)>=0});
       return '<div class="tkr" data-id="'+n.id+'"><input type="checkbox" class="tkc" title="Tick, then press Completed"><span class="tkt" data-open="'+n.id+'">'+esc(n.title||'Untitled')+'</span>'+
         '<button class="chip tkw" title="Change its When tag">'+esc(w.join(', ')||TASK_TAG)+' ▾</button></div>'}).join('')+'</div>'+
@@ -986,8 +986,8 @@ function drawTasks(){
   $('#tkAll').onclick=function(){showTag(TASK_TAG)};
   var ni=$('#tkNew'); if(S.tkFocus){S.tkFocus=false;ni.focus()}
   ni.onkeydown=function(e){if(e.key==='Enter'&&ni.value.trim()){e.preventDefault();addTask(ni.value.trim(),false)}};
-  $('#tkAdd').onclick=function(){addTask(ni.value.trim()||'New task',true)};
-  $$('#htasks [data-open]').forEach(function(c){c.onclick=function(){go('note',c.dataset.open)}});
+  $('#tkAdd').onclick=function(){if(ni.value.trim())addTask(ni.value.trim());else ni.focus()};
+  $$('#htasks [data-open]').forEach(function(c){c.onclick=function(){S.editNow=c.dataset.open;go('note',c.dataset.open)}});   // a task opens ready to edit
   function upd(){var k=Object.keys(sel).length;var b=$('#tkDone');if(b)b.disabled=!k;var d=$('#tkDel');if(d){d.disabled=!k;d.textContent=k>1?'🗑 Delete '+k+' tasks':'🗑 Delete task'}var i=$('#tkInfo');if(i)i.textContent=k?k+' ticked':''}
   $$('#htasks .tkc').forEach(function(c){c.onchange=function(){var id=c.closest('.tkr').dataset.id;if(c.checked)sel[id]=1;else delete sel[id];upd()}});
   if($('#tkDone')) $('#tkDone').onclick=function(){var ids=Object.keys(sel);if(!ids.length)return;setWhen(ids,DONE_TAG,true)};
@@ -996,7 +996,7 @@ function drawTasks(){
   $$('#htasks .tkw').forEach(function(b){b.onclick=function(e){e.stopPropagation();whenMenu(b,b.closest('.tkr').dataset.id)}});
 }
 /** Give notes one When tag (taking off their other When tags). */
-/** A new task: a note tagged Tasks, filed in the Cabinet. Typed + Enter stays on Home; ＋ Add task opens it for editing. */
+/** A new task: a note tagged Tasks, filed in the Cabinet. It goes into the list and the line is ready for the next one; click a task to edit it. */
 function addTask(title,open){
   var ni=$('#tkNew'),b=$('#tkAdd'); if(ni){ni.disabled=true;ni.value='Adding “'+title+'”…'} if(b)b.disabled=true;
   call('api_createNote',title,'',[TASK_TAG],'Cabinet').then(function(r){
