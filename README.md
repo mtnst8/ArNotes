@@ -27,6 +27,10 @@ A note that is just a link gets the page's title, a short description and its pi
 
 Home is a set of boxes: Tasks, Notes, Scratch pad, Pinned note, Inbox, Shortcuts and Tags. Drag a box by its title to move it (on a phone, press and hold the title first). Each device remembers its own layout; **Reset box layout** at the bottom puts it back.
 
+### Trash
+
+Deleting a note moves it to **Trash** (left menu), with Undo for a few seconds. It waits there 30 days with its tags and filing, then is deleted for good (its Google Doc goes to Google Drive's trash). In Trash, tick notes and press **↩ Restore** to put them back where they were, or **Delete forever**; **Empty trash** clears it. Notes in the Trash stay out of search, tags, receipts and shared links. Deleted photos still go straight to Google Drive's trash.
+
 ### Tasks
 
 In the **Tasks** box on Home, type a task and press Enter (or **＋ Add task**); the line clears for the next one. Click a task to open it for editing. The box shows 7 tasks at a time; ▲▼ (or scrolling) shows the rest. Any note tagged **Tasks** (When › Now › Tasks) appears there too. Tap its tag to move it to another When tag, tick it and press **✓ Completed** (moves it to When › Completed), or **🗑 Delete task** (trash, with Undo). The Tasks and Cash tags come with ArNotes.

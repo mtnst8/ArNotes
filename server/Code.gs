@@ -98,11 +98,14 @@ function showAppLink() {
 
 /* ---------------- sheet helpers ---------------- */
 
-function readTable_(name) {
+/** Rows of a sheet as objects. Notes in the Trash are left out unless `all` is true (only the list the app loads,
+ *  the Trash itself and the duplicate checks for linked files need them). */
+function readTable_(name, all) {
   var sh = ss_().getSheetByName(name);
   var v = sh.getDataRange().getValues();
   var head = v.shift();
-  return v.map(function (r, i) { var o = { _row: i + 2 }; head.forEach(function (h, j) { o[h] = r[j]; }); return o; });
+  var out = v.map(function (r, i) { var o = { _row: i + 2 }; head.forEach(function (h, j) { o[h] = r[j]; }); return o; });
+  return name === 'Notes' && !all ? out.filter(function (n) { return n.notebook !== 'Trash'; }) : out;
 }
 
 function noteToRow_(n) { return NOTE_COLS.map(function (c) { return n[c] === undefined ? '' : n[c]; }); }
@@ -379,7 +382,7 @@ function escAttr_(s) { return esc_(s).replace(/"/g, '&quot;'); }
 /** Undo a test import completely (trashes created docs, clears rows, moves attachments back is NOT done). */
 function resetImport_DANGER() {
   var p = props_();
-  readTable_('Notes').forEach(function (n) { try { DriveApp.getFileById(n.docId).setTrashed(true); } catch (e) {} });
+  readTable_('Notes', true).forEach(function (n) { try { DriveApp.getFileById(n.docId).setTrashed(true); } catch (e) {} });
   ['Notes', 'Attachments'].forEach(function (nm) { var sh = ss_().getSheetByName(nm); if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1); });
   ['importNext', 'importTotal', 'importDone', 'importPending', 'importLastError'].forEach(function (k) { p.deleteProperty(k); });
 }
@@ -400,7 +403,7 @@ function iso_(d) { return d instanceof Date ? d.toISOString() : (d || ''); }
 /** Everything the client needs to render lists and the tag tree. */
 function api_bootstrap() {
   try { if (typeof ensureShipTags_ === 'function') ensureShipTags_(); } catch (e) {}
-  var notes = readTable_('Notes').map(function (n) {
+  var notes = readTable_('Notes', true).map(function (n) {
     return { id: n.id, title: String(n.title), notebook: n.notebook, tags: n.tags ? String(n.tags).split(TAG_SEP) : [],
       created: iso_(n.created), updated: iso_(n.updated), docId: n.docId, starred: n.starred === true || n.starred === 'TRUE',
       att: +n.attachments || 0, sourceUrl: n.sourceUrl || '', link: n.source === 'link' };
@@ -491,13 +494,8 @@ function api_createNote(title, text, tags, notebook) {
   return { id: id, docId: doc.getId(), title: title };
 }
 
-function api_trashNote(id) {
-  var row = findNoteRow_(id), sh = ss_().getSheetByName('Notes');
-  var docId = sh.getRange(row, NOTE_COLS.indexOf('docId') + 1).getValue();
-  try { DriveApp.getFileById(docId).setTrashed(true); } catch (e) {}
-  sh.deleteRow(row);
-  return true;
-}
+/** Delete one note: it goes to the ArNotes Trash (see api_batchTrash). */
+function api_trashNote(id) { return api_batchTrash([id]) > 0; }
 
 function api_createTag(name, parent) {
   name = String(name).trim(); if (!name) throw new Error('Empty tag name');

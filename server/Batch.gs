@@ -50,7 +50,68 @@ function api_batchUpdate(ids, ch) {
 }
 
 /** Move notes to Drive trash (recoverable for 30 days) and drop them from the index. */
+/* ---------- Trash: deleted notes wait here 30 days (tags and filing kept), then are deleted for good ----------
+ * A trashed note keeps its row with notebook "Trash"; the Trash sheet remembers where it was and when it went. */
+var TRASH_DAYS_ = 30;
+function trashSheet_() {
+  var ss = ss_(), sh = ss.getSheetByName('Trash');
+  if (!sh) { sh = ss.insertSheet('Trash'); sh.getRange(1, 1, 1, 3).setValues([['id', 'from', 'at']]).setFontWeight('bold'); sh.setFrozenRows(1); try { sh.hideSheet(); } catch (e) {} }
+  return sh;
+}
+function trashInfo_() {
+  var sh = trashSheet_(), v = sh.getDataRange().getValues(), m = {}; v.shift();
+  v.forEach(function (r, i) { if (r[0]) m[String(r[0])] = { row: i + 2, from: String(r[1] || 'Inbox'), at: r[2] instanceof Date ? r[2] : new Date(r[2] || Date.now()) }; });
+  return { sh: sh, m: m };
+}
+/** Delete notes: they go to the Trash. */
 function api_batchTrash(ids) {
+  var want = {}; (ids || []).forEach(function (id) { want[id] = 1; });
+  var t = notesTable_(), nb = col_('notebook'), info = trashInfo_(), now = new Date(), add = [], n = 0;
+  t.rows.forEach(function (r, i) {
+    var id = r[col_('id')]; if (!want[id] || r[nb] === 'Trash') return;
+    if (!info.m[id]) add.push([id, r[nb] || 'Inbox', now]);
+    t.sh.getRange(i + 2, nb + 1).setValue('Trash'); n++;
+  });
+  if (add.length) info.sh.getRange(info.sh.getLastRow() + 1, 1, add.length, 3).setValues(add);
+  return n;
+}
+/** Put notes back where they were. */
+function api_trashRestore(ids) {
+  var want = {}; (ids || []).forEach(function (id) { want[id] = 1; });
+  var t = notesTable_(), nb = col_('notebook'), info = trashInfo_(), rows = [], n = 0;
+  t.rows.forEach(function (r, i) {
+    var id = r[col_('id')]; if (!want[id] || r[nb] !== 'Trash') return;
+    t.sh.getRange(i + 2, nb + 1).setValue((info.m[id] && info.m[id].from) || 'Inbox'); n++;
+    if (info.m[id]) rows.push(info.m[id].row);
+  });
+  rows.sort(function (a, b) { return b - a; }).forEach(function (r) { info.sh.deleteRow(r); });
+  return n;
+}
+/** What's in the Trash: [{id, from, at}] (the notes themselves come with the app's normal list). */
+function api_trashList() {
+  var info = trashInfo_(), out = [];
+  readTable_('Notes', true).forEach(function (n) { if (n.notebook === 'Trash') { var x = info.m[n.id]; out.push({ id: n.id, from: x ? x.from : 'Inbox', at: (x ? x.at : new Date()).toISOString() }); } });
+  return { days: TRASH_DAYS_, items: out };
+}
+/** Delete notes in the Trash for good (their Docs go to Google Drive's trash). */
+function api_trashPurge(ids) {
+  var inTrash = {}; readTable_('Notes', true).forEach(function (n) { if (n.notebook === 'Trash') inTrash[n.id] = 1; });
+  ids = (ids || []).filter(function (id) { return inTrash[id]; }); if (!ids.length) return 0;
+  var n = purgeNotes_(ids), info = trashInfo_(), want = {}; ids.forEach(function (id) { want[id] = 1; });
+  Object.keys(info.m).filter(function (id) { return want[id]; }).map(function (id) { return info.m[id].row; }).sort(function (a, b) { return b - a; }).forEach(function (r) { info.sh.deleteRow(r); });
+  return n;
+}
+function api_trashEmpty() { return api_trashPurge(readTable_('Notes', true).filter(function (n) { return n.notebook === 'Trash'; }).map(function (n) { return n.id; })); }
+/** Notes in the Trash longer than 30 days are deleted for good (checked at most once a day). */
+function purgeOldTrash_() {
+  var p = props_(), day = Utilities.formatDate(new Date(), 'UTC', 'yyyy-MM-dd'); if (p.getProperty('trashSweep') === day) return 0;
+  p.setProperty('trashSweep', day);
+  var cut = Date.now() - TRASH_DAYS_ * 864e5, info = trashInfo_();
+  var old = Object.keys(info.m).filter(function (id) { return info.m[id].at.getTime() < cut; });
+  return old.length ? api_trashPurge(old) : 0;
+}
+/** Delete notes for good: the Doc and attachments only these notes use go to Google Drive's trash; the row goes. */
+function purgeNotes_(ids) {
   var want = {}; ids.forEach(function (id) { want[id] = 1; });
   var t = notesTable_(), del = [];
   t.rows.forEach(function (r, i) { if (want[r[col_('id')]]) del.push({ row: i + 2, docId: r[col_('docId')], link: r[col_('source')] === 'link' }); });
@@ -668,6 +729,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li><b>Search</b> (top left) looks through titles and text. Hover over it or click it (on a phone, tap it) to see your recent searches, the notes you opened lately and what just came in.</li>' +
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
+  '<li><b>Trash:</b> deleted notes wait in <b>Trash</b> (left menu) for 30 days with their tags. Tick them and press <b>↩ Restore</b> to put them back where they were, or <b>Delete forever</b>; <b>Empty trash</b> clears it.</li>' +
   '<li><b>Tasks:</b> in the <b>Tasks</b> box on Home, type a task and press Enter (or <b>＋ Add task</b>); the line clears for the next one. Click a task to open it for editing. Any note tagged <b>Tasks</b> (When › Now › Tasks) shows there too. Tick the ones you\'ve done and press <b>✓ Completed</b> to move them to When › Completed, press <b>🗑 Delete task</b> to send them to the trash (Undo brings them back), or tap a task\'s tag to move it to another When tag. ArNotes starts you with a <b>Welcome to ArNotes</b> note and three how-to tasks (install, getting started, how to use), and each update adds a <b>What\'s new</b> task.</li></ul>' +
   '<h2>5. Edit, add to and share notes</h2><ul>' +
   '<li><b>✏️ Edit:</b> in the Inbox preview or on the note page, opens the note for editing right in ArNotes (it is a Google Doc; changes save by themselves). Press <b>Done</b> when finished. On a phone, <b>Edit in Google Docs</b> opens the Docs app.</li>' +
@@ -1236,7 +1298,7 @@ function linkFolder_() {
 }
 
 function linkedIndex_() {
-  var m = {}; readTable_('Notes').forEach(function (n) { if (n.source === 'link') m[n.docId] = n.id; });
+  var m = {}; readTable_('Notes', true).forEach(function (n) { if (n.source === 'link') m[n.docId] = n.id; });
   return m;
 }
 
@@ -1778,7 +1840,7 @@ function api_driveList(where, q) {
   else query = "'" + (where === 'root' ? myRoot : where) + "' in parents and trashed = false";
   var res = driveApi_('files?pageSize=300&orderBy=folder,name_natural&supportsAllDrives=true&includeItemsFromAllDrives=true' +
     '&fields=files(id,name,mimeType,modifiedTime,shortcutDetails,owners(emailAddress))&q=' + encodeURIComponent(query));
-  var linked = {}; readTable_('Notes').forEach(function (n) { if (n.source === 'link') linked[n.docId] = 1; });
+  var linked = {}; readTable_('Notes', true).forEach(function (n) { if (n.source === 'link') linked[n.docId] = 1; });
   var synced = {}; watchList_().forEach(function (id) { synced[id] = 1; });
   var items = (res.files || []).map(function (f) {
     var id = f.id, mt = f.mimeType;
@@ -1985,7 +2047,7 @@ function linkLocation_(id) {
 
 /** Cabinet → By Drive: for every linked note, the owning account and its folder chain (parallel Drive calls, cached 6 hours). */
 function api_linkTree() {
-  var notes = readTable_('Notes').filter(function (n) { return n.source === 'link'; });
+  var notes = readTable_('Notes', true).filter(function (n) { return n.source === 'link'; });
   var cache = CacheService.getScriptCache(), hdr = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
   var base = 'https://www.googleapis.com/drive/v3/files/';
   function fetchMany(ids, fields) {
@@ -3476,7 +3538,8 @@ function api_ensureTasks() {
   try { a = !!ensureStarterNotes_(); } catch (e) { Logger.log('Starter notes: ' + e); }
   var w = false; try { Utilities.sleep(a ? 1100 : 0); w = !!ensureWelcomeNote_(); } catch (e) { Logger.log('Welcome note: ' + e); }
   try { b = !!ensureReleaseTask_(); } catch (e) { Logger.log('Release task: ' + e); }
-  return a || b || w;
+  var g = 0; try { g = purgeOldTrash_(); } catch (e) { Logger.log('Trash sweep: ' + e); }
+  return a || b || w || g > 0;
 }
 /* ---- "Welcome to ArNotes": the overview note, first in the starter Tasks (made after the other three, so it sits on top) ---- */
 var STARTER_WELCOME_HTML_ = function (links) { links = links || {}; var L = function (k, t) { return links[k] ? '<a href="' + links[k] + '">' + t + '</a>' : '"' + t + '"'; };

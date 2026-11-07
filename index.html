@@ -360,6 +360,7 @@ body.guest #actbar,body.guest .row .nb{display:none!important}
   <button data-v="shortcuts"><svg viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg><span>Shortcuts</span></button>
   <button data-v="all"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M9 12h7M9 16h7M9 8h3"/></svg><span>All notes</span></button>
   <button data-v="tags"><svg viewBox="0 0 24 24"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/></svg><span>Tags</span></button>
+  <button data-v="trash"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span>Trash</span></button>
   <button data-v="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
 </nav>
 <div class="who" id="who"></div>
@@ -487,7 +488,7 @@ function openTarget(o){
   if(k==='note'&&S.byId[a]) return go('note',a);
   if(k==='tag'){ if(S.parent.hasOwnProperty(a)) return showTag(a); return go('tags'); }
   if(k==='settings'){ if(a) S.setOpen=a; return go('settings'); }
-  if(['home','inbox','tags','cabinet','all','shortcuts','photos','receipts'].indexOf(k)>=0) return go(k);
+  if(['home','inbox','tags','cabinet','all','shortcuts','photos','receipts','trash'].indexOf(k)>=0) return go(k);
   go('home');
 }
 /* ---------- linked PDFs: the real pages, drawn in the app (bytes come through ArNotes, so no Google sign-in needed) ---------- */
@@ -528,6 +529,7 @@ function load(quiet){
 }
 function applyBoot(b){
     S.sig=noteSig(b.notes); S.lastSync=Date.now();
+    S.trashN=b.notes.filter(function(n){return n.notebook==='Trash'}); b.notes=b.notes.filter(function(n){return n.notebook!=='Trash'});   // the Trash is kept apart from everything else
     S.notes=b.notes; S.order=b.bookmarkOrder; S.byId={}; S.user=b.user||'';
     if($('#who')&&S.user) $('#who').innerHTML='<b>'+esc(S.user[0].toUpperCase())+'</b><span>'+esc(S.user)+'</span>';
     b.notes.forEach(function(n){S.byId[n.id]=n});
@@ -586,7 +588,7 @@ function go(v,arg){
   if(v!==S.view||v==='note'||v==='new') S.sel={};
   S.view=v; $('#main').classList.remove('wide','photosv'); document.body.classList.remove('phsel'); $$('#nav button').forEach(function(b){b.classList.toggle('on',b.dataset.v===v)});
   window.scrollTo(0,0); S.viewArg=arg;
-  ({home:viewHome,inbox:viewInbox,tags:viewTags,all:viewAll,new:viewNew,note:viewNote,list:viewList,shortcuts:viewShortcuts,cabinet:viewCabinet,settings:viewSettings,photos:viewPhotos,receipts:viewReceipts}[v])(arg);
+  ({home:viewHome,inbox:viewInbox,tags:viewTags,all:viewAll,new:viewNew,note:viewNote,list:viewList,shortcuts:viewShortcuts,cabinet:viewCabinet,settings:viewSettings,photos:viewPhotos,receipts:viewReceipts,trash:viewTrash}[v])(arg);
 }
 $$('#nav button').forEach(function(b){b.onclick=function(){go(b.dataset.v)}});
 function rerender(){ var v=S.view; if(v==='inbox'&&isSplit()&&$('#pv')){refreshSplit();return} if(v==='list'&&S.lastList) viewList(S.lastList); else if(v==='list') runSearch(); else if(v!=='note') go(v) }
@@ -679,7 +681,7 @@ $('#aDel').onclick=function(){
   var b=this,ids=Object.keys(S.sel);
   if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Delete '+ids.length+'? Tap again';setTimeout(function(){b.textContent='Delete';delete b.dataset.arm},3500);return}
   delete b.dataset.arm;b.textContent='Delete';
-  trashLater(ids,'Deleted '+ids.length+' note'+(ids.length>1?'s':'')); S.sel={}; refreshInboxCount(); rerender(); paintSel();
+  trashLater(ids,'Moved '+ids.length+' note'+(ids.length>1?'s':'')+' to Trash'); S.sel={}; refreshInboxCount(); rerender(); paintSel();
 };
 $('#aPrint').onclick=function(){printNotes(Object.keys(S.sel))};
 $('#aAI').onclick=function(){exportForAI(Object.keys(S.sel))};
@@ -752,6 +754,7 @@ function trashLater(ids,msg){
   if(S.listIds) S.listIds=S.listIds.filter(function(id){return S.byId[id]}); paintSel();
   var job={ids:gone.map(function(n){return n.id}),done:false}; S.pendingTrash.push(job);
   function commit(){if(job.done)return;job.done=true;S.pendingTrash=S.pendingTrash.filter(function(j){return j!==job});
+    gone.forEach(function(n){n.notebook='Trash';S.trashN=(S.trashN||[]).filter(function(x){return x.id!==n.id});S.trashN.unshift(n)});
     call('api_batchTrash',job.ids).catch(function(){})}
   var u=undoToast(msg,function(){job.done=true;S.pendingTrash=S.pendingTrash.filter(function(j){return j!==job});
     gone.forEach(function(n){if(!S.byId[n.id]){S.byId[n.id]=n;S.notes.push(n)}});afterUndo(job.ids)});
@@ -942,6 +945,42 @@ function viewHome(){
   drawCards(); drawPin(); drawTasks(); bindHome(); homeDrag();
   call('api_homeExtras').then(function(x){S.pinned=x.pinned||'';drawPin();var sc=$('#scratch');if(sc&&!sc.dataset.dirty){sc.value=x.scratch||'';}}).catch(function(){});
 }
+/* ---------- Trash: deleted notes wait 30 days with their tags, then go for good ---------- */
+function viewTrash(){
+  var list=(S.trashN||[]).slice(), sel={}, info={};
+  function draw(){
+    var days=(S.trashInfo&&S.trashInfo.days)||30;
+    $('#main').innerHTML='<div class="lhead"><h2>Trash ('+list.length+')</h2></div>'+
+      '<p class="muted" style="margin:-4px 0 12px">Deleted notes wait here for '+days+' days with their tags, then are deleted for good. Restore puts a note back where it was.</p>'+
+      (list.length?'<div class="setrow" style="gap:6px;flex-wrap:wrap;margin-bottom:10px"><label class="muted" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="trAll"> All</label><span class="grow"></span>'+
+        '<button class="btn small primary" id="trRes" disabled>↩ Restore</button><button class="btn small danger" id="trDel" disabled>Delete forever</button><button class="btn small" id="trEmpty">Empty trash</button></div>'+
+        '<div class="list">'+list.map(function(n){var x=info[n.id],left=x?Math.max(0,days-Math.floor((Date.now()-new Date(x.at))/864e5)):null;
+          return '<div class="row'+(sel[n.id]?' sel':'')+'" data-id="'+n.id+'"><span class="cbw"><input type="checkbox" class="cb"'+(sel[n.id]?' checked':'')+' aria-label="Select note"></span>'+
+            '<div class="t">'+(n.link?'<span title="Linked Drive file">🔗</span> ':'')+esc(n.title)+'</div>'+
+            '<div class="tg">'+n.tags.slice(0,3).map(function(t){return '<span class="chip">'+esc(t)+'</span>'}).join('')+'</div>'+
+            '<div class="m">'+(x?'Deleted '+fmt(x.at)+' · from '+esc(x.from)+' · '+left+' day'+(left===1?'':'s')+' left':'')+'</div></div>'}).join('')+'</div>'
+      :'<div class="empty">Trash is empty.</div>');
+    var k=Object.keys(sel).length; if($('#trRes')){$('#trRes').disabled=!k;$('#trDel').disabled=!k;if(k){$('#trRes').textContent='↩ Restore '+k;$('#trDel').textContent='Delete '+k+' forever'}}
+    $$('#main .row').forEach(function(r){r.onclick=function(e){var id=r.dataset.id;if(sel[id])delete sel[id];else sel[id]=1;draw()}});
+    if($('#trAll')){$('#trAll').checked=k&&k===list.length;$('#trAll').onchange=function(){sel={};if(this.checked)list.forEach(function(n){sel[n.id]=1});draw()}}
+    if($('#trRes')) $('#trRes').onclick=function(){var ids=Object.keys(sel);if(!ids.length)return;
+      ids.forEach(function(id){var n=list.filter(function(x){return x.id===id})[0];if(!n)return;n.notebook=(info[id]&&info[id].from)||'Inbox';if(!S.byId[id]){S.byId[id]=n;S.notes.push(n)}});
+      S.trashN=S.trashN.filter(function(n){return !sel[n.id]});list=S.trashN.slice();sel={};refreshInboxCount();draw();
+      toast('Restored '+ids.length+' note'+(ids.length>1?'s':''));call('api_trashRestore',ids).catch(function(e){toast('Could not restore: '+e.message);load(true).then(function(){if(S.view==='trash')viewTrash()})})};
+    function purge(ids,what){if(!ids.length)return;
+      modal(what,'This deletes '+ids.length+' note'+(ids.length>1?'s':'')+' for good. Their Google Docs go to Google Drive\'s trash, where Google keeps them 30 days, but ArNotes forgets their tags.','',
+        '<span class="grow"></span><button class="btn" id="pgNo">Cancel</button><button class="btn danger" id="pgYes">Delete forever</button>');
+      $('#pgNo').onclick=closeModal;
+      $('#pgYes').onclick=function(){closeModal();var want={};ids.forEach(function(id){want[id]=1});S.trashN=S.trashN.filter(function(n){return !want[n.id]});list=S.trashN.slice();sel={};draw();
+        toast('Deleted for good');call('api_trashPurge',ids).catch(function(e){toast('Could not delete: '+e.message);load(true).then(function(){if(S.view==='trash')viewTrash()})})}}
+    if($('#trDel')) $('#trDel').onclick=function(){purge(Object.keys(sel),'Delete forever?')};
+    if($('#trEmpty')) $('#trEmpty').onclick=function(){purge(list.map(function(n){return n.id}),'Empty the trash?')};
+  }
+  draw();
+  call('api_trashList').then(function(r){S.trashInfo=r;(r.items||[]).forEach(function(x){info[x.id]=x});
+    var ids={};(r.items||[]).forEach(function(x){ids[x.id]=1});
+    list.sort(function(a,b){return new Date((info[b.id]||{}).at||0)-new Date((info[a.id]||{}).at||0)});if(S.view==='trash')draw()}).catch(function(){});
+}
 /* ---------- Home boxes: drag a box by its title bar to move it; the order is kept on this device ---------- */
 var HOME_BOXES=['tasks','notes','scratch','pin','inbox','shortcuts','tags'];
 function homeOrder(){var o=(store('homeOrder')||[]).filter(function(k){return HOME_BOXES.indexOf(k)>=0});HOME_BOXES.forEach(function(k){if(o.indexOf(k)<0)o.push(k)});return o}
@@ -998,7 +1037,7 @@ function drawTasks(){
   $$('#htasks .tkc').forEach(function(c){c.onchange=function(){var id=c.closest('.tkr').dataset.id;if(c.checked)sel[id]=1;else delete sel[id];upd()}});
   if($('#tkDone')) $('#tkDone').onclick=function(){var ids=Object.keys(sel);if(!ids.length)return;setWhen(ids,DONE_TAG,true)};
   if($('#tkDel')) $('#tkDel').onclick=function(){var ids=Object.keys(sel);if(!ids.length)return;
-    trashLater(ids,ids.length===1?'Task deleted':ids.length+' tasks deleted'); refreshInboxCount(); drawTasks()};
+    trashLater(ids,ids.length===1?'Task moved to Trash':ids.length+' tasks moved to Trash'); refreshInboxCount(); drawTasks()};
   $$('#htasks .tkw').forEach(function(b){b.onclick=function(e){e.stopPropagation();whenMenu(b,b.closest('.tkr').dataset.id)}});
 }
 /** Give notes one When tag (taking off their other When tags). */
@@ -1124,7 +1163,7 @@ function renderPv(){
   if($('#pvMk')) $('#pvMk').onclick=function(){markReceipt(n.id,this)};
   $('#pvDel').onclick=function(){var b=this;
     if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tap again to delete';setTimeout(function(){if(b.isConnected){b.textContent='Delete';delete b.dataset.arm}},3000);return}
-    trashLater([n.id],n.link?'Link removed (the file is untouched)':'Note deleted'); refreshInboxCount(); refreshSplit();};
+    trashLater([n.id],n.link?'Link moved to Trash (the file is untouched)':'Note moved to Trash'); refreshInboxCount(); refreshSplit();};
 }
 /** Inbox preview of a receipt: just the details and the picture; the full email/note is one tap away. */
 function pvReceipt(n){
@@ -1908,7 +1947,7 @@ function viewNote(id,keep){
   if($('#unfile')) $('#unfile').onclick=function(){batch({notebook:'Inbox'},'Moved to Inbox',[id]);viewNote(id)};
   if($('#skip')) $('#skip').onclick=function(){S.triage.push(S.triage.shift());next(true)};
   $('#del').onclick=function(){var b=this;if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tap again to delete';setTimeout(function(){b.textContent='Delete';delete b.dataset.arm},3000);return}
-    trashLater([id],n.link?'Link removed (the file is untouched)':'Note deleted');refreshInboxCount(); next()};
+    trashLater([id],n.link?'Link moved to Trash (the file is untouched)':'Note moved to Trash');refreshInboxCount(); next()};
 
   function next(skipped){ if(isTriage){ if(!skipped&&S.triage[0]===id) S.triage.shift(); } refreshInboxCount();
     if(isTriage&&S.triage.length){S.view='note';viewNote(S.triage[0])} else go(isTriage?'inbox':'home'); }
