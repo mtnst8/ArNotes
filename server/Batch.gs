@@ -668,7 +668,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li><b>Search</b> (top left) looks through titles and text. Hover over it or click it (on a phone, tap it) to see your recent searches, the notes you opened lately and what just came in.</li>' +
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
-  '<li><b>Tasks:</b> in the <b>Tasks</b> box on Home, type a task and press Enter (or <b>＋ Add task</b>); the line clears for the next one. Click a task to open it for editing. Any note tagged <b>Tasks</b> (When › Now › Tasks) shows there too. Tick the ones you\'ve done and press <b>✓ Completed</b> to move them to When › Completed, press <b>🗑 Delete task</b> to send them to the trash (Undo brings them back), or tap a task\'s tag to move it to another When tag. ArNotes starts you with three how-to tasks (install, getting started, how to use), and each update adds a <b>What\'s new</b> task.</li></ul>' +
+  '<li><b>Tasks:</b> in the <b>Tasks</b> box on Home, type a task and press Enter (or <b>＋ Add task</b>); the line clears for the next one. Click a task to open it for editing. Any note tagged <b>Tasks</b> (When › Now › Tasks) shows there too. Tick the ones you\'ve done and press <b>✓ Completed</b> to move them to When › Completed, press <b>🗑 Delete task</b> to send them to the trash (Undo brings them back), or tap a task\'s tag to move it to another When tag. ArNotes starts you with a <b>Welcome to ArNotes</b> note and three how-to tasks (install, getting started, how to use), and each update adds a <b>What\'s new</b> task.</li></ul>' +
   '<h2>5. Edit, add to and share notes</h2><ul>' +
   '<li><b>✏️ Edit:</b> in the Inbox preview or on the note page, opens the note for editing right in ArNotes (it is a Google Doc; changes save by themselves). Press <b>Done</b> when finished. On a phone, <b>Edit in Google Docs</b> opens the Docs app.</li>' +
   '<li><b>＋ Add text:</b> type a few lines and they go at the end of the note, with no Google Docs needed. Handy on a phone, or to write under a photo.</li>' +
@@ -3397,7 +3397,7 @@ var STARTER_HOWTO_HTML_ = function () { return '' +
   '<h2>Settings and help</h2><ul>' +
   '<li>' + appLink_('settings', '<b>Settings</b>') + ': getting things in (email address, Save to ArNotes button, linked Drive folders), receipts, devices, sharing and backup.</li>' +
   '<li>The full guide is under ' + appLink_('settings:help', 'Settings → Help & backup → Getting started') + '.</li>' +
-  '<li>Install on another device: {note1}. The big picture: {note2}.</li>' +
+  '<li>Install on another device: {note1}. The big picture: {note2}. The overview: <b>Welcome to ArNotes</b>.</li>' +
   '<li>When ArNotes gets an update, a <b>What\'s new</b> note shows up in your Tasks.</li></ul>'; };
 var STARTER_NOTES_ = [
   { key: 'n1', title: '1. Install ArNotes on your phone and computer', html: STARTER_INSTALL_HTML_ },
@@ -3472,6 +3472,39 @@ function ensureReleaseTask_() {
 function api_ensureTasks() {
   var a = false, b = false;
   try { a = !!ensureStarterNotes_(); } catch (e) { Logger.log('Starter notes: ' + e); }
+  var w = false; try { Utilities.sleep(a ? 1100 : 0); w = !!ensureWelcomeNote_(); } catch (e) { Logger.log('Welcome note: ' + e); }
   try { b = !!ensureReleaseTask_(); } catch (e) { Logger.log('Release task: ' + e); }
-  return a || b;
+  return a || b || w;
+}
+/* ---- "Welcome to ArNotes": the overview note, first in the starter Tasks (made after the other three, so it sits on top) ---- */
+var STARTER_WELCOME_HTML_ = function (links) { links = links || {}; var L = function (k, t) { return links[k] ? '<a href="' + links[k] + '">' + t + '</a>' : '"' + t + '"'; };
+  return '' +
+  '<p><b>Tag — you\'re it.</b> ArNotes keeps your notes, photos, receipts and business cards in one simple app, and every bit of it lives in <b>your own Google Drive</b>. Nothing is locked inside someone else\'s service: notes are Google Docs, photos stay as normal files, and the index is a Google Sheet you can open any time.</p>' +
+  '<p>Take a picture of a receipt and ArNotes puts it in your Inbox to tag with an expense category and/or a job name, making tax time or billing by job a breeze.</p>' +
+  '<p>It replaces Evernote for people who want one place to drop everything, tag it once, and find it again in seconds, on a phone or a computer.</p>' +
+  '<h2>What you can do</h2><ul>' +
+  '<li>' + appLink_('home', '<b>Home</b>') + ': your Tasks, newest notes, Inbox and more. Type a task in the Tasks box and press Enter; drag a box by its title to arrange Home your way.</li>' +
+  '<li><b>Get things in:</b> share photos and web pages from your phone, click the Save to ArNotes button on a computer, forward emails, link files you already keep in Google Drive, or write a note. It all lands in your ' + appLink_('inbox', 'Inbox') + '.</li>' +
+  '<li><b>Tag and file:</b> give each note a tag or two (Who, What, When, Where, or your own) and file it to the ' + appLink_('cabinet', 'Cabinet') + '. One note can sit under many tags at once.</li>' +
+  '<li><b>Find it:</b> search, drill down by ' + appLink_('tags', 'Tags') + ', or star a note for ' + appLink_('shortcuts', 'Shortcuts') + '.</li>' +
+  '<li>' + appLink_('photos', '<b>Photos</b>') + ': one gallery for all your pictures and videos, by tag, by place or on a map.</li>' +
+  '<li>' + appLink_('receipts', '<b>Receipts</b>') + ': receipts are read for you (vendor, date, total, tax, card), then reported by job and category, billed or not.</li>' +
+  '<li><b>Share and send:</b> email or text notes, print or download them, share a whole tag as a read-only link, or export notes for an AI.</li></ul>' +
+  '<h2>Start here</h2><ol>' +
+  '<li>' + L('n1', '1. Install ArNotes on your phone and computer') + '</li>' +
+  '<li>' + L('n2', '2. Getting started: everything in one place') + '</li>' +
+  '<li>' + L('n3', '3. How to use ArNotes') + '</li></ol>' +
+  '<p>Tick each one on Home and press <b>✓ Completed</b> when you\'re done. When ArNotes gets an update, a <b>What\'s new</b> note shows up in your Tasks.</p>' +
+  '<p>Your data stays yours: everything runs under your own Google account and is backed up every day. Nobody else sees your notes unless you send or share them.</p>'; };
+function ensureWelcomeNote_() {
+  var p = props_(); if (p.getProperty('welcomeNote') === '1' || p.getProperty('starterNotes') !== '1') return false;
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) return false;
+  try {
+    if (p.getProperty('welcomeNote') === '1') return false;
+    var ids = {}; try { ids = JSON.parse(p.getProperty('starterNoteIds') || '{}'); } catch (e) {}
+    var links = {}; Object.keys(ids).forEach(function (k) { links[k] = APP_URL + '?open=' + encodeURIComponent('note:' + ids[k]); });
+    var n = taskNote_('Welcome to ArNotes', STARTER_WELCOME_HTML_(links));
+    p.setProperty('welcomeNote', '1'); ids.n0 = n.id; p.setProperty('starterNoteIds', JSON.stringify(ids));
+    return true;
+  } finally { lock.releaseLock(); }
 }

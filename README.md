@@ -31,7 +31,7 @@ Home is a set of boxes: Tasks, Notes, Scratch pad, Pinned note, Inbox, Shortcuts
 
 In the **Tasks** box on Home, type a task and press Enter (or **＋ Add task**); the line clears for the next one. Click a task to open it for editing. Any note tagged **Tasks** (When › Now › Tasks) appears there too. Tap its tag to move it to another When tag, tick it and press **✓ Completed** (moves it to When › Completed), or **🗑 Delete task** (trash, with Undo). The Tasks and Cash tags come with ArNotes.
 
-Every ArNotes starts with three how-to notes in Tasks: **1. Install ArNotes on your phone and computer**, **2. Getting started: everything in one place** and **3. How to use ArNotes**. Their links open parts of your own ArNotes. Each update adds a **What's new in ArNotes: Release N** note to Tasks.
+Every ArNotes starts with four notes in Tasks: **Welcome to ArNotes** (the overview), **1. Install ArNotes on your phone and computer**, **2. Getting started: everything in one place** and **3. How to use ArNotes**. Their links open parts of your own ArNotes. Each update adds a **What's new in ArNotes: Release N** note to Tasks.
 
 The full how-to for users is the **Getting started** guide inside the app (Settings → Help & backup → Getting started).
 
