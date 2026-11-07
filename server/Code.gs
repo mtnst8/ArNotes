@@ -400,6 +400,8 @@ function iso_(d) { return d instanceof Date ? d.toISOString() : (d || ''); }
 /** Everything the client needs to render lists and the tag tree. */
 function api_bootstrap() {
   try { if (typeof ensureShipTags_ === 'function') ensureShipTags_(); } catch (e) {}
+  try { if (typeof ensureStarterNotes_ === 'function') ensureStarterNotes_(); } catch (e) {}
+  try { if (typeof ensureReleaseTask_ === 'function') ensureReleaseTask_(); } catch (e) {}
   var notes = readTable_('Notes').map(function (n) {
     return { id: n.id, title: String(n.title), notebook: n.notebook, tags: n.tags ? String(n.tags).split(TAG_SEP) : [],
       created: iso_(n.created), updated: iso_(n.updated), docId: n.docId, starred: n.starred === true || n.starred === 'TRUE',

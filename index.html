@@ -415,7 +415,7 @@ function call(fn){var a=[].slice.call(arguments,1);
 function docUrl(docId,edit){return 'https://docs.google.com/document/d/'+docId+(edit?'/edit':'/view')+(S.user?'?authuser='+encodeURIComponent(S.user):'')}
 function fileUrl(id){return 'https://drive.google.com/file/d/'+id+'/view'+(S.user?'?authuser='+encodeURIComponent(S.user):'')}
 /** Note body in a sandboxed frame (works on any device, whatever Google account the browser uses). */
-function readerHtml(){return '<iframe class="reader" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="'+esc('<p style="font:14px sans-serif;color:#888;padding:16px">Loading…</p>')+'"></iframe>'}
+function readerHtml(){return '<iframe class="reader" sandbox="allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation" srcdoc="'+esc('<p style="font:14px sans-serif;color:#888;padding:16px">Loading…</p>')+'"></iframe>'}
 var noteCache={}, nvPending={};
 /* Note previews are kept on this device so they open instantly; the server copy is checked in the background. */
 var NV_MAX=80, NV_BIG=400000;
@@ -446,6 +446,7 @@ function fillReader(frame,id,fresh){
     var h=String(v.html||'');
     var extra='<base target="_blank"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{max-width:none!important;padding:14px 16px!important;margin:0!important;word-wrap:break-word}img{max-width:100%!important;height:auto!important}</style>';
     h=/<head[^>]*>/i.test(h)?h.replace(/<head[^>]*>/i,function(m){return m+extra}):extra+h;
+    h=appLinks(h);
     // Chrome doesn't always redraw when srcdoc changes on an existing frame, so swap in a fresh one
     var nf=frame.cloneNode(false); nf.removeAttribute('srcdoc'); nf.srcdoc=h;
     if(frame.isConnected) frame.replaceWith(nf); frame=nf;
@@ -470,6 +471,18 @@ function fillReader(frame,id,fresh){
   return nvFetch(id).then(function(v){if(frame.isConnected)put(v);fixPhotos(v);fixLink(v);return v});
 }
 var PHFIX={},LKFIX={};
+/** Links in a note that open part of ArNotes (the starter notes' ?open=… links) open in this window, not a new tab. */
+function appLinks(h){return String(h).replace(/<a\b([^>]*?)href="([^"]*)"/gi,function(m,pre,u){var x=u.replace(/&amp;/g,'&'),q=x.match(/^https:\/\/www\.google\.com\/url\?q=([^&]+)/);if(q)try{x=decodeURIComponent(q[1])}catch(e){}
+  if(!/^https:\/\/mtnst8\.github\.io\/ArNotes\/\?open=/.test(x))return m;return '<a'+pre.replace(/\btarget="[^"]*"/i,'')+'target="_top" href="'+esc(location.origin+location.pathname+x.slice(x.indexOf('?')))+'"'})}
+/** Open the place an ?open=… link names: home, inbox, tags, cabinet, all, shortcuts, photos, receipts, settings[:group], tag:Name, note:id. */
+function openTarget(o){
+  o=String(o||''); var i=o.indexOf(':'), k=i<0?o:o.slice(0,i), a=i<0?'':o.slice(i+1);
+  if(k==='note'&&S.byId[a]) return go('note',a);
+  if(k==='tag'){ if(S.parent.hasOwnProperty(a)) return showTag(a); return go('tags'); }
+  if(k==='settings'){ if(a) S.setOpen=a; return go('settings'); }
+  if(['home','inbox','tags','cabinet','all','shortcuts','photos','receipts'].indexOf(k)>=0) return go(k);
+  go('home');
+}
 /* ---------- linked PDFs: the real pages, drawn in the app (bytes come through ArNotes, so no Google sign-in needed) ---------- */
 var PDFC={};
 function pdfBytes(id){if(PDFC[id])return PDFC[id];
@@ -2912,13 +2925,14 @@ function tryPair(c){
 function start(){
   document.body.classList.remove('unpaired');
   var qa=new URLSearchParams(location.search); if(qa.get('add')){quickAdd(qa);return}   // the Save to ArNotes button
+  var openTo=qa.get('open'); if(openTo) history.replaceState(null,'',location.pathname);
   var sharing=location.search.indexOf('share=1')>=0;
   $('#main').innerHTML='<div class="loading">'+(sharing?'Getting what you shared…':'Loading notes…')+'</div>';
   if(sharing) receiveShare();                                   // don't wait for the notes list: start on the shared things now
   S.bootP=Promise.all([load().catch(function(e){S.loadErr=e}),call('api_appInfo',devLabel()).then(function(i){DROP_URL=i.dropUrl||'';LINK_URL=i.linkUrl||'';if(i.user)S.user=i.user;S.lic=i.licence||null;S.build=i.build;S.rel=i.release;S.relNotes=i.notes}).catch(function(){})]).then(function(){
     if(S.lic&&!S.lic.ok){showEnded();return}
     if(S.loadErr) throw S.loadErr;
-    S.booted=true; if(sharing){if(S.afterBoot)S.afterBoot();else if(!S.shareBusy)go('inbox')} else go('home');
+    S.booted=true; if(sharing){if(S.afterBoot)S.afterBoot();else if(!S.shareBusy)go('inbox')} else if(openTo) openTarget(openTo); else go('home');
     whatsNew(S.rel,S.relNotes);
     if(S.justPaired&&!(S.lic&&S.lic.owner)){var g=0;try{g=localStorage.getItem('arnote.guideSeen')}catch(e){}if(!g){try{localStorage.setItem('arnote.guideSeen','1')}catch(e){}setTimeout(function(){showGuide(true)},600)}}
   });

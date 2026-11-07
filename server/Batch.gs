@@ -667,7 +667,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li><b>Search</b> (top left) looks through titles and text. Hover over it or click it (on a phone, tap it) to see your recent searches, the notes you opened lately and what just came in.</li>' +
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
-  '<li><b>Tasks:</b> tag a note <b>Tasks</b> (When › Now › Tasks) and it shows in the <b>Tasks</b> box on Home. Tick the ones you\'ve done and press <b>✓ Completed</b> to move them to When › Completed, or tap a task\'s tag to move it to another When tag.</li></ul>' +
+  '<li><b>Tasks:</b> tag a note <b>Tasks</b> (When › Now › Tasks) and it shows in the <b>Tasks</b> box on Home. Tick the ones you\'ve done and press <b>✓ Completed</b> to move them to When › Completed, press <b>🗑 Delete task</b> to send them to the trash (Undo brings them back), or tap a task\'s tag to move it to another When tag. ArNotes starts you with three how-to tasks (install, getting started, how to use), and each update adds a <b>What\'s new</b> task.</li></ul>' +
   '<h2>5. Edit, add to and share notes</h2><ul>' +
   '<li><b>✏️ Edit:</b> in the Inbox preview or on the note page, opens the note for editing right in ArNotes (it is a Google Doc; changes save by themselves). Press <b>Done</b> when finished. On a phone, <b>Edit in Google Docs</b> opens the Docs app.</li>' +
   '<li><b>＋ Add text:</b> type a few lines and they go at the end of the note, with no Google Docs needed. Handy on a phone, or to write under a photo.</li>' +
@@ -1059,6 +1059,7 @@ function api_releaseNow(note) {
   if (f) f.setContent(rel); else { f = root.createFile('ArNotes release.json', rel, 'application/json'); p.setProperty('releaseFile', f.getId()); }
   p.setProperties({ releaseN: String(n), releaseAt: at, releaseNote: note.slice(0, 2000) });
   try { rotateReleases_(n, note); } catch (e) { Logger.log('Release notes: ' + e); }
+  try { releaseTask_(n, note); } catch (e) { Logger.log('Release task: ' + e); }
   return api_releaseInfo();
 }
 function api_releaseInfo() {
@@ -3320,5 +3321,148 @@ function ensureShipTags_() {
   add('Cash', cat);
   p.setProperty('shipTags', '3');
   return added;
+  } finally { lock.releaseLock(); }
+}
+
+/* ---- Starter notes that come with ArNotes: three how-to notes tagged Tasks, so they show in the Tasks box on Home ----
+ * Made once per set-up (new ones at setup, existing ones on their first load after the update). Links in them open parts
+ * of the person's own ArNotes (APP_URL?open=…). Each release also arrives as a "What's new" note tagged Tasks. */
+function appLink_(where, text) { return '<a href="' + APP_URL + '?open=' + encodeURIComponent(where) + '">' + text + '</a>'; }
+var STARTER_INSTALL_HTML_ = function () { return '' +
+  '<p>ArNotes works on any phone, tablet or computer. Each device needs your private <b>pairing link</b> once; after that ArNotes opens like any other app. When you\'re done, tick this task on Home and press <b>✓ Completed</b>.</p>' +
+  '<h2>Get your pairing link</h2><ul>' +
+  '<li>On a device that already has ArNotes, go to ' + appLink_('settings:dev', 'Settings → Devices') + ' and press <b>Copy pairing link</b> (or <b>Share…</b> on a phone). Email or text it to yourself.</li>' +
+  '<li>Setting up for the first time? It\'s the link you emailed yourself at the end of setup.</li>' +
+  '<li>Keep it private: it is the key to your notes. Don\'t paste it into a note you might share.</li></ul>' +
+  '<h2>Android phone or tablet</h2><ol>' +
+  '<li>Open the pairing link in <b>Chrome</b>.</li>' +
+  '<li>Tap the <b>⋮</b> menu → <b>Install app</b> (or <b>Add to Home screen</b>). ArNotes is now an app on your phone.</li>' +
+  '<li>To send things in: in your gallery, Chrome or a text, tap <b>Share → ArNotes</b>.</li></ol>' +
+  '<h2>iPhone or iPad</h2><ol>' +
+  '<li>Open the pairing link in <b>Safari</b>.</li>' +
+  '<li>Tap <b>Share</b> (the square with the arrow) → <b>Add to Home Screen</b>.</li>' +
+  '<li>To send photos, texts and web pages in, tap <b>Share → Mail</b> and send them to your ArNotes email address (' + appLink_('settings:in', 'Settings → Getting things in → Email to ArNotes') + '). iPhone doesn\'t let web apps appear in the Share menu.</li></ol>' +
+  '<h2>Computer (Windows, Mac or Chromebook)</h2><ol>' +
+  '<li>Open the pairing link in <b>Chrome</b> (Edge works too).</li>' +
+  '<li>To make it an app with its own window: click the install icon at the right end of the address bar, or <b>⋮</b> → <b>Cast, save and share → Install page as app</b>.</li>' +
+  '<li>Add the <b>📌 Save to ArNotes</b> button: ' + appLink_('settings:in', 'Settings → Getting things in → Save to ArNotes button') + ', then drag it to your bookmarks bar (<b>Ctrl+Shift+B</b> shows the bar). One click saves the page you\'re on.</li>' +
+  '<li>Use several Chrome profiles or Google accounts? Open the pairing link once in each profile.</li></ol>' +
+  '<p>Your ArNotes address is <a href="' + APP_URL + '">' + APP_URL + '</a>. It opens your notes on any device you have paired.</p>' +
+  '<h2>What ArNotes does</h2><ul>' +
+  '<li><b>Inbox:</b> photos, web pages, emails, files and notes land here to be tagged.</li>' +
+  '<li><b>Tags:</b> file anything under as many tags as you like (Who, What, When, Where), then drill down to find it.</li>' +
+  '<li><b>Photos:</b> one gallery for all your pictures, by tag or on a map.</li>' +
+  '<li><b>Receipts:</b> photos of receipts are read for you, then reported by job and category.</li>' +
+  '<li><b>Search, Shortcuts and Tasks:</b> find anything fast; keep to-dos on Home.</li>' +
+  '<li><b>Send and Export for AI:</b> email or text notes, or hand them to Claude, ChatGPT or Gemini.</li></ul>' +
+  '<p>Next: {note2}.</p>'; };
+var STARTER_START_HTML_ = function () { return '' +
+  '<p>ArNotes keeps <b>everything in one place, filed the same way</b>: notes you write, photos, web pages and bookmarks, emails, receipts, business cards, PDFs, and files you already keep in Google Drive. Each one becomes a note, and every note is filed with tags.</p>' +
+  '<h2>Why tags beat folders</h2><ul>' +
+  '<li>A file lives in one folder. A note can have <b>as many tags as you like</b>, so it shows up everywhere you would look for it.</li>' +
+  '<li>Example: one photo of a tire receipt can be tagged <b>Receipt</b>, <b>Vehicles › Truck</b>, a job, and <b>Expense Categories › Vehicle</b>. It\'s in all four places at once, with no copies.</li>' +
+  '<li>Tags nest, so you can drill down: <b>What › Vehicles › Truck</b>. Tap a tag to see everything under it, including the tags inside it.</li>' +
+  '<li>ArNotes starts you with four big groups: ' + appLink_('tag:Who', 'Who') + ' (people), ' + appLink_('tag:What', 'What') + ' (things and projects), ' + appLink_('tag:When', 'When') + ' (timing: Now, Next, Someday… and Completed) and ' + appLink_('tag:Where', 'Where') + ' (places). Add your own tags under any of them.</li>' +
+  '<li>Tags you make while tagging go right where you want them in the tree; they are kept in A–Z order.</li></ul>' +
+  '<h2>How things flow</h2><ol>' +
+  '<li><b>Get it in:</b> share from your phone, use the Save to ArNotes button, forward an email, add files, or write a note. It lands in your ' + appLink_('inbox', 'Inbox') + '.</li>' +
+  '<li><b>Tag it:</b> give it a tag or two. Receipts and business cards are read and tagged for you to check.</li>' +
+  '<li><b>File it:</b> it moves to your ' + appLink_('cabinet', 'Cabinet') + ', where tags and search find it in seconds.</li></ol>' +
+  '<h2>Things to try first</h2><ul>' +
+  '<li>Share a photo or a web page from your phone, then tag it in the Inbox.</li>' +
+  '<li>Tag a note <b>Tasks</b> (When › Now › Tasks): it shows in the Tasks box on ' + appLink_('home', 'Home') + '. These starter notes are tasks too.</li>' +
+  '<li>Link the Google Drive files you already have (Inbox → <b>🔗 Link Drive files</b>) and wrangle them with tags, without moving them.</li></ul>' +
+  '<p>Your notes are Google Docs in the <b>ArNotes</b> folder of your own Google Drive, backed up every day. Nobody else can see them unless you send or share them.</p>' +
+  '<p>Next: {note3}.</p>'; };
+var STARTER_HOWTO_HTML_ = function () { return '' +
+  '<p>A map of ArNotes. Each link opens that part of your own ArNotes.</p>' +
+  '<h2>Every day</h2><ul>' +
+  '<li>' + appLink_('home', '<b>Home</b>') + ': your newest notes, Inbox, Tasks, Shortcuts, a scratch pad and your top tags.</li>' +
+  '<li>' + appLink_('inbox', '<b>Inbox</b>') + ': new things waiting for tags. Open one, add tags, then file it to the Cabinet. Tick several to tag them together. <b>Check for new</b> brings in emails and Drive files right away.</li>' +
+  '<li>' + appLink_('tag:Tasks', '<b>Tasks</b>') + ': notes tagged Tasks. On Home, tap a task\'s tag to move it to another When tag, tick it and press <b>✓ Completed</b>, or <b>🗑 Delete task</b>.</li>' +
+  '<li><b>Search</b> (top left): titles and text. Click or tap it to see recent searches and notes you opened lately.</li></ul>' +
+  '<h2>Finding what you filed</h2><ul>' +
+  '<li>' + appLink_('tags', '<b>Tags</b>') + ': your whole tag tree. Tap a tag, then a tag inside it, to drill down.</li>' +
+  '<li>' + appLink_('cabinet', '<b>Cabinet</b>') + ': everything you have filed, by tag.</li>' +
+  '<li>' + appLink_('shortcuts', '<b>Shortcuts</b>') + ': notes you bookmarked with ★.</li>' +
+  '<li>' + appLink_('all', '<b>All notes</b>') + ': every note, newest first.</li></ul>' +
+  '<h2>Pictures and money</h2><ul>' +
+  '<li>' + appLink_('photos', '<b>Photos</b>') + ': all your pictures and videos, by tag or on a map. Start a note from a photo with <b>📝 Note with this photo</b>.</li>' +
+  '<li>' + appLink_('receipts', '<b>Receipts</b>') + ': receipts by job and expense category, billed or not, with a printable report.</li></ul>' +
+  '<h2>Working with a note</h2><ul>' +
+  '<li><b>✏️ Edit</b> right in ArNotes, or <b>＋ Add text</b> to add a few lines at the end.</li>' +
+  '<li><b>✉ Send</b> emails notes from your Gmail; <b>Share as PDF</b> texts them from your phone.</li>' +
+  '<li><b>🖨 Print</b>, <b>⇩ Download</b> and <b>Export for AI</b>.</li></ul>' +
+  '<h2>Settings and help</h2><ul>' +
+  '<li>' + appLink_('settings', '<b>Settings</b>') + ': getting things in (email address, Save to ArNotes button, linked Drive folders), receipts, devices, sharing and backup.</li>' +
+  '<li>The full guide is under ' + appLink_('settings:help', 'Settings → Help & backup → Getting started') + '.</li>' +
+  '<li>Install on another device: {note1}. The big picture: {note2}.</li>' +
+  '<li>When ArNotes gets an update, a <b>What\'s new</b> note shows up in your Tasks.</li></ul>'; };
+var STARTER_NOTES_ = [
+  { key: 'n1', title: '1. Install ArNotes on your phone and computer', html: STARTER_INSTALL_HTML_ },
+  { key: 'n2', title: '2. Getting started: everything in one place', html: STARTER_START_HTML_ },
+  { key: 'n3', title: '3. How to use ArNotes', html: STARTER_HOWTO_HTML_ }];
+/** A formatted note, filed in the Cabinet and tagged Tasks. */
+function taskNote_(title, html) {
+  var n = createHtmlNote_(title, html);
+  try { api_updateNote(n.id, { tags: ['Tasks'], notebook: 'Cabinet' }); } catch (e) { Logger.log('Task note ' + title + ': ' + e); }
+  return n;
+}
+function ensureStarterNotes_() {
+  var p = props_(); if (p.getProperty('starterNotes') === '1') return false;
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) return false;
+  try {
+    if (p.getProperty('starterNotes') === '1') return false;
+    if (!p.getProperty('notesId')) return false;               // not set up yet
+    var ids = {}, links = {}, fresh = readTable_('Notes').length < 5;
+    // made in order 3, 2, 1 so each can link to the next one; the list shows them newest first, so 1 is on top
+    for (var i = STARTER_NOTES_.length - 1; i >= 0; i--) {
+      var s = STARTER_NOTES_[i], h = s.html();
+      h = h.replace(/\{note(\d)\}/g, function (m, k) { return links['n' + k] || ('"' + STARTER_NOTES_[+k - 1].title + '"'); });
+      var n = taskNote_(s.title, h); ids[s.key] = n.id;
+      links[s.key] = '<a href="' + APP_URL + '?open=' + encodeURIComponent('note:' + n.id) + '">' + s.title + '</a>';
+      Utilities.sleep(1100);                                   // distinct created times, so the order holds
+    }
+    // notes made before the one they mention name it in quotes: turn those into links now that all three exist
+    Object.keys(ids).forEach(function (k) { try { var d = DocumentApp.openById(noteDoc_(ids[k])), b = d.getBody();
+      STARTER_NOTES_.forEach(function (s2) { fixStarterRef_(b, s2.title, APP_URL + '?open=' + encodeURIComponent('note:' + ids[s2.key])); }); d.saveAndClose(); } catch (e) { Logger.log('Starter links: ' + e); } });
+    if (fresh && !isLicenceServer_()) p.setProperty('releaseTaskN', p.getProperty('releaseInstalled') || '0');   // a new set-up doesn't need a What's new note
+    p.setProperty('starterNotes', '1'); p.setProperty('starterNoteIds', JSON.stringify(ids));
+    return ids;
+  } finally { lock.releaseLock(); }
+}
+function noteDoc_(id) { return ss_().getSheetByName('Notes').getRange(findNoteRow_(id), NOTE_COLS.indexOf('docId') + 1).getValue(); }
+/** Turn the quoted title of a starter note (made before it existed) into a link to it. */
+function fixStarterRef_(body, title, url) {
+  var q = '"' + title + '"', f = body.findText(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  while (f) {
+    var t = f.getElement().asText(), a = f.getStartOffset(), z = f.getEndOffsetInclusive();
+    t.deleteText(z, z); t.deleteText(a, a);                      // drop the quote marks
+    t.setLinkUrl(a, z - 2, url);
+    f = body.findText(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  }
+}
+/** A "What's new" note, tagged Tasks, for each release this ArNotes gets. */
+function releaseTaskHtml_(text) {
+  var lines = String(text || '').split('\n').map(function (l) { return l.replace(/^\s*[-•]\s*/, '').trim(); }).filter(String);
+  var e = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  return '<p>ArNotes was updated. Here\'s what changed:</p>' + (lines.length ? '<ul>' + lines.map(function (l) { return '<li>' + e(l) + '</li>'; }).join('') + '</ul>' : '<p>Small fixes and improvements.</p>') +
+    '<p>Refresh ArNotes (or close and reopen the app) to get the new version. When you\'ve read this, tick it on Home and press <b>✓ Completed</b>. Earlier releases: ' + appLink_('settings:help', 'Settings → Help & backup') + '.</p>';
+}
+function releaseTask_(n, text) {
+  n = +n || 0; var p = props_(); if (!n || n <= (+p.getProperty('releaseTaskN') || 0)) return false;
+  p.setProperty('releaseTaskN', String(n));
+  taskNote_('What\'s new in ArNotes: Release ' + n, releaseTaskHtml_(text));
+  return true;
+}
+/** A friend's copy, on load: a note for the release it now runs, if it hasn't had one. */
+function ensureReleaseTask_() {
+  if (isLicenceServer_()) return false;
+  var p = props_(), n = +p.getProperty('releaseInstalled') || 0; if (!n || n <= (+p.getProperty('releaseTaskN') || 0)) return false;
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) return false;
+  try {
+    var notes = []; try { notes = JSON.parse(p.getProperty('releaseNotes') || '[]'); } catch (e) {}
+    var r = notes.filter(function (x) { return +x.n === n; })[0] || {};
+    return releaseTask_(n, r.text || '');
   } finally { lock.releaseLock(); }
 }

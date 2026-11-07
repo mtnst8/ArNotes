@@ -23,6 +23,12 @@ To add another device, open **Settings → Devices → Copy pairing link** in Ar
 
 A note that is just a link gets the page's title, a short description and its picture. Some big store sites block this; those notes are named after the address.
 
+### Tasks
+
+Tag a note **Tasks** (When › Now › Tasks) and it appears in the **Tasks** box on Home. Tap its tag to move it to another When tag, tick it and press **✓ Completed** (moves it to When › Completed), or **🗑 Delete task** (trash, with Undo). The Tasks and Cash tags come with ArNotes.
+
+Every ArNotes starts with three how-to notes in Tasks: **1. Install ArNotes on your phone and computer**, **2. Getting started: everything in one place** and **3. How to use ArNotes**. Their links open parts of your own ArNotes. Each update adds a **What's new in ArNotes: Release N** note to Tasks.
+
 The full how-to for users is the **Getting started** guide inside the app (Settings → Help & backup → Getting started).
 
 ## Set up your own ArNotes
