@@ -279,6 +279,7 @@ nav button svg{display:none}
 .wgrid{container-type:inline-size}
 @container (min-width:640px){.wg.w2{grid-column:span 2}}
 #hgrid>.wg>.wh{cursor:grab;touch-action:pan-y}#hgrid>.wg>.wh h3{user-select:none}
+.tkadd{display:flex;gap:6px;margin:0 0 8px}.tkadd .field{flex:1;min-width:0;margin:0}
 .wg.dragging{opacity:.75;outline:2px dashed var(--acc);outline-offset:2px}
 body.hdragging,body.hdragging *{cursor:grabbing!important;user-select:none!important}
 .hreset{text-align:right;margin-top:8px}.hreset .lnk{border:0;background:none;color:var(--mute);cursor:pointer;font-size:12px}
@@ -976,12 +977,16 @@ function drawTasks(){
   el.style.display='';
   var list=byRecent(S.notes.filter(function(n){return n.tags.indexOf(TASK_TAG)>=0})), sel={};
   el.innerHTML='<div class="wh"><h3>Tasks</h3><span class="muted" style="margin-left:6px">'+list.length+'</span><span class="grow"></span><button class="lnk" id="tkAll">See all</button></div>'+
+    '<div class="tkadd"><input class="field" id="tkNew" placeholder="Type a task, then press Enter" maxlength="200"><button class="btn small" id="tkAdd" title="Add a task and open it to write more">＋ Add task</button></div>'+
     (list.length?'<div class="tklist">'+list.slice(0,10).map(function(n){var w=n.tags.filter(function(t){return whenTags().indexOf(t)>=0});
       return '<div class="tkr" data-id="'+n.id+'"><input type="checkbox" class="tkc" title="Tick, then press Completed"><span class="tkt" data-open="'+n.id+'">'+esc(n.title||'Untitled')+'</span>'+
         '<button class="chip tkw" title="Change its When tag">'+esc(w.join(', ')||TASK_TAG)+' ▾</button></div>'}).join('')+'</div>'+
       '<div class="foot"><span class="grow" id="tkInfo"></span><button class="btn small danger" id="tkDel" disabled title="Delete the ticked tasks (you can undo)">🗑 Delete task</button><button class="btn small primary" id="tkDone" disabled>✓ Completed</button></div>'
     :'<div class="empty">No tasks. Tag a note <b>'+esc(TASK_TAG)+'</b> (When › Now › Tasks) and it shows up here.</div>');
   $('#tkAll').onclick=function(){showTag(TASK_TAG)};
+  var ni=$('#tkNew'); if(S.tkFocus){S.tkFocus=false;ni.focus()}
+  ni.onkeydown=function(e){if(e.key==='Enter'&&ni.value.trim()){e.preventDefault();addTask(ni.value.trim(),false)}};
+  $('#tkAdd').onclick=function(){addTask(ni.value.trim()||'New task',true)};
   $$('#htasks [data-open]').forEach(function(c){c.onclick=function(){go('note',c.dataset.open)}});
   function upd(){var k=Object.keys(sel).length;var b=$('#tkDone');if(b)b.disabled=!k;var d=$('#tkDel');if(d){d.disabled=!k;d.textContent=k>1?'🗑 Delete '+k+' tasks':'🗑 Delete task'}var i=$('#tkInfo');if(i)i.textContent=k?k+' ticked':''}
   $$('#htasks .tkc').forEach(function(c){c.onchange=function(){var id=c.closest('.tkr').dataset.id;if(c.checked)sel[id]=1;else delete sel[id];upd()}});
@@ -991,6 +996,15 @@ function drawTasks(){
   $$('#htasks .tkw').forEach(function(b){b.onclick=function(e){e.stopPropagation();whenMenu(b,b.closest('.tkr').dataset.id)}});
 }
 /** Give notes one When tag (taking off their other When tags). */
+/** A new task: a note tagged Tasks, filed in the Cabinet. Typed + Enter stays on Home; ＋ Add task opens it for editing. */
+function addTask(title,open){
+  var ni=$('#tkNew'),b=$('#tkAdd'); if(ni){ni.disabled=true;ni.value='Adding “'+title+'”…'} if(b)b.disabled=true;
+  call('api_createNote',title,'',[TASK_TAG],'Cabinet').then(function(r){
+    var now=new Date().toISOString(), n={id:r.id,title:r.title||title,notebook:'Cabinet',tags:[TASK_TAG],created:now,updated:now,docId:r.docId,starred:false,att:0,sourceUrl:'',link:false};
+    if(!S.byId[n.id]){S.notes.unshift(n);S.byId[n.id]=n}
+    if(open){S.editNow=n.id;go('note',n.id)} else {toast('Task added');S.tkFocus=true;if(S.view==='home')drawTasks()}
+  }).catch(function(e){toast('Could not add the task: '+e.message);if(S.view==='home')drawTasks()});
+}
 function setWhen(ids,to,done){
   var w=whenTags(), rem={}; ids.forEach(function(id){var n=S.byId[id];if(n)n.tags.forEach(function(t){if(w.indexOf(t)>=0&&t!==to)rem[t]=1})});
   var n=ids.length, msg=done?(n===1?'✓ Task moved to Completed':'✓ '+n+' tasks moved to Completed'):'Moved to '+to;

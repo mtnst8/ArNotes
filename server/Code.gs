@@ -472,11 +472,11 @@ function api_updateNote(id, ch) {
 function api_setBookmarkOrder(ids) { props_().setProperty('bookmarkOrder', ids.join(',')); return true; }
 
 /** Quick capture: new note in the Inbox. */
-function api_createNote(title, text, tags) {
-  tags = tags || [];
+function api_createNote(title, text, tags, notebook) {
+  tags = tags || []; notebook = notebook === 'Cabinet' ? 'Cabinet' : 'Inbox';   // tasks typed on Home go straight to the Cabinet
   title = String(title || '').trim() || 'Untitled Note';
   var doc = DocumentApp.create(title), body = doc.getBody();
-  body.getChild(0).asParagraph().setText(headerLine_('Inbox', tags));
+  body.getChild(0).asParagraph().setText(headerLine_(notebook, tags));
   String(text || '').split('\n').forEach(function (l) { body.appendParagraph(l); });
   doc.saveAndClose();
   DriveApp.getFileById(doc.getId()).moveTo(DriveApp.getFolderById(props_().getProperty('notesId')));
@@ -486,7 +486,7 @@ function api_createNote(title, text, tags) {
     title = (info && info.title) ? info.title.slice(0, 120) : url.replace(/^https?:\/\/(www\.)?/i, '').replace(/[?#].*$/, '').replace(/\/$/, '').slice(0, 90);
     try { DriveApp.getFileById(doc.getId()).setName(title); } catch (e) {}
   }
-  var n = { id: id, title: title, notebook: 'Inbox', tags: tags.join(TAG_SEP), created: now, updated: now, docId: doc.getId(), starred: false, source: 'arenote', sourceUrl: '', author: '', attachments: 0 };
+  var n = { id: id, title: title, notebook: notebook, tags: tags.join(TAG_SEP), created: now, updated: now, docId: doc.getId(), starred: false, source: 'arenote', sourceUrl: '', author: '', attachments: 0 };
   ss_().getSheetByName('Notes').appendRow(noteToRow_(n));
   return { id: id, docId: doc.getId(), title: title };
 }
