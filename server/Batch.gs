@@ -1500,15 +1500,31 @@ function gmail_(path, method, body) {
   if (c >= 300) throw new Error('Gmail ' + c + ': ' + t.slice(0, 200));
   return t ? JSON.parse(t) : {};
 }
-function gmailLabels_() { return gmail_('labels').labels || []; }
+/** Copies made before Nov 2026 have the Gmail service off (and full Gmail access): they keep using GmailApp.
+ *  Decided once (cached 6 h): the Gmail API answers → use it; "not been used / disabled" → the old way. */
+function gmailLegacy_() {
+  if (gmailLegacy_.v !== undefined) return gmailLegacy_.v;
+  var c = CacheService.getScriptCache(), hit = c.get('gmailLegacy');
+  if (hit !== null) return (gmailLegacy_.v = hit === '1');
+  var legacy = false;
+  try { gmail_('labels'); } catch (e) { legacy = /\b403\b/.test(e.message) && /SERVICE_DISABLED|accessNotConfigured|has not been used|is disabled/i.test(e.message); if (!legacy) throw e; }
+  try { c.put('gmailLegacy', legacy ? '1' : '0', 21600); } catch (e) {}
+  return (gmailLegacy_.v = legacy);
+}
+function gmailLabels_() {
+  if (gmailLegacy_()) return GmailApp.getUserLabels().map(function (l) { return { id: l.getName(), name: l.getName() }; });
+  return gmail_('labels').labels || [];
+}
 /** The id of a Gmail label by name (made if create and missing; a nested name like "ArNotes/Saved" needs its parent first). */
 function gmailLabelId_(name, create) {
+  if (gmailLegacy_()) { var gl = GmailApp.getUserLabelByName(name) || (create ? GmailApp.createLabel(name) : null); return gl ? name : null; }
   var l = gmailLabels_().filter(function (x) { return x.name === name; })[0];
   if (l) return l.id; if (!create) return null;
   return gmail_('labels', 'post', { name: name, labelListVisibility: 'labelShow', messageListVisibility: 'show' }).id;
 }
 /** Thread ids matching a Gmail search, newest first. */
 function gmailSearch_(q, max) {
+  if (gmailLegacy_()) return GmailApp.search(q, 0, max).map(function (t) { return t.getId(); });
   var out = [], tok = '';
   do {
     var r = gmail_('threads?maxResults=' + Math.min(100, max - out.length) + '&q=' + encodeURIComponent(q) + (tok ? '&pageToken=' + tok : ''));
@@ -1516,9 +1532,20 @@ function gmailSearch_(q, max) {
   } while (tok && out.length < max);
   return out;
 }
-function gmailModifyThread_(id, add, remove) { gmail_('threads/' + id + '/modify', 'post', { addLabelIds: add || [], removeLabelIds: remove || [] }); }
+function gmailModifyThread_(id, add, remove) {
+  if (gmailLegacy_()) {
+    var th = GmailApp.getThreadById(id);
+    (add || []).forEach(function (n) { th.addLabel(GmailApp.getUserLabelByName(n) || GmailApp.createLabel(n)); });
+    (remove || []).forEach(function (n) { if (n === 'INBOX') th.moveToArchive(); else { var l = GmailApp.getUserLabelByName(n); if (l) th.removeLabel(l); } });
+    return;
+  }
+  gmail_('threads/' + id + '/modify', 'post', { addLabelIds: add || [], removeLabelIds: remove || [] }); }
 /** A conversation: { getId(), labelIds, messages: [message…] } (messages oldest first, like GmailApp). */
 function gmailThread_(id) {
+  if (gmailLegacy_()) {
+    var gt = GmailApp.getThreadById(id);
+    return { getId: function () { return gt.getId(); }, labelIds: gt.getLabels().map(function (l) { return l.getName(); }), messages: gt.getMessages() };
+  }
   var t = gmail_('threads/' + id + '?format=full'), ids = {};
   var msgs = (t.messages || []).map(function (m) { (m.labelIds || []).forEach(function (l) { ids[l] = 1; }); return gmailMsg_(m); });
   return { getId: function () { return t.id; }, labelIds: Object.keys(ids), messages: msgs };
@@ -1564,6 +1591,10 @@ function gmailMsg_(raw) {
 }
 /** Send from this account: { to, subject, plain, html, replyTo, attachments: [blob], inline: { cid: blob } }. Up to Gmail's 35 MB. */
 function gmailSend_(o) {
+  if (gmailLegacy_()) {
+    var inl = o.inline && Object.keys(o.inline).length ? o.inline : undefined;
+    return GmailApp.sendEmail(o.to, o.subject, o.plain || '', { htmlBody: o.html, replyTo: o.replyTo || undefined, attachments: o.attachments || [], inlineImages: inl });
+  }
   var b64 = function (bytes) { return Utilities.base64Encode(bytes).replace(/(.{76})/g, '$1\r\n'); };
   var utf = function (x) { return Utilities.newBlob(String(x)).getBytes(); };
   var hdrWord = function (x) { x = String(x || ''); return /^[\x20-\x7e]*$/.test(x) ? x : '=?UTF-8?B?' + Utilities.base64Encode(utf(x)) + '?='; };
@@ -3333,7 +3364,13 @@ function api_contacts() {
   }
   try { JSON.parse(props_().getProperty('sentTo') || '[]').forEach(function (e, i) { add('', e, 100 - i); }); } catch (e) {}
   try {
-    var sent = gmail_('messages?maxResults=300&q=' + encodeURIComponent('in:sent newer_than:1y')).messages || [];
+    if (gmailLegacy_()) {
+      GmailApp.getMessagesForThreads(GmailApp.search('in:sent newer_than:1y', 0, 150)).forEach(function (ms) { ms.forEach(function (m) {
+        if (String(m.getFrom()).toLowerCase().indexOf(me) < 0) return;
+        [m.getTo(), m.getCc()].join(',').split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).forEach(function (s) { var mm = s.match(/^\s*(.*?)\s*<([^>]+)>\s*$/); if (mm) add(mm[1], mm[2], 1); else add('', s, 1); });
+      }); });
+    }
+    var sent = gmailLegacy_() ? [] : gmail_('messages?maxResults=300&q=' + encodeURIComponent('in:sent newer_than:1y')).messages || [];
     for (var i = 0; i < sent.length; i += 50) {
       UrlFetchApp.fetchAll(sent.slice(i, i + 50).map(function (x) {
         return { url: GM_ + 'messages/' + x.id + '?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true };
