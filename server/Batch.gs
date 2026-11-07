@@ -1035,7 +1035,7 @@ function inviteEmail_(to, name, tok) {
   var esc = function (x) { return String(x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var plain = t.replace(/\{invite button\}/gi, link);
   var html = esc(t).replace(/\{invite button\}/gi, '<a href="' + esc(link) + '" style="display:inline-block;background:#2f6f4f;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold">Set up ArNotes</a>').replace(/\n/g, '<br>');
-  GmailApp.sendEmail(to, subject, plain, { htmlBody: '<div style="font:15px/1.5 sans-serif;max-width:560px">' + html + '</div>', replyTo: me });
+  gmailSend_({ to: to, subject: subject, plain: plain, html: '<div style="font:15px/1.5 sans-serif;max-width:560px">' + html + '</div>', replyTo: me });
 }
 /** Public (no key): the invite page reads and accepts an invite by its token. Says nothing unless the token matches. */
 function inviteReq_(req) {
@@ -1253,16 +1253,16 @@ function api_renameToArNotes(dry) {
   if (isLicenceServer_()) { try { var tf = DriveApp.getFileById('1U4jJdCdPe7nZbzf2oSH7BCsAdAevRlnWYheZxxoFUTk'); ren(tf, String(tf.getName()).replace(/\bArNote\b/g, 'ArNotes')); } catch (e) { out.drive.push('template: ' + e.message); } }
   // Gmail labels: the saved-emails label first, then its parent
   [['ArNote/Saved', 'ArNotes/Saved'], ['ArNote', 'ArNotes']].forEach(function (x) {
-    var old = GmailApp.getUserLabelByName(x[0]); if (!old) return;
-    var neu = GmailApp.getUserLabelByName(x[1]);
+    var labs = gmailLabels_(), old = labs.filter(function (l) { return l.name === x[0]; })[0]; if (!old) return;
+    var neu = labs.filter(function (l) { return l.name === x[1]; })[0];
     if (!neu) {
       out.gmail.push(x[0] + ' → ' + x[1]); if (dry) return;
-      var lab = JSON.parse(UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } }).getContentText()).labels
-        .filter(function (l) { return l.name === x[0]; })[0];
-      UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels/' + lab.id, { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ name: x[1] }), headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
+      gmail_('labels/' + old.id, 'patch', { name: x[1] });
     } else {                                    // both exist (the new one was already made): move the emails over, remove the old label
-      var n = 0; for (var t = old.getThreads(0, 100); t.length; t = old.getThreads(0, 100)) { n += t.length; if (dry) break; neu.addToThreads(t); old.removeFromThreads(t); }
-      out.gmail.push(x[0] + ' merged into ' + x[1] + ' (' + n + ' conversations)'); if (!dry) old.deleteLabel();
+      var n = 0; for (var t = gmailSearch_('label:' + x[0].toLowerCase().replace(/[\/ ]/g, '-'), 100); t.length; t = gmailSearch_('label:' + x[0].toLowerCase().replace(/[\/ ]/g, '-'), 100)) {
+        n += t.length; if (dry) break; t.forEach(function (id) { gmailModifyThread_(id, [neu.id], [old.id]); });
+      }
+      out.gmail.push(x[0] + ' merged into ' + x[1] + ' (' + n + ' conversations)'); if (!dry) gmail_('labels/' + old.id, 'delete');
     }
   });
   // help notes (invite email, setup steps, guide, release notes): their Doc name, their text and their title in the index
@@ -1487,10 +1487,115 @@ function api_mailCheckNow() {
   var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) throw new Error('ArNotes is busy; try again in a minute');
   try { return processMail_(Date.now(), 150000); } finally { lock.releaseLock(); }
 }
-/** Run once in the script editor to approve Gmail access. */
-function authorizeMail() { GmailApp.getUserLabelByName('ArNotes'); return mailAddress_(); }
+/* ---------------- Gmail, through Google's Gmail API ----------------
+ * ArNotes asks only for Google's "gmail.modify" permission ("Read, compose, and send emails from your Gmail account"):
+ * read the emails sent to the ArNotes address, label and archive them, and send. It can't permanently delete email.
+ * (Apps Script's built-in GmailApp would need full Gmail access, "…and permanently delete all your email", so it isn't used.)
+ * gmailThread_ hands back messages with the same methods ArNotes used from GmailApp (getSubject, getBody, getAttachments, …). */
+var GM_ = 'https://gmail.googleapis.com/gmail/v1/users/me/';
+function gmail_(path, method, body) {
+  var o = { method: method || 'get', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true };
+  if (body !== undefined) { o.contentType = 'application/json'; o.payload = JSON.stringify(body); }
+  var r = UrlFetchApp.fetch(/^https:/.test(path) ? path : GM_ + path, o), c = r.getResponseCode(), t = r.getContentText();
+  if (c >= 300) throw new Error('Gmail ' + c + ': ' + t.slice(0, 200));
+  return t ? JSON.parse(t) : {};
+}
+function gmailLabels_() { return gmail_('labels').labels || []; }
+/** The id of a Gmail label by name (made if create and missing; a nested name like "ArNotes/Saved" needs its parent first). */
+function gmailLabelId_(name, create) {
+  var l = gmailLabels_().filter(function (x) { return x.name === name; })[0];
+  if (l) return l.id; if (!create) return null;
+  return gmail_('labels', 'post', { name: name, labelListVisibility: 'labelShow', messageListVisibility: 'show' }).id;
+}
+/** Thread ids matching a Gmail search, newest first. */
+function gmailSearch_(q, max) {
+  var out = [], tok = '';
+  do {
+    var r = gmail_('threads?maxResults=' + Math.min(100, max - out.length) + '&q=' + encodeURIComponent(q) + (tok ? '&pageToken=' + tok : ''));
+    (r.threads || []).forEach(function (t) { out.push(t.id); }); tok = r.nextPageToken;
+  } while (tok && out.length < max);
+  return out;
+}
+function gmailModifyThread_(id, add, remove) { gmail_('threads/' + id + '/modify', 'post', { addLabelIds: add || [], removeLabelIds: remove || [] }); }
+/** A conversation: { getId(), labelIds, messages: [message…] } (messages oldest first, like GmailApp). */
+function gmailThread_(id) {
+  var t = gmail_('threads/' + id + '?format=full'), ids = {};
+  var msgs = (t.messages || []).map(function (m) { (m.labelIds || []).forEach(function (l) { ids[l] = 1; }); return gmailMsg_(m); });
+  return { getId: function () { return t.id; }, labelIds: Object.keys(ids), messages: msgs };
+}
+function gmailMsg_(raw) {
+  var hdr = {}, plain = null, html = null, atts = [];
+  (raw.payload.headers || []).forEach(function (h) { var k = h.name.toLowerCase(); if (!(k in hdr)) hdr[k] = h.value; });
+  var partHdr = function (pt, name) { var h = (pt.headers || []).filter(function (x) { return x.name.toLowerCase() === name; })[0]; return h ? h.value : ''; };
+  var text = function (pt) {
+    var cs = (partHdr(pt, 'content-type').match(/charset="?([^";\s]+)/i) || [])[1] || 'UTF-8', bytes = Utilities.base64DecodeWebSafe(pt.body.data);
+    try { return Utilities.newBlob(bytes).getDataAsString(cs); } catch (e) { return Utilities.newBlob(bytes).getDataAsString(); }
+  };
+  (function walk(pt) {
+    var mt = String(pt.mimeType || '').toLowerCase();
+    if (/^multipart\//.test(mt)) { (pt.parts || []).forEach(walk); return; }
+    var isText = (mt === 'text/plain' || mt === 'text/html') && !pt.filename && !/^attachment/i.test(partHdr(pt, 'content-disposition'));
+    if (isText) { if (pt.body && pt.body.data) { if (mt === 'text/plain' && plain === null) plain = text(pt); if (mt === 'text/html' && html === null) html = text(pt); } return; }
+    if (!pt.body || !(pt.body.attachmentId || pt.body.data)) return;
+    var cid = partHdr(pt, 'content-id').replace(/[<>]/g, ''), name = pt.filename || cid || 'attachment';
+    atts.push({ part: pt, name: name, type: mt || 'application/octet-stream', size: pt.body.size || 0 });
+  })(raw.payload);
+  var blobOf = function (a) {
+    var data = a.part.body.data || gmail_('messages/' + raw.id + '/attachments/' + a.part.body.attachmentId).data;
+    return Utilities.newBlob(Utilities.base64DecodeWebSafe(data), a.type, a.name);
+  };
+  var escH = function (x) { return String(x).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); };
+  return {
+    getId: function () { return raw.id; },
+    getHeader: function (n) { return hdr[String(n).toLowerCase()] || ''; },
+    getFrom: function () { return hdr.from || ''; }, getTo: function () { return hdr.to || ''; },
+    getCc: function () { return hdr.cc || ''; }, getBcc: function () { return hdr.bcc || ''; },
+    getSubject: function () { return hdr.subject || ''; },
+    getDate: function () { return new Date(+raw.internalDate); },
+    getPlainBody: function () { return plain !== null ? plain : String(html || '').replace(/<(br|\/p|\/div|\/tr|\/li)\b[^>]*>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'); },
+    getBody: function () { return html !== null ? html : escH(plain || '').replace(/\n/g, '<br>'); },
+    getAttachments: function () {
+      return atts.map(function (a) {
+        return { getName: function () { return a.name; }, getSize: function () { return a.size; }, getContentType: function () { return a.type; },
+          copyBlob: function () { return blobOf(a); }, getBytes: function () { return blobOf(a).getBytes(); } };
+      });
+    }
+  };
+}
+/** Send from this account: { to, subject, plain, html, replyTo, attachments: [blob], inline: { cid: blob } }. Up to Gmail's 35 MB. */
+function gmailSend_(o) {
+  var b64 = function (bytes) { return Utilities.base64Encode(bytes).replace(/(.{76})/g, '$1\r\n'); };
+  var utf = function (x) { return Utilities.newBlob(String(x)).getBytes(); };
+  var hdrWord = function (x) { x = String(x || ''); return /^[\x20-\x7e]*$/.test(x) ? x : '=?UTF-8?B?' + Utilities.base64Encode(utf(x)) + '?='; };
+  var fileParams = function (n) { n = String(n || 'file').replace(/"/g, ''); return 'filename="' + hdrWord(n) + '"'; };
+  var id = Utilities.getUuid().replace(/-/g, ''), M = 'mx' + id, R = 'rl' + id, A = 'al' + id, L = [];
+  L.push('MIME-Version: 1.0', 'To: ' + o.to, 'Subject: ' + hdrWord(o.subject));
+  if (o.replyTo) L.push('Reply-To: ' + o.replyTo);
+  L.push('Content-Type: multipart/mixed; boundary="' + M + '"', '', '--' + M, 'Content-Type: multipart/related; boundary="' + R + '"', '', '--' + R,
+    'Content-Type: multipart/alternative; boundary="' + A + '"', '',
+    '--' + A, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64(utf(o.plain || '')),
+    '--' + A, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64(utf(o.html || '')), '--' + A + '--');
+  Object.keys(o.inline || {}).forEach(function (cid) {
+    var bl = o.inline[cid];
+    L.push('--' + R, 'Content-Type: ' + (bl.getContentType() || 'image/png'), 'Content-Transfer-Encoding: base64', 'Content-ID: <' + cid + '>',
+      'Content-Disposition: inline; ' + fileParams(bl.getName() || cid), '', b64(bl.getBytes()));
+  });
+  L.push('--' + R + '--');
+  (o.attachments || []).forEach(function (bl) {
+    L.push('--' + M, 'Content-Type: ' + (bl.getContentType() || 'application/octet-stream'), 'Content-Transfer-Encoding: base64',
+      'Content-Disposition: attachment; ' + fileParams(bl.getName()), '', b64(bl.getBytes()));
+  });
+  L.push('--' + M + '--', '');
+  var r = UrlFetchApp.fetch('https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media', {
+    method: 'post', contentType: 'message/rfc822', payload: L.join('\r\n'), headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+  if (r.getResponseCode() >= 300) throw new Error('Could not send the email (' + r.getResponseCode() + '): ' + r.getContentText().slice(0, 200));
+  return JSON.parse(r.getContentText());
+}
 
-function mailLabel_(name) { return GmailApp.getUserLabelByName(name) || GmailApp.createLabel(name); }
+/** Run once in the script editor to approve Gmail access. */
+function authorizeMail() { gmailLabels_(); return mailAddress_(); }
+
+function mailLabel_(name) { return gmailLabelId_(name, true); }
 
 function processMail_(start, budget) {
   start = start || Date.now(); budget = budget || 60000;
@@ -1498,19 +1603,19 @@ function processMail_(start, budget) {
   mailSenders_().forEach(function (s) { ok[s] = 1; });
   var inLabel = mailLabel_('ArNotes'), saved = mailLabel_('ArNotes/Saved');
   var old = addr.replace('+arnotes@', '+arnote@');               // the address from before the rename (ArNote) still works
-  var threads = GmailApp.search('(to:' + addr + ' OR deliveredto:' + addr + ' OR to:' + old + ' OR deliveredto:' + old + ') -label:arnotes-saved', 0, 15).concat(GmailApp.search('label:arnotes -label:arnotes-saved', 0, 15));
+  var threads = gmailSearch_('(to:' + addr + ' OR deliveredto:' + addr + ' OR to:' + old + ' OR deliveredto:' + old + ') -label:arnotes-saved', 15).concat(gmailSearch_('label:arnotes -label:arnotes-saved', 15));
   var seen = {};
-  threads.forEach(function (th) {
-    if (seen[th.getId()] || Date.now() - start > budget) return; seen[th.getId()] = 1;
-    var labelled = th.getLabels().some(function (l) { return l.getName() === 'ArNotes'; });
-    var msgs = th.getMessages().filter(function (m) {
+  threads.forEach(function (tid) {
+    if (seen[tid] || Date.now() - start > budget) return; seen[tid] = 1;
+    var th = gmailThread_(tid), labelled = th.labelIds.indexOf(inLabel) >= 0;
+    var msgs = th.messages.filter(function (m) {
       if (labelled) return true;
-      var to = [m.getTo(), m.getCc(), m.getBcc ? m.getBcc() : '', m.getHeader('Delivered-To') || ''].join(',').toLowerCase();
+      var to = [m.getTo(), m.getCc(), m.getBcc(), m.getHeader('Delivered-To') || ''].join(',').toLowerCase();
       return (to.indexOf(addr.toLowerCase()) >= 0 || to.indexOf(old.toLowerCase()) >= 0) && ok[senderEmail_(m.getFrom())];
     });
     if (labelled) msgs = msgs.slice(-1);                          // a labelled conversation: keep its latest email
     msgs.forEach(function (m) { try { made.push(noteFromMail_(m, th)); } catch (e) { Logger.log('Mail note failed: ' + e); } });
-    th.addLabel(saved); if (labelled) th.removeLabel(inLabel); th.moveToArchive();
+    gmailModifyThread_(tid, [saved], ['INBOX'].concat(labelled ? [inLabel] : []));
   });
   if (made.length) props_().setProperty('mailLast', JSON.stringify({ at: new Date().toISOString(), n: made.length }));
   return { added: made.length, titles: made.map(function (n) { return n.title; }) };
@@ -1722,7 +1827,7 @@ function api_mailReceiptFor(noteIds, force) {
     if (have[n.id]) { out.push({ id: n.id, title: String(n.title), already: true }); return; }
     var tid = (String(n.sourceUrl || '').match(/#all\/([\w-]+)/) || [])[1]; if (!tid) { out.push({ id: n.id, title: String(n.title), error: 'not an email' }); return; }
     try {
-      var msgs = GmailApp.getThreadById(tid).getMessages(), m = msgs[msgs.length - 1];
+      var msgs = gmailThread_(tid).messages, m = msgs[msgs.length - 1];
       var files = (atts[n.id] || []).map(function (a) { try { return DriveApp.getFileById(String(a.fileId)); } catch (e) { return null; } }).filter(Boolean);
       var rc = mailReceipt_(m, files, String(n.docId));
       if (!rc && force) rc = { date: Utilities.formatDate(m.getDate(), Session.getScriptTimeZone(), 'yyyy-MM-dd'), vendor: mailVendor_(fwdHeader_(m.getPlainBody() || ''), String(m.getSubject()).replace(/^\s*((fwd?|fw|re)\s*:\s*)+/i, ''), m.getFrom()), total: null, tax: null, card: '', pay: '', fileId: files.length ? files[0].getId() : String(n.docId), kind: 'receipt', check: 'check' };
@@ -3205,7 +3310,7 @@ function api_sendNotes(ids, to, message, opt) {
     '<p style="color:#888;font-size:12px;margin-top:24px">Sent from ArNotes</p></div>';
   var plain = (msg ? msg + '\n\n' : '') + notes.map(function (n) { return '• ' + n.title; }).join('\n') + '\n\n(The notes are in this email; open it in a mail app that shows formatting.)';
   if (opt.dry) return { dry: true, to: list, subject: subject, htmlBytes: htmlBody.length, pictures: imgN, attached: atts.map(function (b) { return b.getName(); }), bytes: used, tooBig: tooBig };
-  GmailApp.sendEmail(list.join(','), subject, plain, { htmlBody: htmlBody, attachments: atts, inlineImages: inline });
+  gmailSend_({ to: list.join(', '), subject: subject, plain: plain, html: htmlBody, attachments: atts, inline: inline });
   try { remember_(list); } catch (e) {}
   return { ok: true, to: list, notes: notes.length, attached: atts.length, tooBig: tooBig };
 }
@@ -3228,14 +3333,19 @@ function api_contacts() {
   }
   try { JSON.parse(props_().getProperty('sentTo') || '[]').forEach(function (e, i) { add('', e, 100 - i); }); } catch (e) {}
   try {
-    GmailApp.getMessagesForThreads(GmailApp.search('in:sent newer_than:1y', 0, 150)).forEach(function (ms) {
-      ms.forEach(function (m) {
-        if (String(m.getFrom()).toLowerCase().indexOf(me) < 0) return;
-        [m.getTo(), m.getCc()].join(',').split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).forEach(function (s) {
+    var sent = gmail_('messages?maxResults=300&q=' + encodeURIComponent('in:sent newer_than:1y')).messages || [];
+    for (var i = 0; i < sent.length; i += 50) {
+      UrlFetchApp.fetchAll(sent.slice(i, i + 50).map(function (x) {
+        return { url: GM_ + 'messages/' + x.id + '?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true };
+      })).forEach(function (r) {
+        if (r.getResponseCode() !== 200) return;
+        var h = {}; ((JSON.parse(r.getContentText()).payload || {}).headers || []).forEach(function (x) { h[x.name.toLowerCase()] = x.value; });
+        if (String(h.from || '').toLowerCase().indexOf(me) < 0) return;
+        [h.to || '', h.cc || ''].join(',').split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).forEach(function (s) {
           var mm = s.match(/^\s*(.*?)\s*<([^>]+)>\s*$/); if (mm) add(mm[1], mm[2], 1); else add('', s, 1);
         });
       });
-    });
+    }
   } catch (e) {}
   try { if (isLicenceServer_()) userRows_().rows.forEach(function (u) { add(u.name, u.contact || u.email, 2); }); } catch (e) {}
   out.sort(function (a, b) { return b.n - a.n; });
