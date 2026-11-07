@@ -306,6 +306,7 @@ nav button svg{display:none}
 .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--mute);text-align:center;padding:18px 6px}
 .pick{max-height:50vh;overflow:auto}
 iframe.editor{height:calc(100vh - 70px);min-height:420px}
+.tklist{display:flex;flex-direction:column;gap:2px}.tkr{display:flex;align-items:center;gap:8px;padding:4px 2px;border-bottom:1px solid var(--line)}.tkr:last-child{border-bottom:0}.tkt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}.tkt:hover{text-decoration:underline}.tkw{flex:none;font-size:12px}
 #qdrop{display:none;position:absolute;left:8px;right:8px;top:100%;z-index:60;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-height:70vh;overflow:auto;padding:4px 0}.qdh{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute);padding:8px 12px 2px}.qdi{display:flex;gap:8px;align-items:baseline;padding:6px 12px;cursor:pointer;font-size:14px}.qdi:hover,.qdi.on{background:var(--acc2)}.qdic{flex:none;width:18px}.qdt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.qds{flex:none;font-size:11px;color:var(--mute)}.qdclr{padding:6px 12px 4px;text-align:right}@media (min-width:900px){#side #qdrop{right:auto;width:400px;max-width:calc(100vw - 30px)}}
 .wg.sgrps{background:none;border:0;box-shadow:none;padding:0}.sgrp{border:1px solid var(--line);border-radius:10px;background:var(--card);margin:0 0 10px}.sgrp>summary{cursor:pointer;list-style:none;padding:12px 14px;display:flex;flex-direction:column;gap:2px}.sgrp>summary::-webkit-details-marker{display:none}.sgrp>summary b{font-size:15px}.sgrp>summary b::before{content:'▸ ';color:var(--mute)}.sgrp[open]>summary b::before{content:'▾ '}.sgrp>summary span{font-size:12px;color:var(--mute)}.sbody{padding:0 14px 12px}.sh3{margin:14px 0 4px;font-size:14px}.sbody>.sh3:first-child{margin-top:4px}
 .sdto{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--card)}.sdto input{flex:1;min-width:160px;border:0;outline:0;background:transparent;color:inherit;font:inherit;padding:4px}.sdto .chip{background:var(--acc2);color:var(--ink);border:1px solid var(--acc);border-radius:12px;padding:2px 8px;font-size:13px}.sdto .chip b{cursor:pointer;margin-left:2px}.sdsug{border-radius:8px;overflow:hidden}.sdi{padding:6px 10px;cursor:pointer;font-size:14px}.sdi.on,.sdi:hover{background:var(--card)}
@@ -910,13 +911,50 @@ function viewHome(){
     '<div class="wg"><div class="wh"><h3>Inbox</h3><button class="lnk" data-go="inbox">Open</button></div>'+
       '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px"><span class="bignum">'+inbox.length+'</span><span class="muted">to tag & file</span></div>'+
       (inbox.length?miniList(inbox.slice(0,5)):'<div class="empty">Inbox is empty. Nice.</div>')+'</div>'+
+    '<div class="wg" id="htasks"></div>'+
     '<div class="wg"><div class="wh"><h3>Shortcuts</h3><button class="lnk" data-go="shortcuts">See all</button></div>'+
       (bm.length?miniList(bm.slice(0,8)):'<div class="empty">Star a note (☆) to add it here.</div>')+'</div>'+
     '<div class="wg"><div class="wh"><h3>Tags</h3><button class="lnk" data-go="tags">See all</button></div><div>'+
       topTags.map(function(t){return '<button class="chip" data-tagq="'+esc(t)+'" title="'+esc(tagPath(t))+'">'+esc(t)+' <span class="muted">'+cm[t]+'</span></button>'}).join('')+'</div></div>'+
    '</div></div>';
-  drawCards(); drawPin(); bindHome();
+  drawCards(); drawPin(); drawTasks(); bindHome();
   call('api_homeExtras').then(function(x){S.pinned=x.pinned||'';drawPin();var sc=$('#scratch');if(sc&&!sc.dataset.dirty){sc.value=x.scratch||'';}}).catch(function(){});
+}
+/* ---------- Tasks (When › Now › Tasks) on Home: tick, then Completed moves them to When › Completed ---------- */
+var TASK_TAG='Tasks', DONE_TAG='Completed';
+function whenTags(){return S.parent.hasOwnProperty('When')?descendants('When').filter(function(t){return t!=='When'}):[]}
+function drawTasks(){
+  var el=$('#htasks'); if(!el) return;
+  if(!S.parent.hasOwnProperty(TASK_TAG)){el.style.display='none';return}
+  el.style.display='';
+  var list=byRecent(S.notes.filter(function(n){return n.tags.indexOf(TASK_TAG)>=0})), sel={};
+  el.innerHTML='<div class="wh"><h3>Tasks</h3><span class="muted" style="margin-left:6px">'+list.length+'</span><span class="grow"></span><button class="lnk" id="tkAll">See all</button></div>'+
+    (list.length?'<div class="tklist">'+list.slice(0,10).map(function(n){var w=n.tags.filter(function(t){return whenTags().indexOf(t)>=0});
+      return '<div class="tkr" data-id="'+n.id+'"><input type="checkbox" class="tkc" title="Tick, then press Completed"><span class="tkt" data-open="'+n.id+'">'+esc(n.title||'Untitled')+'</span>'+
+        '<button class="chip tkw" title="Change its When tag">'+esc(w.join(', ')||TASK_TAG)+' ▾</button></div>'}).join('')+'</div>'+
+      '<div class="foot"><span class="grow" id="tkInfo"></span><button class="btn small danger" id="tkDel" disabled title="Delete the ticked tasks (you can undo)">🗑 Delete task</button><button class="btn small primary" id="tkDone" disabled>✓ Completed</button></div>'
+    :'<div class="empty">No tasks. Tag a note <b>'+esc(TASK_TAG)+'</b> (When › Now › Tasks) and it shows up here.</div>');
+  $('#tkAll').onclick=function(){showTag(TASK_TAG)};
+  $$('#htasks [data-open]').forEach(function(c){c.onclick=function(){go('note',c.dataset.open)}});
+  function upd(){var k=Object.keys(sel).length;var b=$('#tkDone');if(b)b.disabled=!k;var d=$('#tkDel');if(d){d.disabled=!k;d.textContent=k>1?'🗑 Delete '+k+' tasks':'🗑 Delete task'}var i=$('#tkInfo');if(i)i.textContent=k?k+' ticked':''}
+  $$('#htasks .tkc').forEach(function(c){c.onchange=function(){var id=c.closest('.tkr').dataset.id;if(c.checked)sel[id]=1;else delete sel[id];upd()}});
+  if($('#tkDone')) $('#tkDone').onclick=function(){var ids=Object.keys(sel);if(!ids.length)return;setWhen(ids,DONE_TAG,true)};
+  if($('#tkDel')) $('#tkDel').onclick=function(){var ids=Object.keys(sel);if(!ids.length)return;
+    trashLater(ids,ids.length===1?'Task deleted':ids.length+' tasks deleted'); refreshInboxCount(); drawTasks()};
+  $$('#htasks .tkw').forEach(function(b){b.onclick=function(e){e.stopPropagation();whenMenu(b,b.closest('.tkr').dataset.id)}});
+}
+/** Give notes one When tag (taking off their other When tags). */
+function setWhen(ids,to,done){
+  var w=whenTags(), rem={}; ids.forEach(function(id){var n=S.byId[id];if(n)n.tags.forEach(function(t){if(w.indexOf(t)>=0&&t!==to)rem[t]=1})});
+  var n=ids.length, msg=done?(n===1?'✓ Task moved to Completed':'✓ '+n+' tasks moved to Completed'):'Moved to '+to;
+  var p=batch({addTags:[to],removeTags:Object.keys(rem)},msg,ids); if(S.view==='home')drawTasks(); return p.then(function(){if(S.view==='home')drawTasks()});
+}
+function whenMenu(btn,id){
+  closeMenu(); var m=document.createElement('div'); m.className='menu'; m.id='menu';
+  var n=S.byId[id]; m.innerHTML=whenTags().map(function(t){return '<button data-w="'+esc(t)+'"'+(n&&n.tags.indexOf(t)>=0?' style="font-weight:700"':'')+'>'+(S.parent[t]&&S.parent[t]!=='When'?'&nbsp;&nbsp;&nbsp;':'')+esc(t)+'</button>'}).join('');
+  document.body.appendChild(m); var r=btn.getBoundingClientRect(); m.style.position='fixed'; m.style.top=Math.min(r.bottom+4,innerHeight-m.offsetHeight-8)+'px'; m.style.left=Math.max(8,Math.min(r.left,innerWidth-m.offsetWidth-8))+'px';
+  $$('#menu [data-w]').forEach(function(b){b.onclick=function(e){e.stopPropagation();closeMenu();setWhen([id],b.dataset.w,b.dataset.w===DONE_TAG)}});
+  setTimeout(function(){document.addEventListener('click',closeMenu,{once:true})},0);
 }
 function drawCards(){
   var k=S.homeTab, arr=k==='inbox'?inboxList():k==='shortcuts'?bookmarks():byRecent(S.notes);

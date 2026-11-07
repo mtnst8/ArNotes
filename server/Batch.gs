@@ -666,7 +666,8 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<h2>4. Find things</h2><ul>' +
   '<li><b>Search</b> (top left) looks through titles and text. Hover over it or click it (on a phone, tap it) to see your recent searches, the notes you opened lately and what just came in.</li>' +
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
-  '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li></ul>' +
+  '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
+  '<li><b>Tasks:</b> tag a note <b>Tasks</b> (When › Now › Tasks) and it shows in the <b>Tasks</b> box on Home. Tick the ones you\'ve done and press <b>✓ Completed</b> to move them to When › Completed, or tap a task\'s tag to move it to another When tag.</li></ul>' +
   '<h2>5. Edit, add to and share notes</h2><ul>' +
   '<li><b>✏️ Edit:</b> in the Inbox preview or on the note page, opens the note for editing right in ArNotes (it is a Google Doc; changes save by themselves). Press <b>Done</b> when finished. On a phone, <b>Edit in Google Docs</b> opens the Docs app.</li>' +
   '<li><b>＋ Add text:</b> type a few lines and they go at the end of the note, with no Google Docs needed. Handy on a phone, or to write under a photo.</li>' +
@@ -1008,12 +1009,12 @@ var STARTER_TAGS_ = [['Who', '', 1], ['What', '', 2], ['When', '', 3], ['Where',
   ['Family', 'Who', ''], ['Friends', 'Who', ''],
   ['Projects', 'What', ''], ['Jobs', 'What', ''], ['Example Job', 'Jobs', ''], ['Vehicles', 'What', ''], ['Equipment', 'What', ''], ['Finances', 'What', ''], ['Taxes', 'What', ''],
   ['Insurance', 'What', ''], ['Manuals & Warranties', 'What', ''], ['Recipes', 'What', ''],
-  ['Now', 'When', 1], ['Next', 'When', 2], ['Soon', 'When', 3], ['Later', 'When', 4], ['Someday', 'When', 5], ['Waiting', 'When', 6], ['Completed', 'When', 7],
+  ['Now', 'When', 1], ['Tasks', 'Now', ''], ['Next', 'When', 2], ['Soon', 'When', 3], ['Later', 'When', 4], ['Someday', 'When', 5], ['Waiting', 'When', 6], ['Completed', 'When', 7],
   ['Home', 'Where', ''], ['Work', 'Where', ''], ['Videos', 'Photos', ''],
   ['Google Drive Accounts', '', ''],
   ['Expense Categories', '', ''], ['Materials', 'Expense Categories', ''], ['Tools & Equipment', 'Expense Categories', ''], ['Fuel', 'Expense Categories', ''], ['Vehicle', 'Expense Categories', ''],
   ['Meals', 'Expense Categories', ''], ['Office', 'Expense Categories', ''], ['Utilities', 'Expense Categories', ''], ['Subcontractors', 'Expense Categories', ''],
-  ['Fees & Permits', 'Expense Categories', ''], ['Other', 'Expense Categories', '']];
+  ['Fees & Permits', 'Expense Categories', ''], ['Cash', 'Expense Categories', ''], ['Other', 'Expense Categories', '']];
 function arnoteSetupAll_() {
   var p = props_(), ss = SpreadsheetApp.getActiveSpreadsheet();
   p.setProperty('sheetId', ss.getId());
@@ -3291,4 +3292,24 @@ function api_storageReport() {
       couldSaveMB: +cands.filter(function (c) { return c.photos; }).reduce(function (s, c) { return s + c.saveMB; }, 0).toFixed(0) },
     top: cands.slice(0, 15)
   };
+}
+
+
+/** Tags ArNotes ships that older set-ups don't have yet (When › Now › Tasks, Cash under the receipt category tag).
+ *  Runs once per set-up, from the app's first load after an update; never renames or moves anything. */
+function ensureShipTags_() {
+  var p = props_(); if (p.getProperty('shipTags') === '2') return false;
+  var sh = ss_().getSheetByName('Tags'), have = {}, added = [];
+  readTable_('Tags').forEach(function (t) { have[String(t.name).toLowerCase()] = String(t.parent || ''); });
+  function add(name, parent) { if (have.hasOwnProperty(name.toLowerCase())) return; sh.appendRow([name, parent]); have[name.toLowerCase()] = parent; added.push(name); }
+  if (!have.hasOwnProperty('when')) add('When', '');
+  if (!have.hasOwnProperty('now')) add('Now', 'When');
+  if (!have.hasOwnProperty('completed')) add('Completed', 'When');
+  add('Tasks', 'Now');
+  var cat = 'Expense Categories';
+  try { (receiptCfg_().cols || []).forEach(function (c) { if (/categor/i.test(c.name || '') && c.parent) cat = c.parent; }); } catch (e) {}
+  if (!have.hasOwnProperty(cat.toLowerCase())) add(cat, '');
+  add('Cash', cat);
+  p.setProperty('shipTags', '2');
+  return added;
 }
