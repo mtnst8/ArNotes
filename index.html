@@ -276,6 +276,12 @@ nav button svg{display:none}
 .wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
 .wg{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0;display:flex;flex-direction:column}
 .wg.full{grid-column:1/-1}
+.wgrid{container-type:inline-size}
+@container (min-width:640px){.wg.w2{grid-column:span 2}}
+#hgrid>.wg>.wh{cursor:grab;touch-action:pan-y}#hgrid>.wg>.wh h3{user-select:none}
+.wg.dragging{opacity:.75;outline:2px dashed var(--acc);outline-offset:2px}
+body.hdragging,body.hdragging *{cursor:grabbing!important;user-select:none!important}
+.hreset{text-align:right;margin-top:8px}.hreset .lnk{border:0;background:none;color:var(--mute);cursor:pointer;font-size:12px}
 .wg .wh{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .wg .wh h3{margin:0;font-size:15px;flex:1}
 .wg .wh .lnk{border:0;background:none;color:var(--acc);cursor:pointer;font-size:13px;padding:2px 4px}
@@ -912,26 +918,54 @@ function viewHome(){
   var inbox=inboxList(), bm=bookmarks(), cm=countMap();
   var topTags=Object.keys(cm).sort(function(a,b){return cm[b]-cm[a]}).slice(0,16);
   var hr=new Date().getHours(), hi=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+  var box={
+    notes:'<div class="wg w2" data-box="notes"><div class="wh"><h3>Notes</h3><div class="tabs" id="htabs">'+
+      ['recent','inbox','shortcuts'].map(function(k){return '<button data-k="'+k+'"'+(S.homeTab===k?' class="on"':'')+'>'+{recent:'Recent',inbox:'Inbox',shortcuts:'Shortcuts'}[k]+'</button>'}).join('')+
+      '</div><button class="lnk" id="hall">See all</button></div><div class="cards" id="hcards"></div></div>',
+    scratch:'<div class="wg" data-box="scratch"><div class="wh"><h3>Scratch pad</h3></div><textarea id="scratch" placeholder="Start writing…"></textarea>'+
+      '<div class="foot"><span class="grow" id="scrSt"></span><button class="btn small" id="scrNote">Save as note → Inbox</button></div></div>',
+    pin:'<div class="wg pin" id="hpin" data-box="pin"></div>',
+    inbox:'<div class="wg" data-box="inbox"><div class="wh"><h3>Inbox</h3><button class="lnk" data-go="inbox">Open</button></div>'+
+      '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px"><span class="bignum">'+inbox.length+'</span><span class="muted">to tag & file</span></div>'+
+      (inbox.length?miniList(inbox.slice(0,5)):'<div class="empty">Inbox is empty. Nice.</div>')+'</div>',
+    tasks:'<div class="wg" id="htasks" data-box="tasks"></div>',
+    shortcuts:'<div class="wg" data-box="shortcuts"><div class="wh"><h3>Shortcuts</h3><button class="lnk" data-go="shortcuts">See all</button></div>'+
+      (bm.length?miniList(bm.slice(0,8)):'<div class="empty">Star a note (☆) to add it here.</div>')+'</div>',
+    tags:'<div class="wg" data-box="tags"><div class="wh"><h3>Tags</h3><button class="lnk" data-go="tags">See all</button></div><div>'+
+      topTags.map(function(t){return '<button class="chip" data-tagq="'+esc(t)+'" title="'+esc(tagPath(t))+'">'+esc(t)+' <span class="muted">'+cm[t]+'</span></button>'}).join('')+'</div></div>'
+  };
   $('#main').classList.add('wide');
   $('#main').innerHTML='<div class="home"><h1>Home</h1><div class="sub">'+hi+' · '+new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+'</div>'+
-   '<div class="wgrid">'+
-    '<div class="wg full"><div class="wh"><h3>Notes</h3><div class="tabs" id="htabs">'+
-      ['recent','inbox','shortcuts'].map(function(k){return '<button data-k="'+k+'"'+(S.homeTab===k?' class="on"':'')+'>'+{recent:'Recent',inbox:'Inbox',shortcuts:'Shortcuts'}[k]+'</button>'}).join('')+
-      '</div><button class="lnk" id="hall">See all</button></div><div class="cards" id="hcards"></div></div>'+
-    '<div class="wg"><div class="wh"><h3>Scratch pad</h3></div><textarea id="scratch" placeholder="Start writing…"></textarea>'+
-      '<div class="foot"><span class="grow" id="scrSt"></span><button class="btn small" id="scrNote">Save as note → Inbox</button></div></div>'+
-    '<div class="wg pin" id="hpin"></div>'+
-    '<div class="wg"><div class="wh"><h3>Inbox</h3><button class="lnk" data-go="inbox">Open</button></div>'+
-      '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px"><span class="bignum">'+inbox.length+'</span><span class="muted">to tag & file</span></div>'+
-      (inbox.length?miniList(inbox.slice(0,5)):'<div class="empty">Inbox is empty. Nice.</div>')+'</div>'+
-    '<div class="wg" id="htasks"></div>'+
-    '<div class="wg"><div class="wh"><h3>Shortcuts</h3><button class="lnk" data-go="shortcuts">See all</button></div>'+
-      (bm.length?miniList(bm.slice(0,8)):'<div class="empty">Star a note (☆) to add it here.</div>')+'</div>'+
-    '<div class="wg"><div class="wh"><h3>Tags</h3><button class="lnk" data-go="tags">See all</button></div><div>'+
-      topTags.map(function(t){return '<button class="chip" data-tagq="'+esc(t)+'" title="'+esc(tagPath(t))+'">'+esc(t)+' <span class="muted">'+cm[t]+'</span></button>'}).join('')+'</div></div>'+
-   '</div></div>';
-  drawCards(); drawPin(); drawTasks(); bindHome();
+   '<div class="wgrid" id="hgrid">'+homeOrder().map(function(k){return box[k]}).join('')+'</div>'+
+   '</div>';
+  drawCards(); drawPin(); drawTasks(); bindHome(); homeDrag();
   call('api_homeExtras').then(function(x){S.pinned=x.pinned||'';drawPin();var sc=$('#scratch');if(sc&&!sc.dataset.dirty){sc.value=x.scratch||'';}}).catch(function(){});
+}
+/* ---------- Home boxes: drag a box by its title bar to move it; the order is kept on this device ---------- */
+var HOME_BOXES=['tasks','notes','scratch','pin','inbox','shortcuts','tags'];
+function homeOrder(){var o=(store('homeOrder')||[]).filter(function(k){return HOME_BOXES.indexOf(k)>=0});HOME_BOXES.forEach(function(k){if(o.indexOf(k)<0)o.push(k)});return o}
+var HDRAG=null;   // the box being moved: {el, x0, y0, on, timer, touch}
+function homeResetLink(){var g=$('#hgrid');if(!g||$('#hReset'))return;var d=document.createElement('div');d.className='hreset';d.innerHTML='<button class="lnk" id="hReset">Reset box layout</button>';g.after(d);
+  $('#hReset').onclick=function(){try{localStorage.removeItem('arenote.homeOrder')}catch(e){}go('home')}}
+function homeDrag(){
+  if(store('homeOrder')) homeResetLink();
+  if(homeDrag.ready) return; homeDrag.ready=true;   // the listeners below are added once
+  function begin(){var d=HDRAG;d.on=true;d.el.classList.add('dragging');document.body.classList.add('hdragging');if(navigator.vibrate&&d.touch)try{navigator.vibrate(15)}catch(e){}}
+  function move(x,y){var g=$('#hgrid'),e=document.elementFromPoint(x,y),t=e&&e.closest('#hgrid>.wg');if(!g||!t||t===HDRAG.el)return;
+    var kids=[].slice.call(g.children),i=kids.indexOf(HDRAG.el),j=kids.indexOf(t);g.insertBefore(HDRAG.el,j>i?t.nextSibling:t)}
+  function end(){var d=HDRAG;if(!d)return;HDRAG=null;clearTimeout(d.timer);if(!d.on)return;
+    d.el.classList.remove('dragging');document.body.classList.remove('hdragging');
+    var g=$('#hgrid');if(g){store('homeOrder',[].slice.call(g.children).map(function(e){return e.dataset.box}));homeResetLink()}}
+  document.addEventListener('pointerdown',function(e){
+    var h=e.target.closest&&e.target.closest('#hgrid>.wg>.wh'); if(!h||e.target.closest('button,a,input,textarea,select')||e.button>0) return;
+    HDRAG={el:h.parentNode,x0:e.clientX,y0:e.clientY,on:false,touch:e.pointerType!=='mouse'};
+    if(HDRAG.touch) HDRAG.timer=setTimeout(function(){if(HDRAG)begin()},350);   // on a phone: press and hold the title, then drag
+  });
+  document.addEventListener('pointermove',function(e){var d=HDRAG;if(!d)return;
+    if(!d.on){if(Math.abs(e.clientX-d.x0)+Math.abs(e.clientY-d.y0)<6)return;if(d.touch){end();return}begin()}
+    e.preventDefault();move(e.clientX,e.clientY)});
+  document.addEventListener('touchmove',function(e){if(HDRAG&&HDRAG.on)e.preventDefault()},{passive:false});
+  document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
 }
 /* ---------- Tasks (When › Now › Tasks) on Home: tick, then Completed moves them to When › Completed ---------- */
 var TASK_TAG='Tasks', DONE_TAG='Completed';

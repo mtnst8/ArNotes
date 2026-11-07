@@ -664,6 +664,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li>Open a note in your <b>Inbox</b> and add tags. Tags are grouped under <b>Who</b>, <b>What</b>, <b>When</b> and <b>Where</b>; add your own under any of them in <b>Tags</b>. To make a new tag while tagging, type its name and choose <b>Create…</b>, then pick where it goes in the tag tree (it starts at the top) and press <b>Create here</b>.</li>' +
   '<li>Then file it to the <b>Cabinet</b>. To tag several notes at once, tick their checkboxes and choose <b>Tags…</b> While notes are ticked, the single-note buttons are greyed out so changes go to all of them.</li></ul>' +
   '<h2>4. Find things</h2><ul>' +
+  '<li><b>Home</b> shows your Tasks, newest notes, Inbox and more in boxes. Drag a box by its title to move it (on a phone, press and hold the title, then drag). Each device keeps its own layout; <b>Reset box layout</b> puts it back.</li>' +
   '<li><b>Search</b> (top left) looks through titles and text. Hover over it or click it (on a phone, tap it) to see your recent searches, the notes you opened lately and what just came in.</li>' +
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
