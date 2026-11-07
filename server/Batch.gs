@@ -3237,7 +3237,7 @@ function api_contacts() {
       });
     });
   } catch (e) {}
-  try { if (isLicenceServer_()) usersSheet_().rows.forEach(function (u) { add(u.name, u.contact || u.email, 2); }); } catch (e) {}
+  try { if (isLicenceServer_()) userRows_().rows.forEach(function (u) { add(u.name, u.contact || u.email, 2); }); } catch (e) {}
   out.sort(function (a, b) { return b.n - a.n; });
   out = out.slice(0, 300).map(function (c) { return { email: c.email, name: c.name }; });
   try { cache.put('arnote_contacts', JSON.stringify(out), 21600); } catch (e) {}

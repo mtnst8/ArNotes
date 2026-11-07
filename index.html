@@ -1466,6 +1466,7 @@ var PERMS_HTML='<p>ArNotes runs entirely inside <b>your own Google account</b>, 
   '<li><b>See your primary Google Account email address</b><br>So ArNotes knows whose it is.</li></ul>'+
   '<p><b>"Google hasn\'t verified this app"</b> means ArNotes is a private app shared by invitation. Google\'s check is meant for apps on public sale, and it isn\'t needed for that.</p>'+
   '<p><b>Updates</b> come from Brian and install themselves. Every update is listed under <b>What\'s new</b> in ArNotes.</p>'+
+  '<p><b>Want to keep ArNotes away from your main email and Drive?</b> Make a free Gmail account just for ArNotes and set it up with that one. Then, from your main account, share only the Drive folders you want in ArNotes with the new address (Viewer is enough to see and tag them); they show up in ArNotes under <b>Shared with me</b> when you link Drive files. To email things in, send them to the new account\'s ArNotes address and allow your main address under <b>Settings → Getting things in → Email to ArNotes</b>. ArNotes then has no access at all to your main Gmail or the rest of your main Drive.</p>'+
   '<p><b>You can stop it any time:</b> go to <b>myaccount.google.com/permissions</b>, choose <b>ArNotes</b> and remove its access. ArNotes stops working, and your notes stay in your Drive as ordinary Google Docs. If Brian ever ends your access, the same is true: nothing in your Drive is touched.</p>';
 function showPerms(){
   modal('What ArNotes can and can\'t do','The permissions Google asks for, in plain words.','<div class="guide">'+PERMS_HTML+'</div>','<span class="grow"></span><button class="btn primary" id="pmC">Close</button>');
@@ -3073,7 +3074,7 @@ function showInvite(tok){
     var hello='<p style="font-size:16px;margin:10px 0 4px"><b>Welcome'+(v.name?', '+esc(v.name.split(/\s+/)[0]):'')+'!</b> '+esc(v.from)+' invited you to ArNotes: notes, photos and receipts, organized by tags and kept in your own Google Drive.</p>';
     if(!v.accepted){
       box(hello+'<label>1. Which Google account will you use for ArNotes?</label><input class="field" id="ivAcct" value="'+esc(v.contact)+'" autocomplete="email">'+
-        '<p class="muted" style="font-size:13px;margin:4px 0 10px">Everything is kept in this account\'s Google Drive. A free Gmail account is fine. It must be the account you\'ll be signed in to when you set up.</p>'+
+        '<p class="muted" style="font-size:13px;margin:4px 0 10px">Everything is kept in this account\'s Google Drive. A free Gmail account is fine. It must be the account you\'ll be signed in to when you set up. Rather keep ArNotes away from your main email and Drive? Make a free Gmail just for ArNotes and enter that one; the next page explains how to share things into it.</p>'+
         '<label>2. What phone do you have?</label>'+ph+'<div class="err" id="ivErr"></div><button class="btn primary" id="ivGo" style="margin-top:12px">Continue</button>');
       $$('#main [data-ph]').forEach(function(b){b.onclick=function(){phone=b.dataset.ph;$$('#main [data-ph]').forEach(function(x){x.classList.toggle('primary',x===b)})}});
       $('#ivGo').onclick=function(){var a=$('#ivAcct').value.trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a)){$('#ivErr').textContent='Enter your Google account email';return}
