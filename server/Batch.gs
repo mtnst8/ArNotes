@@ -639,7 +639,7 @@ var STEPS_DEFAULT_HTML_ = '<p>Follow these once. Your notes and photos stay in y
   '<h2>On a computer (about 10 minutes)</h2><ol>' +
   '<li>Be signed in to Google as {account}. (If you use several Google accounts, sign out of the others or use a private window.) Then open {copy link} and click <b>Make a copy</b>.</li>' +
   '<li>In your copy, wait a few seconds for the <b>ArNotes</b> menu at the top (refresh the page if it doesn\'t appear), then choose <b>ArNotes → Set up ArNotes</b>.</li>' +
-  '<li>Google asks for permission: choose {account}. If you see <i>Google hasn\'t verified this app</i>, click <b>Advanced → Go to ArNotes</b>, then <b>Allow</b>. (It\'s "unverified" only because it\'s a private app, not one from an app store.)</li>' +
+  '<li>Google asks for permission: choose {account}. If you see <i>Google hasn\'t verified this app</i>, click <b>Advanced → Go to ArNotes</b>, then <b>Allow</b>. (It\'s "unverified" only because it\'s a private app, not one from an app store. What each permission is for is explained under <i>Before you start</i> above.)</li>' +
   '<li>When it says ArNotes is set up: <b>Extensions → Apps Script</b>, then <b>Deploy</b> (blue button, top right) <b>→ New deployment →</b> the gear <b>→ Web app</b>. Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, click <b>Deploy</b>, allow the permissions, then click <b>Copy</b> under <i>Web app URL</i>. ("Anyone" only lets your phone reach your ArNotes; it still needs your private pairing link.)</li>' +
   '<li>Back in the spreadsheet: <b>ArNotes → Open the app</b>, paste the address, and click <b>Get my pairing link</b>. Click <b>Open ArNotes here</b> to start, and <b>email the pairing link to yourself</b> for your phone. Keep it private: it\'s the key to your notes.</li></ol>' +
   '<h2>iPhone</h2><p>Open the pairing link from your email in <b>Safari</b> (or Chrome), tap <b>Share</b> (the square with the arrow) <b>→ Add to Home Screen</b>. ArNotes is now an app on your phone.</p>' +
@@ -681,11 +681,13 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li>Download photos and videos as the original files; on a phone, <b>Save to phone</b> puts them in your camera roll.</li></ul>' +
   '<h2>7. Receipts</h2><ul><li>Give each receipt a <b>Job</b> and an <b>Expense category</b>. <b>Receipts</b> shows them by job and category, billed or not, and prints a clean report.</li></ul>' +
   '<h2>8. Get help from AI</h2><ul><li>Tick the notes you want help with (or open one) and choose <b>Export for AI</b>. You get one file (or text to paste) that Claude, ChatGPT or Gemini can read.</li></ul>' +
+  '<h2>9. Privacy and permissions</h2><ul><li>ArNotes runs in your own Google account; your notes, photos and email never go to anyone else. <b>Settings → Help & backup → Permissions & privacy</b> explains, in plain words, each permission Google asked you for and how to remove ArNotes\' access if you ever want to.</li></ul>' +
   '<p>Your notes are Google Docs in the <b>ArNotes</b> folder of your Google Drive, and a backup is made every day. See this guide again any time under <b>Settings → Help & backup → Getting started</b>.</p>';
 var RELEASES_DEFAULT_ = ['Next release',
   '- What\'s new: after each update, ArNotes shows you what changed, once (like this).',
   '- Getting started: a short guide to ArNotes, under Settings → Help & backup → Getting started.',
   '- Getting started explains wrangling what you already keep in Google Drive: leave it there and tag it in ArNotes.',
+  '- Permissions & privacy: Settings → Help & backup explains, in plain words, each permission Google asked for when you set up ArNotes.',
   '- Export for AI: tick some notes and choose Export for AI to get one file that Claude, ChatGPT or Gemini can read, so an AI can help with them.', '',
   'Release 7 · Oct 26, 2026', '- Your ArNotes tells its owner which kinds of device it is used on (for example iPhone or Windows), so setup help can be pointed at the right phone. Nothing else about your devices is shared.', '',
   'Release 6 · Oct 26, 2026', '- "Open the app" in the spreadsheet: the address box fits the window.', '',

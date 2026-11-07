@@ -1413,6 +1413,25 @@ function downloadNotes(ids){
   })();
 }
 /* ---------- help text kept by Brian as notes (read from his ArNotes; public how-to) ---------- */
+/** The permissions Google lists when ArNotes is set up, in Google's own words, with what ArNotes does with each.
+ * Shown on the invite page (before setup) and under Settings → Help & backup. Keep it in step with server/appsscript.json. */
+var PERMS_HTML='<p>ArNotes runs entirely inside <b>your own Google account</b>, like a little program you own. Your notes, photos and email stay in your Drive and Gmail. Brian doesn\'t run a server that sees them, and nothing in ArNotes sends them to him.</p>'+
+  '<p>Google words its permission list for the worst case. Here is each line as Google shows it, and what ArNotes actually does with it:</p><ul>'+
+  '<li><b>See, edit, create, and delete all of your Google Drive files</b><br>Keeps your notes, photos and daily backups in an <b>ArNotes</b> folder in your Drive, and shows the Drive files and folders you choose to link right where they are. Linked files are never moved, and deleting one in ArNotes only removes it from ArNotes. ArNotes changes or deletes a file only when you do that in ArNotes.</li>'+
+  '<li><b>Read, compose, send, and permanently delete all your email from Gmail</b><br>It sounds the scariest because the Gmail tools ArNotes is built with only come with Google\'s full Gmail permission. ArNotes uses it to: turn emails sent to your <b>ArNotes address</b> (your address with +arnotes) into notes, then label them <i>ArNotes/Saved</i> and archive them; send a note when you press <b>Send</b>; and look at who you emailed in the past year (names and addresses only) so it can suggest people when you share a note. It never deletes email and doesn\'t open your other mail.</li>'+
+  '<li><b>See, edit, create, and delete all your Google Docs documents</b><br>Each note is a Google Doc in your ArNotes folder.</li>'+
+  '<li><b>See, edit, create, and delete all your Google Sheets spreadsheets</b><br>The ArNotes spreadsheet you copy is the index of your notes and tags.</li>'+
+  '<li><b>Connect to an external service</b><br>Fetches the title and picture for web links you save, gets ArNotes updates, and checks in with Brian\'s ArNotes once a day. The check-in sends only your email address, an install number, your ArNotes version, the last day you used it and the kinds of device you use it on (for example "iPhone"). No notes, tags, photos or email.</li>'+
+  '<li><b>Allow this application to run when you are not present</b><br>Checks for new email and Drive files every 15 minutes, and makes the daily backup.</li>'+
+  '<li><b>Display and run third-party web content in prompts and sidebars inside Google applications</b><br>The small ArNotes windows in your spreadsheet (for example <i>ArNotes → Open the app</i>).</li>'+
+  '<li><b>See your primary Google Account email address</b><br>So ArNotes knows whose it is.</li></ul>'+
+  '<p><b>"Google hasn\'t verified this app"</b> means ArNotes is a private app shared by invitation. Google\'s check is meant for apps on public sale, and it isn\'t needed for that.</p>'+
+  '<p><b>Updates</b> come from Brian and install themselves. Every update is listed under <b>What\'s new</b> in ArNotes.</p>'+
+  '<p><b>You can stop it any time:</b> go to <b>myaccount.google.com/permissions</b>, choose <b>ArNotes</b> and remove its access. ArNotes stops working, and your notes stay in your Drive as ordinary Google Docs. If Brian ever ends your access, the same is true: nothing in your Drive is touched.</p>';
+function showPerms(){
+  modal('What ArNotes can and can\'t do','The permissions Google asks for, in plain words.','<div class="guide">'+PERMS_HTML+'</div>','<span class="grow"></span><button class="btn primary" id="pmC">Close</button>');
+  $('#pmC').onclick=closeModal;
+}
 function adminDoc(kind){return invCall({inv:'doc',kind:kind})}
 function showGuide(first){
   modal(first?'Welcome to ArNotes':'Getting started',first?'A two-minute tour. You can open it again any time under Settings → Help & backup → Getting started.':'','<div class="guide" id="gdw"><p class="muted">Loading…</p></div>','<span class="grow"></span><button class="btn primary" id="gdC">'+(first?'Let\'s go':'Close')+'</button>');
@@ -2051,9 +2070,9 @@ function viewSettings(){
     bindShareRows('#sset',all,drawShares)}).catch(function(){})}
   drawShares();
   drawShares();}},
-    {k:'help',t:'Help & backup',sub:'Getting started guide · Daily backup',
-      html:H('Getting started')+'<div class="muted" style="font-size:13px"><div class="setrow"><button class="btn small" id="gdOpen">Open the guide</button><span>A short tour of ArNotes.</span></div></div>'+H('Backup')+L('bkset'),
-      load:function(){$('#gdOpen').onclick=function(){showGuide(false)};drawBackupSet()}}
+    {k:'help',t:'Help & backup',sub:'Getting started guide · Permissions & privacy · Daily backup',
+      html:H('Getting started')+'<div class="muted" style="font-size:13px"><div class="setrow"><button class="btn small" id="gdOpen">Open the guide</button><span>A short tour of ArNotes.</span></div><div class="setrow"><button class="btn small" id="pmOpen">Permissions & privacy</button><span>What ArNotes can and can\'t do with your Google account.</span></div></div>'+H('Backup')+L('bkset'),
+      load:function(){$('#gdOpen').onclick=function(){showGuide(false)};$('#pmOpen').onclick=showPerms;drawBackupSet()}}
   ];
   var open={};try{open=JSON.parse(localStorage.getItem('arnote.setOpen')||'{}')}catch(e){}
   if(S.setOpen){open={};open[S.setOpen]=1;S.setOpen=null}
@@ -3042,7 +3061,7 @@ function showInvite(tok){
       intro=doc.filter(function(x){return !x.title}).map(function(x){return x.html}).join('');
       if(c) comp=fill(c.html); if(pi) phoneH=fill(pi.html.replace(/^<h[1-4]>[\s\S]*?<\/h[1-4]>/,''));
     }
-    box(hello+'<p style="margin:6px 0 0">Your ArNotes account: '+A+'</p><div class="guide">'+fill(intro)+comp+'</div><h3 style="margin:16px 0 4px">On your phone (highly recommended)</h3>'+ph+'<div id="ivPh" class="guide" style="margin-top:8px">'+phoneH+'</div>'+
+    box(hello+'<p style="margin:6px 0 0">Your ArNotes account: '+A+'</p><div class="guide">'+fill(intro)+'<details style="margin:10px 0;padding:8px 10px;border:1px solid #ccc;border-radius:8px"><summary style="cursor:pointer"><b>Before you start: the permissions Google will ask for</b> (and why)</summary>'+PERMS_HTML+'</details>'+comp+'</div><h3 style="margin:16px 0 4px">On your phone (highly recommended)</h3>'+ph+'<div id="ivPh" class="guide" style="margin-top:8px">'+phoneH+'</div>'+
       '<details style="margin-top:16px"><summary style="cursor:pointer"><b>What you can do with ArNotes</b> (getting started)</summary><div class="guide" id="ivGd">'+(SD.guide&&SD.guide.html||'<p class="muted">Loading…</p>')+'</div></details>'+
       '<p class="muted" style="font-size:13px;margin-top:16px">Keep this email: the same link brings you back to these steps. Questions? Reply to the invite email.</p>'+(CFG?'<a class="btn" href="./">Go to my ArNotes</a>':''));
     $$('#main [data-ph]').forEach(function(b){b.onclick=function(){phone=b.dataset.ph;draw(v)}});
