@@ -3466,3 +3466,11 @@ function ensureReleaseTask_() {
     return releaseTask_(n, r.text || '');
   } finally { lock.releaseLock(); }
 }
+/** The app calls this after it has loaded: makes the starter notes and the What's new note if they're due.
+ * Returns true when it added something, so the app reloads the list. */
+function api_ensureTasks() {
+  var a = false, b = false;
+  try { a = !!ensureStarterNotes_(); } catch (e) { Logger.log('Starter notes: ' + e); }
+  try { b = !!ensureReleaseTask_(); } catch (e) { Logger.log('Release task: ' + e); }
+  return a || b;
+}

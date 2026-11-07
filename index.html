@@ -2934,6 +2934,7 @@ function start(){
     if(S.loadErr) throw S.loadErr;
     S.booted=true; if(sharing){if(S.afterBoot)S.afterBoot();else if(!S.shareBusy)go('inbox')} else if(openTo) openTarget(openTo); else go('home');
     whatsNew(S.rel,S.relNotes);
+    call('api_ensureTasks').then(function(added){if(added)return load(true).then(function(){if(S.view==='home')go('home')})}).catch(function(){});   // starter how-to notes / What's new, made in the background
     if(S.justPaired&&!(S.lic&&S.lic.owner)){var g=0;try{g=localStorage.getItem('arnote.guideSeen')}catch(e){}if(!g){try{localStorage.setItem('arnote.guideSeen','1')}catch(e){}setTimeout(function(){showGuide(true)},600)}}
   });
 }
