@@ -37,6 +37,8 @@ Deleting a note moves it to **Trash** (left menu), with Undo for a few seconds. 
 
 ### Tasks
 
+Put any note on the to-do list with **☑ Add to Tasks** (on the note, its Inbox preview, or the selection bar for several notes); press it again (**✓ In Tasks**) to take it off. Photos too: **☑ Add to Tasks** in the photo viewer, or on the Photos selection bar, makes one task note with the photo(s) in it.
+
 In the **Tasks** box on Home, type a task and press Enter (or **＋ Add task**); the line clears for the next one. Click a task to open it for editing. The box shows 7 tasks at a time; scroll for the rest. Any note tagged **Tasks** (When › Now › Tasks) appears there too. Tap its tag to move it to another When tag, tick it and press **✓ Completed** (moves it to When › Completed), or **🗑 Delete task** (trash, with Undo). The Tasks and Cash tags come with ArNotes.
 
 Every ArNotes starts with four notes in Tasks: **Welcome to ArNotes** (the overview), **1. Install ArNotes on your phone and computer**, **2. Getting started: everything in one place** and **3. How to use ArNotes**. Their links open parts of your own ArNotes. Each update adds a **What's new in ArNotes: Release N** note to Tasks.
