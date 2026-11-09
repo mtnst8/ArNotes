@@ -1933,7 +1933,7 @@ function viewNote(id,keep){
       (n.link?'<a class="btn" target="_blank" id="odocs" href="'+linkUrl(n)+'">Open in Drive ↗</a>'+(isScanNote(n)?'<button class="btn" id="nnp">📝 Note with this photo</button><button class="btn" id="njp">📷 Just a photo</button>':''):
         (n.sheet?'<a class="btn" target="_blank" id="odocs" href="'+editUrl(n)+'">Open in Google Sheets ↗</a><button class="btn" id="ehere">✏️ Edit here</button>':
         '<a class="btn" target="_blank" id="odocs" href="'+docUrl(n.docId,true)+'">Edit in Google Docs ↗</a><button class="btn" id="ehere">✏️ Edit here</button><button class="btn" id="eadd" title="Type some text and it goes at the end of this note">＋ Add text</button>')+
-        (n.sourceUrl?'<a class="btn" target="_blank" href="'+esc(n.sourceUrl)+'">'+(/mail\.google\.com/.test(n.sourceUrl)?'Open in Gmail':'Source')+'</a>':'')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" onclick="S.rcData=null;rcDetails(\''+n.id+'\')">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" onclick="markReceipt(\''+n.id+'\',this)">🧾 It\'s a receipt</button>':''))+
+        (n.sourceUrl&&!n.sheet?'<a class="btn" target="_blank" href="'+esc(n.sourceUrl)+'">'+(/mail\.google\.com/.test(n.sourceUrl)?'Open in Gmail':'Source')+'</a>':'')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" onclick="S.rcData=null;rcDetails(\''+n.id+'\')">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" onclick="markReceipt(\''+n.id+'\',this)">🧾 It\'s a receipt</button>':''))+
       '<button class="btn" id="ntask" title="'+(n.tags.indexOf(TASK_TAG)>=0?'It\'s on your to-do list (Tasks on Home). Click to take it off.':'Put this on your to-do list (Tasks on Home)')+'">'+(n.tags.indexOf(TASK_TAG)>=0?'✓ In Tasks':'☑ Add to Tasks')+'</button>'+
       '<button class="btn" id="nsend" title="Email this note to someone">✉ Send</button>'+
       '<button class="btn" id="nprint">🖨 Print</button>'+
@@ -1941,7 +1941,7 @@ function viewNote(id,keep){
       '<button class="btn" id="nai" title="This note as a Markdown file that Claude, ChatGPT or Gemini can read">✦ Export for AI</button>'+
       '<button class="btn danger" id="del">'+(n.link?'Remove link':'Delete')+'</button></div>'+
     '<div id="nloc"></div><div class="atts" id="atts"></div>'+
-    '<div class="muted" id="ehint" style="font-size:12px;margin:2px 0 6px">'+(n.link?'🔗 Linked file: it stays where it is in your Drive. Edits happen in the original; removing this note never deletes the file.':'Reading view. To change the text, use Edit in Google Docs (on a phone it opens the Docs app).')+'</div>'+
+    '<div class="muted" id="ehint" style="font-size:12px;margin:2px 0 6px">'+(n.link?'🔗 Linked file: it stays where it is in your Drive. Edits happen in the original; removing this note never deletes the file.':n.sheet?'Spreadsheet: ✏️ Edit here to change it (or Open in Google Sheets; on a phone it opens the Sheets app).':'Reading view. To change the text, use Edit in Google Docs (on a phone it opens the Docs app).')+'</div>'+
     '<div id="nbody">'+readerHtml()+'</div>';
   renderTags(n);
   var fr=fillReader($('#nbody .reader'),id,true);
