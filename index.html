@@ -1983,8 +1983,7 @@ function editHere(n){
   if(et){et.onchange=function(){var v=et.value.trim();if(!v||v===n.title)return;var old=n.title;n.title=v;var ti=$('#title');if(ti)ti.value=v;
       var p=call('api_updateNote',n.id,{title:v});undoToast('Renamed',function(){return p.then(function(){n.title=old;et.value=old;if($('#title'))$('#title').value=old;return call('api_updateNote',n.id,{title:old})})})};
     et.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();et.blur()}};
-    if(S.newTitle===n.id){S.newTitle=null;var fr=b.querySelector('iframe.editor'),grab=function(){if(document.activeElement!==et&&S.editing===n.id){et.focus();et.select()}};
-      setTimeout(grab,300);if(fr)fr.addEventListener('load',function(){setTimeout(grab,1500)})}}   // Sheets takes the cursor when it finishes loading: give it back to the title
+  }
   b.innerHTML='<iframe class="editor" src="'+editUrl(n,true)+'" allow="clipboard-read; clipboard-write"></iframe>';
   if($('#ehere'))$('#ehere').remove(); S.editing=n.id;
   setTimeout(function(){var y=(h||b).getBoundingClientRect().top+window.scrollY-8;window.scrollTo({top:y,behavior:'smooth'})},50);
@@ -2057,13 +2056,21 @@ function addTagTo(n,t,refocus){
 /* ---------- quick capture ---------- */
 /** A new spreadsheet note: a blank Google Sheet, opened ready to type in (in ArNotes on a computer, in the Sheets app on a phone). */
 function newSheet(title,btn,tags){
-  var typed=!!String(title||'').trim(); title=String(title||'').trim()||('Spreadsheet '+new Date().toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}));
+  if(!String(title||'').trim()){   // no title yet: ask first (the spreadsheet takes the cursor once it opens)
+    modal('New spreadsheet','Give it a title.','<input class="field" id="shT" placeholder="e.g. Kubota parts, Mileage log" style="width:100%;box-sizing:border-box">',
+      '<button class="btn" id="shNo">Cancel</button><span class="grow"></span><button class="btn primary" id="shGo">▦ Make it</button>');
+    var t=$('#shT');setTimeout(function(){t.focus()},50);$('#shNo').onclick=closeModal;
+    t.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();$('#shGo').click()}};
+    $('#shGo').onclick=function(){var v=t.value.trim();if(!v){t.focus();return}closeModal();var nt=$('#nt');if(nt)nt.value=v;newSheet(v,btn,tags)};
+    return;
+  }
+  title=String(title||'').trim()||('Spreadsheet '+new Date().toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}));
   var phone=window.innerWidth<700, w=phone?window.open('about:blank','_blank'):null;    // open the tab now, while the tap still counts
   if(btn){btn.disabled=true;btn.textContent='Making the spreadsheet…'}
   return call('api_createSheetNote',title,tags||[]).then(function(n){
     if(!S.byId[n.id]){S.notes.unshift(n);S.byId[n.id]=n;refreshInboxCount()}
     if(w){try{w.location=editUrl(n)}catch(e){} go('note',n.id);toast('Spreadsheet made: it opened in Google Sheets. It\'s in your Inbox.')}
-    else{S.editNow=n.id;if(!typed)S.newTitle=n.id;go('note',n.id);toast(typed?'Spreadsheet made: type away. It\'s in your Inbox.':'Spreadsheet made: give it a title, then type away.')}
+    else{S.editNow=n.id;go('note',n.id);toast('Spreadsheet made: type away. It\'s in your Inbox.')}
   }).catch(function(e){if(w)try{w.close()}catch(x){}if(btn){btn.disabled=false;btn.textContent='▦ Spreadsheet'}toast('Could not make the spreadsheet: '+e.message)});
 }
 function viewNew(){
