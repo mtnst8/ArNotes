@@ -27,6 +27,10 @@ A note that is just a link gets the page's title, a short description and its pi
 
 Home is a set of boxes: Tasks, Notes, Scratch pad, Pinned note, Inbox, Shortcuts and Tags. Drag a box by its title to move it (on a phone, press and hold the title first). Each device remembers its own layout; **Reset box layout** at the bottom puts it back.
 
+### Receipts: billed
+
+Tick the box in the **Billed** column of the Receipts table (or on a receipt's preview card) to mark it billed to the customer today; untick to mark it not billed. Undo works for a few seconds. To bill many at once, tick the rows on the left and press **✓ Mark billed**.
+
 ### Trash
 
 Deleting a note moves it to **Trash** (left menu), with Undo for a few seconds. It waits there 30 days with its tags and filing, then is deleted for good (its Google Doc goes to Google Drive's trash). In Trash, tick notes and press **↩ Restore** to put them back where they were, or **Delete forever**; **Empty trash** clears it. Notes in the Trash stay out of search, tags, receipts and shared links. Deleted photos still go straight to Google Drive's trash.

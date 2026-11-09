@@ -49,7 +49,7 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mute)
 .rcselbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin:0 0 8px;border-radius:10px;background:var(--card);border:1px solid var(--acc)}
 .rcpv{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
 .rcpv img{width:220px;max-width:100%;max-height:320px;object-fit:contain;border-radius:8px;background:#f2f2f2}
-.rcpvf{flex:1;min-width:220px}.rcrow{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}.rcrow span{width:90px;opacity:.65;flex:none}
+.rcpvf{flex:1;min-width:220px}.rcbl{display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}.rcbl input{width:16px;height:16px;margin:0}.pvbill{display:flex;align-items:center;gap:6px;cursor:pointer}.pvbill input{width:18px;height:18px;margin:0}.rcrow{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}.rcrow span{width:90px;opacity:.65;flex:none}
 .rcinv{font-size:10px;text-transform:uppercase;letter-spacing:.4px;border:1px solid var(--line);border-radius:6px;padding:1px 5px;opacity:.75;white-space:nowrap}
 .rct td.ck,.rct th.ck{width:28px;padding-right:0}.rct .bl{font-size:12px;color:var(--acc);white-space:nowrap}
 .rcwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
@@ -1172,9 +1172,14 @@ function pvReceipt(n){
     el.innerHTML='<div class="rcpv"><a href="https://drive.google.com/file/d/'+esc(r.fileId)+'/view'+(S.user?'?authuser='+encodeURIComponent(S.user):'')+'" target="_blank" title="Open the full picture / PDF"><img src="'+phThumbUrl(r.fileId,800)+'" alt=""></a><div class="rcpvf">'+
       row('Vendor',esc(r.vendor||'—')+(r.kind==='invoice'?' <span class="rcinv">Invoice</span>':''))+row('Date',esc(r.date||'—'))+row('Total',money(r.total)||'—')+row('Tax',money(r.tax)||'—')+row('Paid with',esc(r.paid||'—'))+
       d.cols.map(function(c,i){return row(esc(c.name),esc(r.cols[i].join(', '))||'<span class="muted">not tagged</span>')}).join('')+
-      (r.billed?row('Billed',esc(r.billed)):'')+(r.check?'<p class="rcw" style="margin:6px 0 0">⚠ Something is missing — check the details</p>':'')+
+      '<div class="rcrow"><span>Billed</span><label class="pvbill"><input type="checkbox" id="pvRcBill"'+(r.billed?' checked':'')+'> <b id="pvRcBillT">'+(r.billed?'Billed to customer '+esc(r.billed):'Not billed yet')+'</b></label></div>'+(r.check?'<p class="rcw" style="margin:6px 0 0">⚠ Something is missing — check the details</p>':'')+
       '<div class="bar" style="margin-top:10px"><button class="btn small primary" id="pvRcEd">Fix details</button><button class="btn small" id="pvRcFull">Show full '+(/mail\.google\.com/.test(n.sourceUrl||'')?'email':'note')+'</button><button class="btn small" id="pvRcNo" title="Take it out of Receipts; it stays as a regular note">Not a receipt</button></div></div></div>';
     $('#pvRcEd').onclick=function(){rcDetails(n.id)};
+    $('#pvRcBill').onchange=function(){var cb=this,on=cb.checked,was=r.billed||'',t=new Date(),td=t.getFullYear()+'-'+('0'+(t.getMonth()+1)).slice(-2)+'-'+('0'+t.getDate()).slice(-2);   // billed straight from the preview
+      var show=function(v){r.billed=v;var x=$('#pvRcBillT');if(x&&S.pv===n.id){x.textContent=v?'Billed to customer '+v:'Not billed yet';$('#pvRcBill').checked=!!v}};
+      show(on?td:'');cb.disabled=true;
+      var pr=call('api_receiptBilled',[n.id],on).then(function(){cb.disabled=false;if(S.view==='receipts')rcDraw()}).catch(function(e){cb.disabled=false;show(was);toast('Could not save: '+e.message)});
+      undoToast(on?'Marked billed':'Marked not billed',function(){return pr.then(function(){return call('api_receiptBilled',[n.id],was||false)}).then(function(){show(was);if(S.view==='receipts')rcDraw()})})};
     $('#pvRcFull').onclick=function(){var f=$('#pvFull');if(f.style.display==='none'){f.style.display='';if(!f.dataset.on){f.dataset.on=1;fillReader($('#pv .reader'),n.id)}this.textContent='Hide'}else{f.style.display='none';this.textContent='Show full'}};
     $('#pvRcNo').onclick=function(){notReceipt(n.id)};
   }).catch(function(){var el=$('#pvRcCard');if(el)el.innerHTML='<p class="muted">Could not load the receipt.</p>'});
@@ -2172,7 +2177,7 @@ function rcDraw(){
   var row=function(r){var warn=r.check?'<span class="rcw" title="Vendor, date or total missing">⚠</span>':'';
     return '<tr data-n="'+esc(r.noteId)+'"><td class="ck"><input type="checkbox" class="rck"'+(S.rcSel[r.noteId]?' checked':'')+'></td><td>'+esc(r.date||'—')+'</td><td>'+warn+esc(r.vendor||'(no vendor)')+(r.kind==='invoice'?' <span class="rcinv">Invoice</span>':'')+'</td>'+
       cols.map(function(c,i){return '<td>'+esc(r.cols[i].join(', '))+(i===0&&r.cols[0].length>1?' <span class="rcw" title="Tagged with more than one">⚠ '+r.cols[0].length+'</span>':'')+'</td>'}).join('')+
-      '<td>'+esc(r.paid)+'</td><td class="bl">'+(r.billed?'✓ '+esc(r.billed):'')+'</td><td class="n">'+money(r.tax)+'</td><td class="n">'+money(r.total)+'</td></tr>'};
+      '<td>'+esc(r.paid)+'</td><td class="bl"><label class="rcbl" title="'+(r.billed?'Billed '+esc(r.billed)+' — untick to mark not billed':'Tick when billed to the customer')+'"><input type="checkbox" data-bill="'+esc(r.noteId)+'"'+(r.billed?' checked':'')+'><span>'+(r.billed?esc(r.billed):'')+'</span></label></td><td class="n">'+money(r.tax)+'</td><td class="n">'+money(r.total)+'</td></tr>'};
   var body='';
   if(RC.grp){var key=function(r){if(RC.grp==='vendor')return r.vendor||'(no vendor)';if(RC.grp==='paid')return r.paid||'(not set)';if(RC.grp==='month')return r.date?r.date.slice(0,7):'(no date)';
       var i=+RC.grp.slice(1);return r.cols[i]&&r.cols[i][0]||'(none)'};
@@ -2213,6 +2218,12 @@ function rcDraw(){
   var qt;$('#rcQ').oninput=function(){var v=this.value;clearTimeout(qt);qt=setTimeout(function(){RC.q=v;rcSave();rcDraw();var x=$('#rcQ');if(x){x.focus();x.setSelectionRange(v.length,v.length)}},300)};
   if($('#rcSet'))$('#rcSet').onclick=function(e){e.preventDefault();S.setOpen='rp';go('settings')};
   $$('#rcBody tr[data-n]').forEach(function(tr){tr.onclick=function(){rcDetails(tr.dataset.n)}});
+  $$('#rcBody .rcbl').forEach(function(l){l.onclick=function(e){e.stopPropagation()}});   // the Billed tick works right in the table
+  $$('#rcBody [data-bill]').forEach(function(cb){cb.onchange=function(){var id=cb.dataset.bill,on=cb.checked,r=d.rows.filter(function(x){return x.noteId===id})[0];if(!r)return;
+    var was=r.billed||'',t=new Date(),td=t.getFullYear()+'-'+('0'+(t.getMonth()+1)).slice(-2)+'-'+('0'+t.getDate()).slice(-2);
+    r.billed=on?td:'';rcDraw();
+    var pr=call('api_receiptBilled',[id],on).catch(function(e){r.billed=was;if(S.view==='receipts')rcDraw();toast('Could not save: '+e.message)});
+    undoToast(on?'Marked billed':'Marked not billed',function(){return pr.then(function(){return call('api_receiptBilled',[id],was||false)}).then(function(){r.billed=was;if(S.view==='receipts')rcDraw()})})}});
   var title=(crumb.length?crumb.map(function(c){return c[1]==='__none'?'No '+cols[c[0]].name:c[1]}).join(' › ')+' — ':'')+'Receipts '+(rg[0]||'')+(rg[1]?' to '+rg[1]:'');
   $('#rcCsv').onclick=function(){
     var qv=function(v){v=String(v===null||v===undefined?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
