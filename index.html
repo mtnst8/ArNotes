@@ -49,7 +49,7 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mute)
 .rcselbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin:0 0 8px;border-radius:10px;background:var(--card);border:1px solid var(--acc)}
 .rcpv{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
 .rcpv img{width:220px;max-width:100%;max-height:320px;object-fit:contain;border-radius:8px;background:#f2f2f2}
-.rcpvf{flex:1;min-width:220px}.rcbl{display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}.rcbl input{width:16px;height:16px;margin:0}.pvbill{display:flex;align-items:center;gap:6px;cursor:pointer}.pvbill input{width:18px;height:18px;margin:0}.rcrow{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}.rcrow span{width:90px;opacity:.65;flex:none}
+.rcpvf{flex:1;min-width:220px}.rcbl{display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}.rcbl input{width:16px;height:16px;margin:0}.etbar{display:flex;gap:6px;align-items:center;margin:0 0 4px}.etbar .field{flex:1;min-width:0;margin:0;font-weight:600;font-size:15px}.pvbill{display:flex;align-items:center;gap:6px;cursor:pointer}.pvbill input{width:18px;height:18px;margin:0}.rcrow{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}.rcrow span{width:90px;opacity:.65;flex:none}
 .rcinv{font-size:10px;text-transform:uppercase;letter-spacing:.4px;border:1px solid var(--line);border-radius:6px;padding:1px 5px;opacity:.75;white-space:nowrap}
 .rct td.ck,.rct th.ck{width:28px;padding-right:0}.rct .bl{font-size:12px;color:var(--acc);white-space:nowrap}
 .rcwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
@@ -1977,11 +1977,17 @@ function viewNote(id,keep){
 function editHere(n){
   var b=$('#nbody'),h=$('#ehint');if(!b)return;
   var app=n.sheet?'Google Sheets':'Google Docs';
-  if(h)h.innerHTML='Editing in '+app+': changes save by themselves. <button class="btn small primary" id="edone">Done</button> <span class="muted">If it says you need access, use Open in '+app+' (this browser is signed in to a different Google account).</span>';
+  if(h)h.innerHTML='<div class="etbar"><input class="field" id="etitle" value="'+esc(n.title)+'" placeholder="Title" spellcheck="false" title="The note\'s title"><button class="btn small primary" id="edone">Done</button></div>'+
+    '<span class="muted">Editing in '+app+': changes save by themselves. If it says you need access, use Open in '+app+' (this browser is signed in to a different Google account).</span>';
+  var et=$('#etitle');   // the title stays in reach while editing (the page scrolls down to the editor)
+  if(et){et.onchange=function(){var v=et.value.trim();if(!v||v===n.title)return;var old=n.title;n.title=v;var ti=$('#title');if(ti)ti.value=v;
+      var p=call('api_updateNote',n.id,{title:v});undoToast('Renamed',function(){return p.then(function(){n.title=old;et.value=old;if($('#title'))$('#title').value=old;return call('api_updateNote',n.id,{title:old})})})};
+    et.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();et.blur()}};
+    if(S.newTitle===n.id){S.newTitle=null;setTimeout(function(){et.focus();et.select()},400)}}
   b.innerHTML='<iframe class="editor" src="'+editUrl(n,true)+'" allow="clipboard-read; clipboard-write"></iframe>';
   if($('#ehere'))$('#ehere').remove(); S.editing=n.id;
   setTimeout(function(){var y=(h||b).getBoundingClientRect().top+window.scrollY-8;window.scrollTo({top:y,behavior:'smooth'})},50);
-  $('#edone').onclick=function(){S.editing=null;nvFetch(n.id).catch(function(){}).then(function(){viewNote(n.id)})};
+  $('#edone').onclick=function(){if(et&&et.value.trim()!==n.title)et.onchange();S.editing=null;nvFetch(n.id).catch(function(){}).then(function(){viewNote(n.id)})};
 }
 /** Type text and it goes at the end of the note: no Google Docs needed (handy on a phone, and under a photo). */
 function addText(id,after){
@@ -2050,13 +2056,13 @@ function addTagTo(n,t,refocus){
 /* ---------- quick capture ---------- */
 /** A new spreadsheet note: a blank Google Sheet, opened ready to type in (in ArNotes on a computer, in the Sheets app on a phone). */
 function newSheet(title,btn,tags){
-  title=String(title||'').trim()||('Spreadsheet '+new Date().toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}));
+  var typed=!!String(title||'').trim(); title=String(title||'').trim()||('Spreadsheet '+new Date().toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}));
   var phone=window.innerWidth<700, w=phone?window.open('about:blank','_blank'):null;    // open the tab now, while the tap still counts
   if(btn){btn.disabled=true;btn.textContent='Making the spreadsheet…'}
   return call('api_createSheetNote',title,tags||[]).then(function(n){
     if(!S.byId[n.id]){S.notes.unshift(n);S.byId[n.id]=n;refreshInboxCount()}
     if(w){try{w.location=editUrl(n)}catch(e){} go('note',n.id);toast('Spreadsheet made: it opened in Google Sheets. It\'s in your Inbox.')}
-    else{S.editNow=n.id;go('note',n.id);toast('Spreadsheet made: type away. It\'s in your Inbox.')}
+    else{S.editNow=n.id;if(!typed)S.newTitle=n.id;go('note',n.id);toast(typed?'Spreadsheet made: type away. It\'s in your Inbox.':'Spreadsheet made: give it a title, then type away.')}
   }).catch(function(e){if(w)try{w.close()}catch(x){}if(btn){btn.disabled=false;btn.textContent='▦ Spreadsheet'}toast('Could not make the spreadsheet: '+e.message)});
 }
 function viewNew(){
