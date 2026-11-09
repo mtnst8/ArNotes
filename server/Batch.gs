@@ -426,6 +426,11 @@ function convertToDoc_(f, title) {
 }
 
 function noteFromFile_(f, preview) {
+  var fid = f.getId(), att = ss_().getSheetByName('Attachments').getDataRange().getValues();
+  for (var k = 1; k < att.length; k++) if (att[k][1] === fid) {            // already a note (e.g. the Drop check and an upload raced): return that note
+    var had = readTable_('Notes', true).filter(function (x) { return x.id === att[k][0]; })[0];
+    if (had) return { id: had.id, title: had.title, notebook: had.notebook, tags: splitTags_(had.tags), created: new Date(had.created).toISOString(), updated: new Date(had.updated).toISOString(), docId: had.docId, starred: !!had.starred, att: +had.attachments || 1, sourceUrl: had.sourceUrl || '', dup: true };
+  }
   var mime = f.getMimeType(), title = baseName_(f.getName());
   if (mime === MimeType.GOOGLE_DOCS) {
     f.moveTo(DriveApp.getFolderById(props_().getProperty('notesId')));
@@ -459,10 +464,10 @@ function noteFromFolder_(d) {
   return n;
 }
 
-/** In-app upload: one file per call (base64). Lands in Drop, then becomes a note right away. */
+/** In-app upload: one file per call (base64). Saved with the attachments and made into a note right away. */
 function api_uploadFile(name, mime, b64, previewB64) {
   var t0 = Date.now(), blob = Utilities.newBlob(Utilities.base64Decode(b64), mime || 'application/octet-stream', name);
-  var f = dropFolder_().createFile(blob);
+  var f = DriveApp.getFolderById(props_().getProperty('attId')).createFile(blob);   // not the Drop folder: its 15-minute check would make a second note of it
   var pv = previewB64 ? Utilities.newBlob(Utilities.base64Decode(previewB64), 'image/jpeg', 'preview.jpg') : null;
   var t1 = Date.now(), lock = LockService.getScriptLock(); lock.waitLock(30000);
   var t2 = Date.now();
@@ -1635,7 +1640,11 @@ function processMail_(start, budget) {
   var inLabel = mailLabel_('ArNotes'), saved = mailLabel_('ArNotes/Saved');
   var old = addr.replace('+arnotes@', '+arnote@');               // the address from before the rename (ArNote) still works
   var threads = gmailSearch_('(to:' + addr + ' OR deliveredto:' + addr + ' OR to:' + old + ' OR deliveredto:' + old + ') -label:arnotes-saved', 15).concat(gmailSearch_('label:arnotes -label:arnotes-saved', 15));
-  var seen = {};
+  var seen = {}, pp = props_(), doneList = [], done = {}, had = {};
+  try { doneList = JSON.parse(pp.getProperty('mailDone') || '[]'); } catch (e) {}
+  doneList.forEach(function (x) { done[x] = 1; });
+  if (threads.length) readTable_('Notes', true).forEach(function (n) {   // emails saved before this list existed: same conversation + same title
+    var t = /#all\/([0-9a-f]+)/i.exec(String(n.sourceUrl || '')); if (n.source === 'email' && t) had[t[1] + '|' + n.title] = 1; });
   threads.forEach(function (tid) {
     if (seen[tid] || Date.now() - start > budget) return; seen[tid] = 1;
     var th = gmailThread_(tid), labelled = th.labelIds.indexOf(inLabel) >= 0;
@@ -1645,10 +1654,14 @@ function processMail_(start, budget) {
       return (to.indexOf(addr.toLowerCase()) >= 0 || to.indexOf(old.toLowerCase()) >= 0) && ok[senderEmail_(m.getFrom())];
     });
     if (labelled) msgs = msgs.slice(-1);                          // a labelled conversation: keep its latest email
-    msgs.forEach(function (m) { try { made.push(noteFromMail_(m, th)); } catch (e) { Logger.log('Mail note failed: ' + e); } });
+    msgs.forEach(function (m) {
+      var mid = m.getId(), key = th.getId() + '|' + subjectTags_(m.getSubject()).title;
+      if (done[mid] || had[key]) return;                          // already saved (e.g. its label was renamed): don't make it twice
+      try { made.push(noteFromMail_(m, th)); done[mid] = 1; doneList.push(mid); had[key] = 1; } catch (e) { Logger.log('Mail note failed: ' + e); }
+    });
     gmailModifyThread_(tid, [saved], ['INBOX'].concat(labelled ? [inLabel] : []));
   });
-  if (made.length) props_().setProperty('mailLast', JSON.stringify({ at: new Date().toISOString(), n: made.length }));
+  if (made.length) { pp.setProperty('mailDone', JSON.stringify(doneList.slice(-300))); pp.setProperty('mailLast', JSON.stringify({ at: new Date().toISOString(), n: made.length })); }
   return { added: made.length, titles: made.map(function (n) { return n.title; }) };
 }
 

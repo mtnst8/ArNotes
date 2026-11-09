@@ -31,6 +31,10 @@ Home is a set of boxes: Tasks, Notes, Scratch pad, Pinned note, Inbox, Shortcuts
 
 Tick the box in the **Billed** column of the Receipts table (or on a receipt's preview card) to mark it billed to the customer today; untick to mark it not billed. Undo works for a few seconds. To bill many at once, tick the rows on the left and press **✓ Mark billed**.
 
+### No doubles
+
+A photo or file shared from your phone is saved straight with the note's attachments, so the 15-minute Drop folder check can never make a second note of it, and a file that is already a note's attachment is never turned into another note. An email is never saved twice, even if its Gmail label is renamed. Phone photos are named with the time to the second (Photo Nov 8, 2026 2:21:05 PM), so pictures taken the same minute don't look like copies.
+
 ### Trash
 
 Deleting a note moves it to **Trash** (left menu), with Undo for a few seconds. It waits there 30 days with its tags and filing, then is deleted for good (its Google Doc goes to Google Drive's trash). In Trash, tick notes and press **↩ Restore** to put them back where they were, or **Delete forever**; **Empty trash** clears it. Notes in the Trash stay out of search, tags, receipts and shared links. Deleted photos still go straight to Google Drive's trash.
