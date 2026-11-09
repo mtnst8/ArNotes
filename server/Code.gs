@@ -406,7 +406,7 @@ function api_bootstrap() {
   var notes = readTable_('Notes', true).map(function (n) {
     return { id: n.id, title: String(n.title), notebook: n.notebook, tags: n.tags ? String(n.tags).split(TAG_SEP) : [],
       created: iso_(n.created), updated: iso_(n.updated), docId: n.docId, starred: n.starred === true || n.starred === 'TRUE',
-      att: +n.attachments || 0, sourceUrl: n.sourceUrl || '', link: n.source === 'link' };
+      att: +n.attachments || 0, sourceUrl: n.sourceUrl || '', link: n.source === 'link', sheet: n.source === 'sheet' };
   });
   var tags = readTable_('Tags').map(function (t) { return { name: String(t.name), parent: String(t.parent || ''), order: +t.order || 0 }; });
   var order = (props_().getProperty('bookmarkOrder') || '').split(',').filter(String);

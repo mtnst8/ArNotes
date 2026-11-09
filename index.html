@@ -422,6 +422,8 @@ function call(fn){var a=[].slice.call(arguments,1);
   return rawCall(CFG,fn,a).catch(function(e){toast('Error: '+e.message);if(/paired again/.test(e.message)){saveCfg(null);showPair()}throw e});
 }
 function docUrl(docId,edit){return 'https://docs.google.com/document/d/'+docId+(edit?'/edit':'/view')+(S.user?'?authuser='+encodeURIComponent(S.user):'')}
+/** Where a note is edited: Google Docs, or Google Sheets for a spreadsheet note. embed = inside ArNotes. */
+function editUrl(n,embed){var u=S.user?'authuser='+encodeURIComponent(S.user):'';return 'https://docs.google.com/'+(n.sheet?'spreadsheets':'document')+'/d/'+n.docId+'/edit'+(embed?'?rm=minimal'+(u?'&'+u:''):(u?'?'+u:''))}
 function fileUrl(id){return 'https://drive.google.com/file/d/'+id+'/view'+(S.user?'?authuser='+encodeURIComponent(S.user):'')}
 /** Note body in a sandboxed frame (works on any device, whatever Google account the browser uses). */
 function readerHtml(){return '<iframe class="reader" sandbox="allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation" srcdoc="'+esc('<p style="font:14px sans-serif;color:#888;padding:16px">Loading…</p>')+'"></iframe>'}
@@ -599,7 +601,7 @@ function rowHtml(n){
   var on=!!S.sel[n.id];
   return '<div class="row'+(on?' sel':'')+'" data-id="'+n.id+'">'+
     '<span class="cbw" title="Select"><input type="checkbox" class="cb"'+(on?' checked':'')+' aria-label="Select note"></span>'+
-    '<div class="t">'+(n.starred?'<span class="s">★</span> ':'')+(n.link?'<span title="Linked Drive file">🔗</span> ':'')+esc(n.title)+'</div>'+
+    '<div class="t">'+(n.starred?'<span class="s">★</span> ':'')+(n.link?'<span title="Linked Drive file">🔗</span> ':'')+(n.sheet?'<span title="Spreadsheet">▦</span> ':'')+esc(n.title)+'</div>'+
     '<div class="tg">'+n.tags.slice(0,3).map(function(t){return '<span class="chip">'+esc(t)+'</span>'}).join('')+(n.tags.length>3?'<span class="muted" style="font-size:12px"> +'+(n.tags.length-3)+'</span>':'')+'</div>'+
     '<div class="m"><span class="nb">'+esc(n.notebook)+' · </span>'+fmt(n.updated||n.created)+(n.att?' · 📎'+n.att:'')+'</div></div>';
 }
@@ -913,7 +915,7 @@ function loadThumbs(arr){
 }
 function cardHtml(n){
   return '<div class="ncard" data-open="'+n.id+'"><div class="nbk">'+esc(n.notebook)+(n.starred?' · <span class="s" style="color:var(--star)">★</span>':'')+'</div>'+
-    '<div class="tt">'+(n.link?'🔗 ':'')+esc(n.title)+'</div>'+
+    '<div class="tt">'+(n.link?'🔗 ':'')+(n.sheet?'▦ ':'')+esc(n.title)+'</div>'+
     '<div class="tgs">'+n.tags.slice(0,2).map(function(t){return '<span class="chip">'+esc(t)+'</span>'}).join('')+(n.tags.length>2?'<span class="muted" style="font-size:12px"> +'+(n.tags.length-2)+'</span>':'')+'</div>'+
     '<div class="th">'+(thumbUrl(n)?'<img alt="" src="'+thumbUrl(n)+'">':'<div class="ph">'+esc((n.title||'?')[0])+'</div>')+'</div>'+
     '<div class="dt">'+fmt(n.updated||n.created)+(n.att?' · 📎'+n.att:'')+'</div></div>';
@@ -958,7 +960,7 @@ function viewTrash(){
         '<button class="btn small primary" id="trRes" disabled>↩ Restore</button><button class="btn small danger" id="trDel" disabled>Delete forever</button><button class="btn small" id="trEmpty">Empty trash</button></div>'+
         '<div class="list">'+list.map(function(n){var x=info[n.id],left=x?Math.max(0,days-Math.floor((Date.now()-new Date(x.at))/864e5)):null;
           return '<div class="row'+(sel[n.id]?' sel':'')+'" data-id="'+n.id+'"><span class="cbw"><input type="checkbox" class="cb"'+(sel[n.id]?' checked':'')+' aria-label="Select note"></span>'+
-            '<div class="t">'+(n.link?'<span title="Linked Drive file">🔗</span> ':'')+esc(n.title)+'</div>'+
+            '<div class="t">'+(n.link?'<span title="Linked Drive file">🔗</span> ':'')+(n.sheet?'<span title="Spreadsheet">▦</span> ':'')+esc(n.title)+'</div>'+
             '<div class="tg">'+n.tags.slice(0,3).map(function(t){return '<span class="chip">'+esc(t)+'</span>'}).join('')+'</div>'+
             '<div class="m">'+(x?'Deleted '+fmt(x.at)+' · from '+esc(x.from)+' · '+left+' day'+(left===1?'':'s')+' left':'')+'</div></div>'}).join('')+'</div>'
       :'<div class="empty">Trash is empty.</div>');
@@ -1140,7 +1142,7 @@ function renderPv(){
   el.innerHTML='<input id="pvTitle" class="pvtitle" value="'+esc(n.title)+'" title="Click to rename" spellcheck="false">'+
     '<div class="muted" style="font-size:12px">Created '+fmt(n.created)+(n.att?' · 📎'+n.att:'')+'</div>'+
     '<div class="bar" id="tagbar"></div>'+
-    '<div class="bar"><button class="btn primary" id="pvFile">File → Cabinet</button><button class="btn" id="pvOpen">Open</button>'+'<button class="btn" id="pvTask" title="Put this on your to-do list (Tasks on Home)">'+(n.tags.indexOf(TASK_TAG)>=0?'✓ In Tasks':'☑ Add to Tasks')+'</button>'+(n.link?'':'<button class="btn" id="pvEd" title="Edit this note (Google Docs, inside ArNotes)">✏️ Edit</button><button class="btn" id="pvAdd" title="Type some text and it goes at the end of this note">＋ Add text</button>')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" id="pvRc">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" id="pvMk" title="Read this email as a receipt or invoice">🧾 It\'s a receipt</button>':'')+(isScanNote(n)?'<button class="btn" id="pvNp" title="A new note with this picture in it, ready for you to write">📝 Note with this photo</button>':'')+(isScanNote(n)?'<button class="btn" id="pvJp" title="Not a document, receipt or card: remove this note and put the photo back in Photos">📷 Just a photo</button>':'')+'<button class="btn" id="pvSend" title="Email this note to someone">✉ Send</button><button class="btn" id="pvPr">🖨 Print</button><button class="btn" id="pvDn" title="Download as PDF">⇩ Download</button>'+'<button class="btn danger" id="pvDel">Delete</button>'+
+    '<div class="bar"><button class="btn primary" id="pvFile">File → Cabinet</button><button class="btn" id="pvOpen">Open</button>'+'<button class="btn" id="pvTask" title="Put this on your to-do list (Tasks on Home)">'+(n.tags.indexOf(TASK_TAG)>=0?'✓ In Tasks':'☑ Add to Tasks')+'</button>'+(n.link?'':'<button class="btn" id="pvEd" title="Edit this note (inside ArNotes)">✏️ Edit</button>'+(n.sheet?'':'<button class="btn" id="pvAdd" title="Type some text and it goes at the end of this note">＋ Add text</button>'))+(n.tags.indexOf('Receipt')>=0?'<button class="btn" id="pvRc">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" id="pvMk" title="Read this email as a receipt or invoice">🧾 It\'s a receipt</button>':'')+(isScanNote(n)?'<button class="btn" id="pvNp" title="A new note with this picture in it, ready for you to write">📝 Note with this photo</button>':'')+(isScanNote(n)?'<button class="btn" id="pvJp" title="Not a document, receipt or card: remove this note and put the photo back in Photos">📷 Just a photo</button>':'')+'<button class="btn" id="pvSend" title="Email this note to someone">✉ Send</button><button class="btn" id="pvPr">🖨 Print</button><button class="btn" id="pvDn" title="Download as PDF">⇩ Download</button>'+'<button class="btn danger" id="pvDel">Delete</button>'+
     '<span class="kbd">Keys: ↑ ↓ move · T add tag · F file · Enter open</span></div><div id="pvloc"></div>'+
     (n.tags.indexOf('Receipt')>=0?'<div id="pvRcCard"><p class="muted">Loading receipt…</p></div><div id="pvFull" style="display:none">'+readerHtml()+'</div>':readerHtml());
   renderTags(n);
@@ -1166,7 +1168,7 @@ function renderPv(){
     if(b.dataset.on){S.editing=null;b.textContent='Saving…';nvFetch(n.id).catch(function(){}).then(function(){if(S.pv===n.id)renderPv()});return}
     var r=$('#pv .reader')||$('#pv .pdfview')||$('#pv iframe');if(!r){S.editNow=n.id;go('note',n.id);return}   // edit right here in the preview
     var f=document.createElement('iframe');f.className='reader editor pvedit';f.allow='clipboard-read; clipboard-write';
-    f.src='https://docs.google.com/document/d/'+n.docId+'/edit?rm=minimal'+(S.user?'&authuser='+encodeURIComponent(S.user):'');
+    f.src=editUrl(n,true);
     r.replaceWith(f);S.editing=n.id;b.dataset.on=1;b.textContent='✓ Done editing';b.classList.add('primary')};
   if($('#pvAdd')) $('#pvAdd').onclick=function(){addText(n.id,function(){if(S.pv===n.id)renderPv()})};
   if($('#pvRc')) $('#pvRc').onclick=function(){S.rcData=null;rcDetails(n.id)};
@@ -1929,7 +1931,8 @@ function viewNote(id,keep){
       (n.notebook==='Inbox'?'<button class="btn primary" id="file">File → Cabinet</button>':'<button class="btn" id="unfile">Move to Inbox</button>')+
       (isTriage?'<button class="btn" id="skip">Skip</button>':'')+
       (n.link?'<a class="btn" target="_blank" id="odocs" href="'+linkUrl(n)+'">Open in Drive ↗</a>'+(isScanNote(n)?'<button class="btn" id="nnp">📝 Note with this photo</button><button class="btn" id="njp">📷 Just a photo</button>':''):
-        '<a class="btn" target="_blank" id="odocs" href="'+docUrl(n.docId,true)+'">Edit in Google Docs ↗</a><button class="btn" id="ehere">✏️ Edit here</button><button class="btn" id="eadd" title="Type some text and it goes at the end of this note">＋ Add text</button>'+
+        (n.sheet?'<a class="btn" target="_blank" id="odocs" href="'+editUrl(n)+'">Open in Google Sheets ↗</a><button class="btn" id="ehere">✏️ Edit here</button>':
+        '<a class="btn" target="_blank" id="odocs" href="'+docUrl(n.docId,true)+'">Edit in Google Docs ↗</a><button class="btn" id="ehere">✏️ Edit here</button><button class="btn" id="eadd" title="Type some text and it goes at the end of this note">＋ Add text</button>')+
         (n.sourceUrl?'<a class="btn" target="_blank" href="'+esc(n.sourceUrl)+'">'+(/mail\.google\.com/.test(n.sourceUrl)?'Open in Gmail':'Source')+'</a>':'')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" onclick="S.rcData=null;rcDetails(\''+n.id+'\')">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" onclick="markReceipt(\''+n.id+'\',this)">🧾 It\'s a receipt</button>':''))+
       '<button class="btn" id="ntask" title="'+(n.tags.indexOf(TASK_TAG)>=0?'It\'s on your to-do list (Tasks on Home). Click to take it off.':'Put this on your to-do list (Tasks on Home)')+'">'+(n.tags.indexOf(TASK_TAG)>=0?'✓ In Tasks':'☑ Add to Tasks')+'</button>'+
       '<button class="btn" id="nsend" title="Email this note to someone">✉ Send</button>'+
@@ -1973,8 +1976,9 @@ function viewNote(id,keep){
 /** Edit the note's Google Doc inside ArNotes, full height, with Done to go back to reading. */
 function editHere(n){
   var b=$('#nbody'),h=$('#ehint');if(!b)return;
-  if(h)h.innerHTML='Editing in Google Docs: changes save by themselves. <button class="btn small primary" id="edone">Done</button> <span class="muted">If it says you need access, use Edit in Google Docs (this browser is signed in to a different Google account).</span>';
-  b.innerHTML='<iframe class="editor" src="https://docs.google.com/document/d/'+n.docId+'/edit?rm=minimal'+(S.user?'&authuser='+encodeURIComponent(S.user):'')+'" allow="clipboard-read; clipboard-write"></iframe>';
+  var app=n.sheet?'Google Sheets':'Google Docs';
+  if(h)h.innerHTML='Editing in '+app+': changes save by themselves. <button class="btn small primary" id="edone">Done</button> <span class="muted">If it says you need access, use Open in '+app+' (this browser is signed in to a different Google account).</span>';
+  b.innerHTML='<iframe class="editor" src="'+editUrl(n,true)+'" allow="clipboard-read; clipboard-write"></iframe>';
   if($('#ehere'))$('#ehere').remove(); S.editing=n.id;
   setTimeout(function(){var y=(h||b).getBoundingClientRect().top+window.scrollY-8;window.scrollTo({top:y,behavior:'smooth'})},50);
   $('#edone').onclick=function(){S.editing=null;nvFetch(n.id).catch(function(){}).then(function(){viewNote(n.id)})};
@@ -2044,15 +2048,27 @@ function addTagTo(n,t,refocus){
 }
 
 /* ---------- quick capture ---------- */
+/** A new spreadsheet note: a blank Google Sheet, opened ready to type in (in ArNotes on a computer, in the Sheets app on a phone). */
+function newSheet(title,btn,tags){
+  title=String(title||'').trim()||('Spreadsheet '+new Date().toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}));
+  var phone=window.innerWidth<700, w=phone?window.open('about:blank','_blank'):null;    // open the tab now, while the tap still counts
+  if(btn){btn.disabled=true;btn.textContent='Making the spreadsheet…'}
+  return call('api_createSheetNote',title,tags||[]).then(function(n){
+    if(!S.byId[n.id]){S.notes.unshift(n);S.byId[n.id]=n;refreshInboxCount()}
+    if(w){try{w.location=editUrl(n)}catch(e){} go('note',n.id);toast('Spreadsheet made: it opened in Google Sheets. It\'s in your Inbox.')}
+    else{S.editNow=n.id;go('note',n.id);toast('Spreadsheet made: type away. It\'s in your Inbox.')}
+  }).catch(function(e){if(w)try{w.close()}catch(x){}if(btn){btn.disabled=false;btn.textContent='▦ Spreadsheet'}toast('Could not make the spreadsheet: '+e.message)});
+}
 function viewNew(){
   $('#main').innerHTML='<div class="lhead"><h2>New note → Inbox</h2></div>'+
-    '<div class="bar newopts" style="margin:6px 0 14px"><button class="btn" id="noLink">🔗 Link Drive files</button><button class="btn" id="noFiles">＋ Add files</button><button class="btn" id="noPhoto">📷 Photos</button><input type="file" id="noIn" multiple hidden></div>'+
+    '<div class="bar newopts" style="margin:6px 0 14px"><button class="btn" id="noLink">🔗 Link Drive files</button><button class="btn" id="noFiles">＋ Add files</button><button class="btn" id="noPhoto">📷 Photos</button><button class="btn" id="noSheet" title="A blank Google Sheet as a note: for quick math, lists and logs">▦ Spreadsheet</button><input type="file" id="noIn" multiple hidden></div>'+
     '<input class="field" id="nt" placeholder="Title"><br><br>'+
     '<textarea id="nb" rows="10" placeholder="Note"></textarea><br><br><button class="btn primary" id="ns">Save</button>';
   $('#noLink').onclick=linkDialog;
   $('#noFiles').onclick=function(){$('#noIn').click()};
   $('#noIn').onchange=function(){var f=[].slice.call(this.files);this.value='';uploadFiles(f,{open:true})};
   $('#noPhoto').onclick=function(){$('#camIn').click()};
+  $('#noSheet').onclick=function(){newSheet($('#nt').value,this)};
   if(window.innerWidth>=700) $('#nt').focus();
   $('#ns').onclick=function(){ var b=this;b.disabled=true;b.textContent='Saving…';
     call('api_createNote',$('#nt').value,$('#nb').value,[]).then(function(){return load()}).then(function(){toast('Saved to Inbox');go('inbox')}) };

@@ -361,6 +361,7 @@ function api_addText(id, text) {
   text = String(text || '').replace(/\r/g, ''); if (!text.trim()) return { ok: false };
   var n = readTable_('Notes').filter(function (x) { return x.id === id; })[0];
   if (!n) throw new Error('Note not found');
+  if (n.source === 'sheet') throw new Error('This note is a spreadsheet: open it to add to it');
   if (n.source === 'link') throw new Error('This is a linked Drive file: add text in the original');
   var doc = DocumentApp.openById(n.docId), body = doc.getBody();
   text.split('\n').forEach(function (line) { body.appendParagraph(line); });
@@ -513,6 +514,7 @@ function api_mergeNotes(ids, title) {
   var t = notesTable_(), byId = {};
   t.rows.forEach(function (r, i) { byId[r[col_('id')]] = { r: r, row: i + 2 }; });
   ids = ids.filter(function (id) { return byId[id]; });
+  if (ids.some(function (id) { return byId[id].r[col_('source')] === 'sheet'; })) throw new Error('Spreadsheet notes can\'t be merged');
   if (ids.length < 2) throw new Error('Notes not found');
   if (ids.some(function (id) { return byId[id].r[col_('source')] === 'link'; })) throw new Error('Linked notes can\'t be merged (that would change the original files).');
   var keep = byId[ids[0]], kr = keep.r;
@@ -735,6 +737,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
   '<li><b>Trash:</b> deleted notes wait in <b>Trash</b> (left menu) for 30 days with their tags. Tick them and press <b>↩ Restore</b> to put them back where they were, or <b>Delete forever</b>; <b>Empty trash</b> clears it.</li>' +
+  '<li><b>Spreadsheets:</b> for quick math, lists and logs, press <b>＋ Note</b> → <b>▦ Spreadsheet</b>. It makes a blank Google Sheet that is a note like any other (tags, Inbox, Cabinet, search, Tasks). Edit it right in ArNotes on a computer; on a phone it opens in the Google Sheets app.</li>' +
   '<li><b>Tasks:</b> put any note on your to-do list with <b>☑ Add to Tasks</b> (on the note, its preview, or the selection bar for several). A photo too: <b>☑ Add to Tasks</b> in the photo viewer or the Photos selection bar makes a task with the photo in it. In the <b>Tasks</b> box on Home, type a task and press Enter (or <b>＋ Add task</b>); the line clears for the next one. Click a task to open it for editing. Any note tagged <b>Tasks</b> (When › Now › Tasks) shows there too. Tick the ones you\'ve done and press <b>✓ Completed</b> to move them to When › Completed, press <b>🗑 Delete task</b> to send them to the trash (Undo brings them back), or tap a task\'s tag to move it to another When tag. ArNotes starts you with a <b>Welcome to ArNotes</b> note and three how-to tasks (install, getting started, how to use), and each update adds a <b>What\'s new</b> task.</li></ul>' +
   '<h2>5. Edit, add to and share notes</h2><ul>' +
   '<li><b>✏️ Edit:</b> in the Inbox preview or on the note page, opens the note for editing right in ArNotes (it is a Google Doc; changes save by themselves). Press <b>Done</b> when finished. On a phone, <b>Edit in Google Docs</b> opens the Docs app.</li>' +
@@ -975,6 +978,7 @@ function api_exportMarkdown(ids) {
     if (a.length) out.push('- Attachments: ' + a.map(function (x) { return '[' + x.filename + '](https://drive.google.com/file/d/' + x.fileId + '/view)'; }).join(', '));
     out.push('');
     var text = '';
+    if (n.source === 'sheet') { try { text = sheetMarkdown_(n.docId); } catch (e) { text = '(Could not read this spreadsheet.)'; } }
     if (n.source === 'link') {
       var meta = null; try { meta = driveMeta_(n.docId); } catch (e) {}
       if (meta && meta.mimeType !== 'application/vnd.google-apps.document') text = 'Linked file: [' + meta.name + '](' + (meta.webViewLink || n.sourceUrl) + ')' + (/^image\//.test(meta.mimeType) ? ' (photo)' : '');
@@ -1213,6 +1217,7 @@ function licenceState_() {
 function api_noteView(id, o) {
   var n = readTable_('Notes').filter(function (x) { return x.id === id; })[0];
   if (!n) throw new Error('Note not found');
+  if (n.source === 'sheet') return { html: sheetHtml_(n.docId), atts: [], docId: n.docId, sheet: true };
   if (n.source === 'link') {
     var meta = driveMeta_(n.docId);
     if (!meta) return { html: '<p style="font:14px sans-serif">This linked file is missing or no longer shared with you.</p>', atts: [], docId: n.docId, link: { url: n.sourceUrl } };
@@ -3732,4 +3737,53 @@ function ensureWelcomeNote_() {
     p.setProperty('welcomeNote', '1'); ids.n0 = n.id; p.setProperty('starterNoteIds', JSON.stringify(ids));
     return true;
   } finally { lock.releaseLock(); }
+}
+
+/* ---- Spreadsheet notes: a Google Sheet that is a note (tags, Inbox, Cabinet, search, Tasks, Trash all the same) ---- */
+function api_createSheetNote(title, tags) {
+  title = String(title || '').replace(/\s+/g, ' ').trim().slice(0, 200) || 'Untitled spreadsheet';
+  tags = (tags || []).filter(String);
+  var ss = SpreadsheetApp.create(title), f = DriveApp.getFileById(ss.getId());
+  f.moveTo(DriveApp.getFolderById(props_().getProperty('notesId')));
+  if (tags.length) { var known = {}; readTable_('Tags').forEach(function (t) { known[t.name] = 1; }); tags.forEach(function (t) { if (!known[t]) ss_().getSheetByName('Tags').appendRow([t, '']); }); }
+  var now = new Date(), id = Utilities.getUuid(), url = ss.getUrl();
+  ss_().getSheetByName('Notes').appendRow(noteToRow_({ id: id, title: title, notebook: 'Inbox', tags: tags.join(TAG_SEP), created: now, updated: now, docId: ss.getId(),
+    starred: false, source: 'sheet', sourceUrl: url, author: '', attachments: 0 }));
+  return { id: id, title: title, notebook: 'Inbox', tags: tags, created: now.toISOString(), updated: now.toISOString(), docId: ss.getId(), starred: false, att: 0, sourceUrl: url, link: false, sheet: true };
+}
+/** The filled part of each tab (as shown in Sheets: numbers formatted, formulas worked out). */
+function sheetGrids_(ssId) {
+  var ss = SpreadsheetApp.openById(ssId), out = [];
+  ss.getSheets().slice(0, 6).forEach(function (sh) {
+    var r = sh.getLastRow(), c = sh.getLastColumn(), v = [];
+    if (r && c) v = sh.getRange(1, 1, Math.min(r, 300), Math.min(c, 30)).getDisplayValues();
+    out.push({ name: sh.getName(), rows: v, more: r > 300 || c > 30 });
+  });
+  return out;
+}
+function sheetHtml_(ssId) {
+  var e = function (x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  var gs; try { gs = sheetGrids_(ssId); } catch (err) { return '<p style="font:14px sans-serif">Could not open this spreadsheet.</p>'; }
+  var any = gs.some(function (g) { return g.rows.length; });
+  var css = '<style>body{font:14px/1.4 sans-serif;color:#222}table{border-collapse:collapse;margin:4px 0 18px}td{border:1px solid #ccc;padding:4px 8px;min-width:40px;white-space:nowrap}' +
+    'td.n{text-align:right;font-variant-numeric:tabular-nums}th{background:#f1f3f4;color:#666;font-weight:normal;font-size:11px;padding:2px 6px;border:1px solid #ccc}h3{font-size:13px;color:#666;margin:10px 0 4px}</style>';
+  if (!any) return '<html><head>' + css + '</head><body><p style="color:#888">Empty spreadsheet. Press <b>✏️ Edit here</b> (or <b>Open in Google Sheets</b>) to start.</p></body></html>';
+  var letters = function (k) { var s = ''; k++; while (k) { var m = (k - 1) % 26; s = String.fromCharCode(65 + m) + s; k = Math.floor((k - 1) / 26); } return s; };
+  var html = gs.map(function (g) {
+    if (!g.rows.length) return '';
+    var w = g.rows[0].length;
+    return (gs.length > 1 ? '<h3>' + e(g.name) + '</h3>' : '') + '<table><tr><th></th>' + g.rows[0].map(function (x, k) { return '<th>' + letters(k) + '</th>'; }).join('') + '</tr>' +
+      g.rows.map(function (row, i) { return '<tr><th>' + (i + 1) + '</th>' + row.map(function (x) { return '<td' + (/^[-+$(]?[\d,.]+%?\)?$/.test(String(x).trim()) && String(x).trim() ? ' class="n"' : '') + '>' + e(x) + '</td>'; }).join('') + '</tr>'; }).join('') +
+      '</table>' + (g.more ? '<p style="color:#888;font-size:12px">Only the first 300 rows and 30 columns show here; open the spreadsheet to see it all.</p>' : '');
+  }).join('');
+  return '<html><head>' + css + '</head><body>' + html + '</body></html>';
+}
+/** The spreadsheet as Markdown tables (for Export for AI). */
+function sheetMarkdown_(ssId) {
+  return sheetGrids_(ssId).filter(function (g) { return g.rows.length; }).map(function (g) {
+    var c = function (x) { return String(x).replace(/\|/g, '\\|').replace(/\n/g, ' '); };
+    var w = g.rows[0].length, head = g.rows[0], rest = g.rows.slice(1);
+    return '### ' + g.name + '\n\n| ' + head.map(c).join(' | ') + ' |\n|' + head.map(function () { return ' --- '; }).join('|') + '|\n' +
+      rest.map(function (r) { return '| ' + r.map(c).join(' | ') + ' |'; }).join('\n');
+  }).join('\n\n') || '(Empty spreadsheet)';
 }

@@ -35,6 +35,10 @@ Tick the box in the **Billed** column of the Receipts table (or on a receipt's p
 
 A photo or file shared from your phone is saved straight with the note's attachments, so the 15-minute Drop folder check can never make a second note of it, and a file that is already a note's attachment is never turned into another note. An email is never saved twice, even if its Gmail label is renamed. Phone photos are named with the time to the second (Photo Nov 8, 2026 2:21:05 PM), so pictures taken the same minute don't look like copies.
 
+### Spreadsheet notes
+
+**＋ Note → ▦ Spreadsheet** makes a blank Google Sheet that is a note like any other: title, tags, Inbox, Cabinet, search, Tasks and Trash all work the same. Handy for back-of-the-envelope math, parts lists, logs and counts. On a computer it opens for editing right inside ArNotes (✏️ Edit here); on a phone it opens in the Google Sheets app. The preview shows the sheet as a table (formulas worked out, every tab); Print, Download, Send and Export for AI handle it as a spreadsheet. A spreadsheet note can't be merged with other notes, and ＋ Add text is for regular notes only.
+
 ### Trash
 
 Deleting a note moves it to **Trash** (left menu), with Undo for a few seconds. It waits there 30 days with its tags and filing, then is deleted for good (its Google Doc goes to Google Drive's trash). In Trash, tick notes and press **↩ Restore** to put them back where they were, or **Delete forever**; **Empty trash** clears it. Notes in the Trash stay out of search, tags, receipts and shared links. Deleted photos still go straight to Google Drive's trash.
