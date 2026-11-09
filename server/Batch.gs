@@ -3787,3 +3787,17 @@ function sheetMarkdown_(ssId) {
       rest.map(function (r) { return '| ' + r.map(c).join(' | ') + ' |'; }).join('\n');
   }).join('\n\n') || '(Empty spreadsheet)';
 }
+/** Put a Google Sheet back as a spreadsheet note (e.g. one deleted by mistake): takes it out of Drive's trash, files it with
+ *  the notes and adds it to the Inbox. Returns the note, or the existing one if it is already a note. */
+function api_adoptSheet(fileId) {
+  var had = readTable_('Notes', true).filter(function (n) { return n.docId === fileId; })[0];
+  if (had) return { id: had.id, title: had.title, already: true };
+  var f = DriveApp.getFileById(fileId);
+  if (f.getMimeType() !== MimeType.GOOGLE_SHEETS) throw new Error('Not a Google Sheet');
+  if (f.isTrashed()) f.setTrashed(false);
+  f.moveTo(DriveApp.getFolderById(props_().getProperty('notesId')));
+  var id = Utilities.getUuid(), made = f.getDateCreated(), now = new Date();
+  ss_().getSheetByName('Notes').appendRow(noteToRow_({ id: id, title: f.getName(), notebook: 'Inbox', tags: '', created: made, updated: now, docId: fileId,
+    starred: false, source: 'sheet', sourceUrl: f.getUrl(), author: '', attachments: 0 }));
+  return { id: id, title: f.getName(), created: made.toISOString() };
+}
