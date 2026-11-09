@@ -1984,7 +1984,7 @@ function editHere(n){
       var p=call('api_updateNote',n.id,{title:v});undoToast('Renamed',function(){return p.then(function(){n.title=old;et.value=old;if($('#title'))$('#title').value=old;return call('api_updateNote',n.id,{title:old})})})};
     et.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();et.blur()}};
     if(S.newTitle===n.id){S.newTitle=null;var fr=b.querySelector('iframe.editor'),grab=function(){if(document.activeElement!==et&&S.editing===n.id){et.focus();et.select()}};
-      setTimeout(grab,300);if(fr)fr.addEventListener('load',function(){setTimeout(grab,1500);setTimeout(grab,3500)})}}   // Sheets takes the cursor when it finishes loading: give it back to the title
+      setTimeout(grab,300);if(fr)fr.addEventListener('load',function(){setTimeout(grab,1500)})}}   // Sheets takes the cursor when it finishes loading: give it back to the title
   b.innerHTML='<iframe class="editor" src="'+editUrl(n,true)+'" allow="clipboard-read; clipboard-write"></iframe>';
   if($('#ehere'))$('#ehere').remove(); S.editing=n.id;
   setTimeout(function(){var y=(h||b).getBoundingClientRect().top+window.scrollY-8;window.scrollTo({top:y,behavior:'smooth'})},50);
