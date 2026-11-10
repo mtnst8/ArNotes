@@ -3868,6 +3868,7 @@ function api_quickEditSave(id, ver, changed) {
     keys.forEach(function (k) {
       var seg = segs[k]; if (!seg || seg.type !== 'text') throw new Error('The note\'s layout changed. Close the editor and open it again.');
       var items = (changed[k] || []).length ? changed[k] : [{ t: 'p', runs: [] }], at = seg.from < 0 ? body.getNumChildren() : seg.from;   // a cleared section keeps one empty line (a doc can't lose its last paragraph)
+      if (seg.from >= 0 && seg.to === body.getNumChildren() - 1) body.appendParagraph('');   // a doc can't lose its last paragraph: keep an empty one at the end
       items.forEach(function (it, j) { qeInsert_(body, at + j, it); });
       if (seg.from >= 0) for (var r = seg.to; r >= seg.from; r--) body.getChild(r + items.length).removeFromParent();
     });
