@@ -397,7 +397,7 @@ var S = { notes: [], tags: [], byId: {}, children: {}, parent: {}, view: 'home',
 function $(s){return document.querySelector(s)}
 function $$(s){return [].slice.call(document.querySelectorAll(s))}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
-function toast(m){var t=$('#toast');if(S.undo&&Date.now()<S.undo.until&&!/^Error/.test(m))return;t.classList.remove('undo');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('on')},2200)}
+function toast(m,ms){var t=$('#toast');if(S.undo&&Date.now()<S.undo.until&&!/^Error/.test(m))return;t.classList.remove('undo');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('on')},ms||2200)}
 /** A message with an Undo button that stays up for a few seconds (Ctrl+Z works too). */
 function undoToast(m,fn,ms){ms=ms||7000;var t=$('#toast');
   if(S.undo&&S.undo.onExpire) S.undo.onExpire();           // a newer action replaces the old undo: commit anything it was holding back
@@ -1247,7 +1247,10 @@ document.addEventListener('keydown',function(e){
 window.addEventListener('blur',function(){setTimeout(function(){
   var a=document.activeElement, pv=$('#pv'), b=$('#pvEd');
   if(!a||a.tagName!=='IFRAME'||!pv||!pv.contains(a)||!a.classList.contains('reader')||a.classList.contains('editor')) return;
-  if(!b||b.dataset.on||pv.classList.contains('pvlock')) return;
+  if(pv.classList.contains('pvlock')){toast('Notes are ticked in the list: press Clear selection (top of the preview) to edit this one');return}
+  var n=S.byId[S.pv];
+  if(!b){if(n&&n.link)toast(isScanNote(n)?'This is a scanned photo, which can\'t be typed into. Press 📝 Note with this photo to get a note with the picture in it that you can write in.':'This is a linked Drive file (photo, PDF or other file); ArNotes leaves the original alone. Open it to change it.',6000);return}
+  if(b.dataset.on) return;
   b.click()},0)});
 /* ---------- Add files: button, drag & drop anywhere, Drive Drop folder ---------- */
 var DROP_URL='';
