@@ -1171,12 +1171,12 @@ function renderPv(){
   $('#pvOpen').onclick=function(){go('note',n.id)};
   if($('#pvEd')) $('#pvEd').onclick=function(){var b=this;
     if(b.dataset.on){S.editing=null;b.textContent='Saving…';nvFetch(n.id).catch(function(){}).then(function(){if(S.pv===n.id)renderPv()});return}
-    if(isPhone()){if(n.sheet)window.open(editUrl(n),'_blank');else quickEdit(n,function(){if(S.pv===n.id)renderPv()});return}
+    if(isPhone()||(!n.sheet&&store('qeAlways'))){if(n.sheet)window.open(editUrl(n),'_blank');else quickEdit(n,function(){if(S.pv===n.id)renderPv()});return}
     var r=$('#pv .reader')||$('#pv .pdfview')||$('#pv iframe');if(!r){S.editNow=n.id;go('note',n.id);return}   // edit right here in the preview
     var f=document.createElement('iframe');f.className='reader editor pvedit';f.allow='clipboard-read; clipboard-write';
     f.src=editUrl(n,true);
     f.onload=function(){try{f.focus()}catch(e){}};
-    r.replaceWith(f);S.editing=n.id;b.dataset.on=1;b.textContent='✓ Done editing';b.classList.add('primary')};
+    r.replaceWith(f);if(!n.sheet){f.insertAdjacentHTML('beforebegin',edHintHtml());bindEdHint(n,function(){if(S.pv===n.id)renderPv()})}S.editing=n.id;b.dataset.on=1;b.textContent='✓ Done editing';b.classList.add('primary')};
   if($('#pvAdd')) $('#pvAdd').onclick=function(){addText(n.id,function(){if(S.pv===n.id)renderPv()})};
   if($('#pvRc')) $('#pvRc').onclick=function(){S.rcData=null;rcDetails(n.id)};
   if($('#pvMk')) $('#pvMk').onclick=function(){markReceipt(n.id,this)};
@@ -2036,16 +2036,24 @@ function qeItems(root){var items=[];
   flush();
   while(items.length>1&&!items[items.length-1].runs.length)items.pop();   // trailing empty lines
   return items}
+/** Shown beside Google's editor: Google may refuse it (this browser not signed in to the ArNotes account), and ArNotes can't see that, so offer the way out. */
+function edHintHtml(){var u=S.user||'your ArNotes Google account';
+  return '<div id="edHint" class="muted" style="font-size:12.5px;margin:6px 0">Google says <b>“You need access”</b>? This browser isn\'t signed in to '+esc(u)+'. '+
+    '<a href="https://accounts.google.com/AddSession'+(S.user?'?Email='+encodeURIComponent(S.user):'')+'" target="_blank" rel="noopener">Sign in to it</a>, or '+
+    '<button class="btn small" id="ehQ">✏️ Use ArNotes\' editor</button> <label style="white-space:nowrap"><input type="checkbox" id="ehAlw"> always, on this computer</label></div>'}
+function bindEdHint(n,after){var q=$('#ehQ');if(!q)return;
+  q.onclick=function(){if($('#ehAlw')&&$('#ehAlw').checked){store('qeAlways',true);toast('ArNotes\' editor from now on, on this computer',3000)}S.editing=null;quickEdit(n,after)}}
 function quickEdit(n,after){
   var ov=document.createElement('div');ov.className='qe';ov.id='qe';
   ov.innerHTML='<div class="qehead"><button class="btn small" id="qeNo">Cancel</button><b class="grow" style="text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(n.title)+'</b><button class="btn small primary" id="qeOk" disabled>Save</button></div>'+
-    '<div class="qetools"><button data-c="bold"><b>B</b></button><button data-c="italic"><i>I</i></button><button data-c="underline"><u>U</u></button><button data-c="h">H</button><button data-c="insertUnorderedList">• List</button><button data-c="insertOrderedList">1. List</button></div>'+
+    '<div class="qetools"><button data-c="bold"><b>B</b></button><button data-c="italic"><i>I</i></button><button data-c="underline"><u>U</u></button><button data-c="h">H</button><button data-c="insertUnorderedList">• List</button><button data-c="insertOrderedList">1. List</button>'+(!isPhone()&&store('qeAlways')?'<span class="grow"></span><button class="btn small" id="qeGd" title="Go back to editing in Google Docs on this computer">Use Google Docs editor instead</button>':'')+'</div>'+
     '<div class="qebody" id="qeBody"><div class="muted" style="padding:16px">Opening…</div></div>';
   document.body.appendChild(ov);document.body.classList.add('qeon');
   var data=null,orig=[];
   function close(){ov.remove();document.body.classList.remove('qeon')}
   function dirty(){if(!data)return false;return [].some.call($$('#qeBody .qeseg'),function(e){return JSON.stringify(qeItems(e))!==orig[+e.dataset.k]})}
   $('#qeNo').onclick=function(){if(dirty()&&!confirmLeave())return;close()};
+  if($('#qeGd')) $('#qeGd').onclick=function(){if(dirty()&&!confirmLeave())return;store('qeAlways',false);close();toast('Google Docs editor from now on: press ✏️ Edit again',3500)};
   function confirmLeave(){return window.confirm('Throw away your changes?')}
   call('api_quickEditLoad',n.id).then(function(d){data=d;
     $('#qeBody').innerHTML=d.segs.map(function(sg,k){
@@ -2065,17 +2073,18 @@ function quickEdit(n,after){
     .catch(function(e){ok.disabled=false;ok.textContent='Save';toast('Could not save: '+e.message)})};
 }
 function editHere(n){
-  if(isPhone()&&!n.link){if(n.sheet){window.open(editUrl(n),'_blank');return}quickEdit(n,function(){viewNote(n.id)});return}   // phones: Google's editor won't run inside a page
+  if((isPhone()||(!n.sheet&&store('qeAlways')))&&!n.link){if(n.sheet){window.open(editUrl(n),'_blank');return}quickEdit(n,function(){viewNote(n.id)});return}   // phones: Google's editor won't run inside a page
   var b=$('#nbody'),h=$('#ehint');if(!b)return;
   var app=n.sheet?'Google Sheets':'Google Docs';
   if(h)h.innerHTML='<div class="etbar"><input class="field" id="etitle" value="'+esc(n.title)+'" placeholder="Title" spellcheck="false" title="The note\'s title"><button class="btn small primary" id="edone">Done</button></div>'+
-    '<span class="muted">Editing in '+app+': changes save by themselves. If it says you need access, use Open in '+app+' (this browser is signed in to a different Google account).</span>';
+    (n.sheet?'<span class="muted">Editing in '+app+': changes save by themselves. If it says you need access, use Open in '+app+' (this browser is signed in to a different Google account).</span>':'<span class="muted">Editing in '+app+': changes save by themselves.</span>'+edHintHtml());
   var et=$('#etitle');   // the title stays in reach while editing (the page scrolls down to the editor)
   if(et){et.onchange=function(){var v=et.value.trim();if(!v||v===n.title)return;var old=n.title;n.title=v;var ti=$('#title');if(ti)ti.value=v;
       var p=call('api_updateNote',n.id,{title:v});undoToast('Renamed',function(){return p.then(function(){n.title=old;et.value=old;if($('#title'))$('#title').value=old;return call('api_updateNote',n.id,{title:old})})})};
     et.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();et.blur()}};
   }
   b.innerHTML='<iframe class="editor" src="'+editUrl(n,true)+'" allow="clipboard-read; clipboard-write"></iframe>';
+  bindEdHint(n,function(){viewNote(n.id)});
   if($('#ehere'))$('#ehere').remove(); S.editing=n.id;
   setTimeout(function(){var y=(h||b).getBoundingClientRect().top+window.scrollY-8;window.scrollTo({top:y,behavior:'smooth'})},50);
   $('#edone').onclick=function(){if(et&&et.value.trim()!==n.title)et.onchange();S.editing=null;nvFetch(n.id).catch(function(){}).then(function(){viewNote(n.id)})};

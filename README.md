@@ -43,6 +43,8 @@ In **＋ Note**, press **🏷 Add tags** under the title to pick tags (or make n
 
 Click (or tap) into a note's text in the Inbox preview and it opens for editing right there, the same as **✏️ Edit** (on a phone, ArNotes' quick editor). Press **✓ Done editing** when finished. If notes are ticked in the list, the preview is locked until you clear the selection.
 
+If Google's editor says **You need access**, that browser isn't signed in to your ArNotes Google account. Use the **Sign in to it** link under the editor, or **✏️ Use ArNotes' editor** (works whatever account the browser is signed in to). Tick **always, on this computer** to skip Google's editor there; **Use Google Docs editor instead** in ArNotes' editor switches back.
+
 ### Merging notes
 
 Tick two or more notes and press **Merge**. The note at the top of the list is kept (↑ moves another to the top); the others' text is added to it under their titles, and their tags and attachments come along. The other notes go to **Trash**, where **↩ Restore** brings them back for 30 days.
