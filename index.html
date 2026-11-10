@@ -49,7 +49,12 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mute)
 .rcselbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin:0 0 8px;border-radius:10px;background:var(--card);border:1px solid var(--acc)}
 .rcpv{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
 .rcpv img{width:220px;max-width:100%;max-height:320px;object-fit:contain;border-radius:8px;background:#f2f2f2}
-.rcpvf{flex:1;min-width:220px}.rcbl{display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}.rcbl input{width:16px;height:16px;margin:0}.etbar{display:flex;gap:6px;align-items:center;margin:0 0 4px}.etbar .field{flex:1;min-width:0;margin:0;font-weight:600;font-size:15px}.pvbill{display:flex;align-items:center;gap:6px;cursor:pointer}.pvbill input{width:18px;height:18px;margin:0}.rcrow{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}.rcrow span{width:90px;opacity:.65;flex:none}
+.rcpvf{flex:1;min-width:220px}.rcbl{display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}.rcbl input{width:16px;height:16px;margin:0}.qe{position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;flex-direction:column}body.qeon{overflow:hidden}
+.qehead{display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.qetools{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);overflow-x:auto}.qetools button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;min-width:40px;height:34px;padding:0 10px;font-size:14px}
+.qebody{flex:1;overflow-y:auto;padding:12px 14px 40vh;background:#fff;color:#222}.qeseg{outline:none;min-height:2em;font:16px/1.5 sans-serif}.qeseg p{margin:0 0 6px}.qeseg h1{font-size:22px;margin:8px 0}.qeseg h2{font-size:19px;margin:8px 0}.qeseg h3{font-size:17px;margin:6px 0}.qeseg ul,.qeseg ol{margin:0 0 6px;padding-left:24px}.qeseg a{color:#1a5fb4}
+.qefix{margin:8px 0;padding:10px 12px;border:1px dashed #bbb;border-radius:8px;color:#555;background:#f6f6f6;font-size:14px}
+.etbar{display:flex;gap:6px;align-items:center;margin:0 0 4px}.etbar .field{flex:1;min-width:0;margin:0;font-weight:600;font-size:15px}.pvbill{display:flex;align-items:center;gap:6px;cursor:pointer}.pvbill input{width:18px;height:18px;margin:0}.rcrow{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}.rcrow span{width:90px;opacity:.65;flex:none}
 .rcinv{font-size:10px;text-transform:uppercase;letter-spacing:.4px;border:1px solid var(--line);border-radius:6px;padding:1px 5px;opacity:.75;white-space:nowrap}
 .rct td.ck,.rct th.ck{width:28px;padding-right:0}.rct .bl{font-size:12px;color:var(--acc);white-space:nowrap}
 .rcwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
@@ -1166,6 +1171,7 @@ function renderPv(){
   $('#pvOpen').onclick=function(){go('note',n.id)};
   if($('#pvEd')) $('#pvEd').onclick=function(){var b=this;
     if(b.dataset.on){S.editing=null;b.textContent='Saving…';nvFetch(n.id).catch(function(){}).then(function(){if(S.pv===n.id)renderPv()});return}
+    if(isPhone()){if(n.sheet)window.open(editUrl(n),'_blank');else quickEdit(n,function(){if(S.pv===n.id)renderPv()});return}
     var r=$('#pv .reader')||$('#pv .pdfview')||$('#pv iframe');if(!r){S.editNow=n.id;go('note',n.id);return}   // edit right here in the preview
     var f=document.createElement('iframe');f.className='reader editor pvedit';f.allow='clipboard-read; clipboard-write';
     f.src=editUrl(n,true);
@@ -1974,7 +1980,65 @@ function viewNote(id,keep){
     if(isTriage&&S.triage.length){S.view='note';viewNote(S.triage[0])} else go(isTriage?'inbox':'home'); }
 }
 /** Edit the note's Google Doc inside ArNotes, full height, with Done to go back to reading. */
+/* ---------- Quick edit: a note's text edited inside ArNotes (phones). Pictures and tables stay as they are. ---------- */
+function qeHtml(items){var out='',list=null;
+  (items||[]).forEach(function(it){
+    var inner=(it.runs||[]).map(function(r){var x=esc(r.x||'');if(r.a)x='<a href="'+esc(r.a)+'">'+x+'</a>';if(r.u)x='<u>'+x+'</u>';if(r.i)x='<i>'+x+'</i>';if(r.b)x='<b>'+x+'</b>';return x}).join('')||'<br>';
+    if(it.t==='ul'||it.t==='ol'){if(list!==it.t){if(list)out+='</'+list+'>';out+='<'+it.t+'>';list=it.t}out+='<li>'+inner+'</li>';return}
+    if(list){out+='</'+list+'>';list=null}
+    var tag=it.t==='h1'||it.t==='h2'||it.t==='h3'?it.t:'p';out+='<'+tag+'>'+inner+'</'+tag+'>'});
+  if(list)out+='</'+list+'>';return out||'<p><br></p>'}
+function qeItems(root){var items=[];
+  function runsOf(node){var runs=[];
+    (function walk(n,f){
+      if(n.nodeType===3){if(n.nodeValue)runs.push({x:n.nodeValue.replace(/ /g,' '),b:!!f.b,i:!!f.i,u:!!f.u,a:f.a||''});return}
+      if(n.nodeType!==1)return;var tg=n.tagName,g={b:f.b,i:f.i,u:f.u,a:f.a},st=n.style||{};
+      if(tg==='B'||tg==='STRONG'||+st.fontWeight>=600||st.fontWeight==='bold')g.b=true;if(tg==='I'||tg==='EM'||st.fontStyle==='italic')g.i=true;if(tg==='U'||/underline/.test(st.textDecoration||''))g.u=true;if(tg==='A')g.a=n.getAttribute('href')||'';
+      [].forEach.call(n.childNodes,function(c){walk(c,g)})})(node,{});
+    var m=[];runs.forEach(function(r){var l=m[m.length-1];if(l&&l.b===r.b&&l.i===r.i&&l.u===r.u&&l.a===r.a)l.x+=r.x;else m.push(r)});return m}
+  function block(el,t){   // a block may hold <br>s: each line becomes its own paragraph
+    var parts=[[]];[].forEach.call(el.childNodes,function(c){if(c.nodeName==='BR')parts.push([]);else parts[parts.length-1].push(c)});
+    parts.forEach(function(ns,k){if(k===parts.length-1&&!ns.length&&parts.length>1)return;var d=document.createElement('span');ns.forEach(function(c){d.appendChild(c.cloneNode(true))});items.push({t:t,runs:runsOf(d)})})}
+  var loose=[];function flush(){if(!loose.length)return;var d=document.createElement('p');loose.forEach(function(c){d.appendChild(c.cloneNode(true))});block(d,'p');loose=[]}
+  [].forEach.call(root.childNodes,function(c){
+    var tg=c.nodeType===1?c.tagName:'';
+    if(tg==='UL'||tg==='OL'){flush();[].forEach.call(c.children,function(li){block(li,tg==='OL'?'ol':'ul')});return}
+    if(/^(P|DIV|H1|H2|H3|H4|H5|H6|BLOCKQUOTE|PRE)$/.test(tg)){flush();block(c,tg==='H1'?'h1':tg==='H2'?'h2':/^H[3-6]$/.test(tg)?'h3':'p');return}
+    if(tg==='BR'){flush();return}
+    loose.push(c)});
+  flush();
+  while(items.length>1&&!items[items.length-1].runs.length)items.pop();   // trailing empty lines
+  return items}
+function quickEdit(n,after){
+  var ov=document.createElement('div');ov.className='qe';ov.id='qe';
+  ov.innerHTML='<div class="qehead"><button class="btn small" id="qeNo">Cancel</button><b class="grow" style="text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(n.title)+'</b><button class="btn small primary" id="qeOk" disabled>Save</button></div>'+
+    '<div class="qetools"><button data-c="bold"><b>B</b></button><button data-c="italic"><i>I</i></button><button data-c="underline"><u>U</u></button><button data-c="h">H</button><button data-c="insertUnorderedList">• List</button><button data-c="insertOrderedList">1. List</button></div>'+
+    '<div class="qebody" id="qeBody"><div class="muted" style="padding:16px">Opening…</div></div>';
+  document.body.appendChild(ov);document.body.classList.add('qeon');
+  var data=null,orig=[];
+  function close(){ov.remove();document.body.classList.remove('qeon')}
+  function dirty(){if(!data)return false;return [].some.call($$('#qeBody .qeseg'),function(e){return JSON.stringify(qeItems(e))!==orig[+e.dataset.k]})}
+  $('#qeNo').onclick=function(){if(dirty()&&!confirmLeave())return;close()};
+  function confirmLeave(){return window.confirm('Throw away your changes?')}
+  call('api_quickEditLoad',n.id).then(function(d){data=d;
+    $('#qeBody').innerHTML=d.segs.map(function(sg,k){
+      if(sg.type==='fixed')return '<div class="qefix">'+(sg.label==='Picture'?'🖼':sg.label==='Table'?'▦':'▪')+' '+esc(sg.label)+' <span class="muted">(stays as it is; open in Google Docs to change it)</span></div>';
+      return '<div class="qeseg" contenteditable="true" data-k="'+k+'">'+qeHtml(sg.items)+'</div>'}).join('');
+    $$('#qeBody .qeseg').forEach(function(e){orig[+e.dataset.k]=JSON.stringify(qeItems(e));e.addEventListener('input',function(){$('#qeOk').disabled=false})});
+    var first=$('#qeBody .qeseg');if(first&&!d.segs.some(function(s){return s.type==='text'&&s.items.length}))first.focus();
+  }).catch(function(e){$('#qeBody').innerHTML='<div class="empty">Could not open this note for editing: '+esc(e.message)+'<br><br><a class="btn" target="_blank" href="'+editUrl(n)+'">Open in Google Docs</a></div>'});
+  $$('.qetools button').forEach(function(b){b.onmousedown=function(e){e.preventDefault()};b.onclick=function(){var c=b.dataset.c;
+    if(c==='h'){var cur=(document.queryCommandValue('formatBlock')||'').toLowerCase();document.execCommand('formatBlock',false,cur==='h2'?'p':'h2')}else document.execCommand(c);$('#qeOk').disabled=false}});
+  $('#qeOk').onclick=function(){var ok=this,ch={},nCh=0;
+    $$('#qeBody .qeseg').forEach(function(e){var k=+e.dataset.k,j=JSON.stringify(qeItems(e));if(j!==orig[k]){ch[k]=JSON.parse(j);nCh++}});
+    if(!nCh){close();return}
+    ok.disabled=true;ok.textContent='Saving…';
+    call('api_quickEditSave',n.id,data.ver,ch).then(function(){close();toast('Saved');n.updated=new Date().toISOString();
+      nvFetch(n.id).catch(function(){}).then(function(){if(after)after()})})
+    .catch(function(e){ok.disabled=false;ok.textContent='Save';toast('Could not save: '+e.message)})};
+}
 function editHere(n){
+  if(isPhone()&&!n.link){if(n.sheet){window.open(editUrl(n),'_blank');return}quickEdit(n,function(){viewNote(n.id)});return}   // phones: Google's editor won't run inside a page
   var b=$('#nbody'),h=$('#ehint');if(!b)return;
   var app=n.sheet?'Google Sheets':'Google Docs';
   if(h)h.innerHTML='<div class="etbar"><input class="field" id="etitle" value="'+esc(n.title)+'" placeholder="Title" spellcheck="false" title="The note\'s title"><button class="btn small primary" id="edone">Done</button></div>'+

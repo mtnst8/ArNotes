@@ -39,6 +39,10 @@ A photo or file shared from your phone is saved straight with the note's attachm
 
 **＋ Note → ▦ Spreadsheet** makes a blank Google Sheet that is a note like any other: title, tags, Inbox, Cabinet, search, Tasks and Trash all work the same. Handy for back-of-the-envelope math, parts lists, logs and counts. On a computer it opens for editing right inside ArNotes (✏️ Edit here); on a phone it opens in the Google Sheets app. The preview shows the sheet as a table (formulas worked out, every tab); Print, Download, Send and Export for AI handle it as a spreadsheet. A spreadsheet note can't be merged with other notes, and ＋ Add text is for regular notes only.
 
+### Editing on a phone
+
+Google's editor won't run inside a web page on a phone, so on a phone **✏️ Edit** (on a note or its Inbox preview) opens ArNotes' own quick editor: the note's text with bold, italic, underline, a heading style and bullet or numbered lists, and **Save**. Pictures, tables and other content stay exactly as they are, shown as grey boxes; the text around them is editable. Only the sections you change are rewritten. If the note was changed somewhere else since you opened it, Save says so instead of overwriting. Spreadsheet notes open in the Google Sheets app. For anything more, use **Edit in Google Docs** (with the Google Docs app installed it opens straight into editing).
+
 ### Trash
 
 Deleting a note moves it to **Trash** (left menu), with Undo for a few seconds. It waits there 30 days with its tags and filing, then is deleted for good (its Google Doc goes to Google Drive's trash). In Trash, tick notes and press **↩ Restore** to put them back where they were, or **Delete forever**; **Empty trash** clears it. Notes in the Trash stay out of search, tags, receipts and shared links. Deleted photos still go straight to Google Drive's trash.

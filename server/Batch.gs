@@ -737,6 +737,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
   '<li><b>Trash:</b> deleted notes wait in <b>Trash</b> (left menu) for 30 days with their tags. Tick them and press <b>↩ Restore</b> to put them back where they were, or <b>Delete forever</b>; <b>Empty trash</b> clears it.</li>' +
+  '<li><b>Editing on a phone:</b> press <b>✏️ Edit</b> and the note opens in ArNotes\' own editor: change the text, with bold, italic, headings and lists, then <b>Save</b>. Pictures and tables stay as they are (shown as grey boxes); to change those, use <b>Edit in Google Docs</b>.</li>' +
   '<li><b>Spreadsheets:</b> for quick math, lists and logs, press <b>＋ Note</b> → <b>▦ Spreadsheet</b>. It makes a blank Google Sheet that is a note like any other (tags, Inbox, Cabinet, search, Tasks). Edit it right in ArNotes on a computer; on a phone it opens in the Google Sheets app.</li>' +
   '<li><b>Tasks:</b> put any note on your to-do list with <b>☑ Add to Tasks</b> (on the note, its preview, or the selection bar for several). A photo too: <b>☑ Add to Tasks</b> in the photo viewer or the Photos selection bar makes a task with the photo in it. In the <b>Tasks</b> box on Home, type a task and press Enter (or <b>＋ Add task</b>); the line clears for the next one. Click a task to open it for editing. Any note tagged <b>Tasks</b> (When › Now › Tasks) shows there too. Tick the ones you\'ve done and press <b>✓ Completed</b> to move them to When › Completed, press <b>🗑 Delete task</b> to send them to the trash (Undo brings them back), or tap a task\'s tag to move it to another When tag. ArNotes starts you with a <b>Welcome to ArNotes</b> note and three how-to tasks (install, getting started, how to use), and each update adds a <b>What\'s new</b> task.</li></ul>' +
   '<h2>5. Edit, add to and share notes</h2><ul>' +
@@ -3800,4 +3801,94 @@ function api_adoptSheet(fileId) {
   ss_().getSheetByName('Notes').appendRow(noteToRow_({ id: id, title: f.getName(), notebook: 'Inbox', tags: '', created: made, updated: now, docId: fileId,
     starred: false, source: 'sheet', sourceUrl: f.getUrl(), author: '', attachments: 0 }));
   return { id: id, title: f.getName(), created: made.toISOString() };
+}
+
+/* ---- Quick edit (phones): the note's text, edited inside ArNotes. Pictures, tables and anything that isn't plain text
+ * stay exactly as they are; the text between them is shown as editable sections. Only sections that changed are rewritten. */
+function qeSegments_(body) {
+  var segs = [], cur = null, n = body.getNumChildren(), T = DocumentApp.ElementType;
+  for (var i = 0; i < n; i++) {
+    var el = body.getChild(i), t = el.getType();
+    if (i === 0 && t === T.PARAGRAPH && /^Notebook:/.test(el.asParagraph().getText())) continue;   // the ArNotes header line
+    var textOnly = (t === T.PARAGRAPH || t === T.LIST_ITEM) && qeTextOnly_(el);
+    if (textOnly) { if (!cur) { cur = { type: 'text', from: i, to: i, items: [] }; segs.push(cur); } cur.to = i; cur.items.push(qeItem_(el)); }
+    else { cur = null; segs.push({ type: 'fixed', at: i, label: qeLabel_(el) }); }
+  }
+  return segs;
+}
+function qeTextOnly_(el) {
+  var T = DocumentApp.ElementType, k = el.getNumChildren();
+  if (el.getType() === T.PARAGRAPH && el.asParagraph().getPositionedImages().length) return false;
+  for (var j = 0; j < k; j++) if (el.getChild(j).getType() !== T.TEXT) return false;
+  return true;
+}
+function qeLabel_(el) {
+  var T = DocumentApp.ElementType, t = el.getType();
+  if (t === T.TABLE) return 'Table';
+  if (t === T.PARAGRAPH || t === T.LIST_ITEM) {
+    for (var j = 0; j < el.getNumChildren(); j++) if (el.getChild(j).getType() === T.INLINE_IMAGE) return 'Picture';
+    if (t === T.PARAGRAPH && el.asParagraph().getPositionedImages().length) return 'Picture';
+  }
+  if (t === T.HORIZONTAL_RULE) return 'Line';
+  return 'Other content';
+}
+/** One paragraph or list item as {t, runs:[{x, b, i, u, a}]}: t = p | h1 | h2 | h3 | ul | ol. */
+function qeItem_(el) {
+  var T = DocumentApp.ElementType, H = DocumentApp.ParagraphHeading, t = 'p';
+  if (el.getType() === T.LIST_ITEM) { var g = el.asListItem().getGlyphType(); t = (g === DocumentApp.GlyphType.NUMBER || g === DocumentApp.GlyphType.LATIN_LOWER || g === DocumentApp.GlyphType.LATIN_UPPER || g === DocumentApp.GlyphType.ROMAN_LOWER || g === DocumentApp.GlyphType.ROMAN_UPPER) ? 'ol' : 'ul'; }
+  else { var h = el.asParagraph().getHeading(); if (h === H.TITLE || h === H.HEADING1) t = 'h1'; else if (h === H.SUBTITLE || h === H.HEADING2) t = 'h2'; else if (h === H.HEADING3 || h === H.HEADING4 || h === H.HEADING5 || h === H.HEADING6) t = 'h3'; }
+  var runs = [];
+  if (el.getNumChildren()) {
+    var tx = el.editAsText(), s = tx.getText(), idx = tx.getTextAttributeIndices();
+    for (var k = 0; k < idx.length; k++) {
+      var a = idx[k], z = k + 1 < idx.length ? idx[k + 1] : s.length; if (z <= a) continue;
+      runs.push({ x: s.slice(a, z), b: !!tx.isBold(a), i: !!tx.isItalic(a), u: !!tx.isUnderline(a), a: tx.getLinkUrl(a) || '' });
+    }
+  }
+  return { t: t, runs: runs };
+}
+function qeVer_(docId) { return String(DriveApp.getFileById(docId).getLastUpdated().getTime()); }
+/** The note's sections for the quick editor. */
+function api_quickEditLoad(id) {
+  var n = readTable_('Notes').filter(function (x) { return x.id === id; })[0]; if (!n) throw new Error('Note not found');
+  if (n.source === 'link' || n.source === 'sheet') throw new Error('This note is edited in its own app');
+  var doc = DocumentApp.openById(n.docId), segs = qeSegments_(doc.getBody());
+  if (!segs.some(function (s) { return s.type === 'text'; })) segs.push({ type: 'text', from: -1, to: -1, items: [] });   // only pictures: room to type under them
+  return { ver: qeVer_(n.docId), segs: segs.map(function (s) { return s.type === 'text' ? { type: 'text', items: s.items } : { type: 'fixed', label: s.label }; }) };
+}
+/** Save: changed = {segmentIndex: items}. Refused if the note was changed somewhere else since it was loaded. */
+function api_quickEditSave(id, ver, changed) {
+  var n = readTable_('Notes').filter(function (x) { return x.id === id; })[0]; if (!n) throw new Error('Note not found');
+  var lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    if (qeVer_(n.docId) !== String(ver)) throw new Error('This note was changed somewhere else since you opened it. Close the editor and open it again.');
+    var doc = DocumentApp.openById(n.docId), body = doc.getBody(), segs = qeSegments_(body);
+    if (!segs.some(function (s) { return s.type === 'text'; })) segs.push({ type: 'text', from: -1, to: -1, items: [] });
+    var keys = Object.keys(changed || {}).map(Number).sort(function (a, b) { return b - a; });   // bottom up, so earlier positions hold
+    keys.forEach(function (k) {
+      var seg = segs[k]; if (!seg || seg.type !== 'text') throw new Error('The note\'s layout changed. Close the editor and open it again.');
+      var items = (changed[k] || []).length ? changed[k] : [{ t: 'p', runs: [] }], at = seg.from < 0 ? body.getNumChildren() : seg.from;   // a cleared section keeps one empty line (a doc can't lose its last paragraph)
+      items.forEach(function (it, j) { qeInsert_(body, at + j, it); });
+      if (seg.from >= 0) for (var r = seg.to; r >= seg.from; r--) body.getChild(r + items.length).removeFromParent();
+    });
+    if (!body.getNumChildren()) body.appendParagraph('');
+    doc.saveAndClose();
+    api_updateNote(id, {});   // touch: new updated time, header line kept
+    return { ok: true, ver: qeVer_(n.docId) };
+  } finally { lock.releaseLock(); }
+}
+function qeInsert_(body, at, it) {
+  var text = (it.runs || []).map(function (r) { return String(r.x || ''); }).join('').replace(/\n/g, ' '), el;
+  if (it.t === 'ul' || it.t === 'ol') { el = body.insertListItem(at, text); el.setGlyphType(it.t === 'ol' ? DocumentApp.GlyphType.NUMBER : DocumentApp.GlyphType.BULLET); }
+  else { el = body.insertParagraph(at, text); el.setHeading(it.t === 'h1' ? DocumentApp.ParagraphHeading.HEADING1 : it.t === 'h2' ? DocumentApp.ParagraphHeading.HEADING2 : it.t === 'h3' ? DocumentApp.ParagraphHeading.HEADING3 : DocumentApp.ParagraphHeading.NORMAL); }
+  if (!text) return el;
+  var tx = el.editAsText(), pos = 0;
+  tx.setBold(false).setItalic(false).setUnderline(false).setLinkUrl(null);
+  (it.runs || []).forEach(function (r) {
+    var len = String(r.x || '').replace(/\n/g, ' ').length; if (!len) return; var z = pos + len - 1;
+    if (r.b) tx.setBold(pos, z, true); if (r.i) tx.setItalic(pos, z, true); if (r.u) tx.setUnderline(pos, z, true);
+    if (r.a && /^(https?:|mailto:|tel:)/i.test(r.a)) tx.setLinkUrl(pos, z, r.a);
+    pos += len;
+  });
+  return el;
 }
