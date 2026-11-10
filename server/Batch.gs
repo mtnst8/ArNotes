@@ -735,6 +735,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li><b>Home</b> shows your Tasks, newest notes, Inbox and more in boxes. Drag a box by its title to move it (on a phone, press and hold the title, then drag). Each device keeps its own layout; <b>Reset box layout</b> puts it back.</li>' +
   '<li><b>Search</b> (top left) looks through titles and text. Hover over it or click it (on a phone, tap it) to see your recent searches, the notes you opened lately and what just came in.</li>' +
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
+  '<li><b>Tag as you write:</b> in <b>＋ Note</b>, press <b>🏷 Add tags</b> under the title. <b>Save → Inbox</b> as usual, or <b>Save → Cabinet</b> to file it straight away.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
   '<li><b>Trash:</b> deleted notes wait in <b>Trash</b> (left menu) for 30 days with their tags. Tick them and press <b>↩ Restore</b> to put them back where they were, or <b>Delete forever</b>; <b>Empty trash</b> clears it.</li>' +
   '<li><b>Places:</b> in Google Maps (or Apple Maps, Waze, MapQuest) tap <b>Share → ArNotes</b> on a place or dropped pin. You get a place note: 📍 name and address, a small map, <b>Open in Maps</b>, tagged Where.</li>' +

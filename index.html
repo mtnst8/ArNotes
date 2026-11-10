@@ -2154,18 +2154,40 @@ function newSheet(title,btn,tags){
   }).catch(function(e){if(w)try{w.close()}catch(x){}if(btn){btn.disabled=false;btn.textContent='▦ Spreadsheet'}toast('Could not make the spreadsheet: '+e.message)});
 }
 function viewNew(){
-  $('#main').innerHTML='<div class="lhead"><h2>New note → Inbox</h2></div>'+
+  var draft={id:'draft',title:'New note',tags:[]};
+  $('#main').innerHTML='<div class="lhead"><h2>New note</h2></div>'+
     '<div class="bar newopts" style="margin:6px 0 14px"><button class="btn" id="noLink">🔗 Link Drive files</button><button class="btn" id="noFiles">＋ Add files</button><button class="btn" id="noPhoto">📷 Photos</button><button class="btn" id="noSheet" title="A blank Google Sheet as a note: for quick math, lists and logs">▦ Spreadsheet</button><input type="file" id="noIn" multiple hidden></div>'+
-    '<input class="field" id="nt" placeholder="Title"><br><br>'+
-    '<textarea id="nb" rows="10" placeholder="Note"></textarea><br><br><button class="btn primary" id="ns">Save</button>';
+    '<input class="field" id="nt" placeholder="Title"><div id="ntTags" style="margin:8px 0"></div>'+
+    '<textarea id="nb" rows="10" placeholder="Note"></textarea><br><br>'+
+    '<div class="bar"><button class="btn primary" id="ns">Save → Inbox</button><button class="btn" id="nsC" title="Tagged already: file it straight to the Cabinet">Save → Cabinet</button></div>';
+  function drawTags(){
+    $('#ntTags').innerHTML=draft.tags.map(function(t,i){return '<button class="chip" data-i="'+i+'" title="'+esc(tagPath(t))+' (click to remove)">'+esc(t)+' ✕</button>'}).join('')+
+      '<button class="btn small" id="ntAdd">🏷 '+(draft.tags.length?'Tags…':'Add tags')+'</button>';
+    $$('#ntTags .chip[data-i]').forEach(function(c){c.onclick=function(){draft.tags.splice(+c.dataset.i,1);drawTags()}});
+    $('#ntAdd').onclick=pickTags;
+    $('#nsC').style.display=draft.tags.length?'':'none';
+  }
+  function pickTags(){
+    draft.title=$('#nt').value.trim()||'New note';
+    openTagPanel(['draft'],null,null,null,{items:{draft:draft},noun:'note',apply:function(d){
+      draft.tags=draft.tags.filter(function(t){return d.rem.indexOf(t)<0});
+      d.add.forEach(function(t){if(draft.tags.indexOf(t)<0)draft.tags.push(t)});
+      drawTags()}});
+  }
+  drawTags();
   $('#noLink').onclick=linkDialog;
   $('#noFiles').onclick=function(){$('#noIn').click()};
   $('#noIn').onchange=function(){var f=[].slice.call(this.files);this.value='';uploadFiles(f,{open:true})};
   $('#noPhoto').onclick=function(){$('#camIn').click()};
-  $('#noSheet').onclick=function(){newSheet($('#nt').value,this)};
+  $('#noSheet').onclick=function(){newSheet($('#nt').value,this,draft.tags.slice())};
   if(window.innerWidth>=700) $('#nt').focus();
-  $('#ns').onclick=function(){ var b=this;b.disabled=true;b.textContent='Saving…';
-    call('api_createNote',$('#nt').value,$('#nb').value,[]).then(function(){return load()}).then(function(){toast('Saved to Inbox');go('inbox')}) };
+  $('#nt').onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();$('#nb').focus()}};
+  function save(nb,b){ $('#ns').disabled=$('#nsC').disabled=true; b.textContent='Saving…';
+    call('api_createNote',$('#nt').value,$('#nb').value,draft.tags.slice(),nb).then(function(){return load()})
+      .then(function(){toast(nb==='Cabinet'?'Saved to Cabinet':'Saved to Inbox');go(nb==='Cabinet'?'cabinet':'inbox')})
+      .catch(function(e){$('#ns').disabled=$('#nsC').disabled=false;$('#ns').textContent='Save → Inbox';$('#nsC').textContent='Save → Cabinet';toast('Couldn\'t save: '+e.message)}) }
+  $('#ns').onclick=function(){save('Inbox',this)};
+  $('#nsC').onclick=function(){save('Cabinet',this)};
 }
 
 /* ---------- settings ---------- */
