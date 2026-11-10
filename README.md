@@ -39,6 +39,10 @@ A photo or file shared from your phone is saved straight with the note's attachm
 
 In **＋ Note**, press **🏷 Add tags** under the title to pick tags (or make new ones) before saving. Click a tag chip to take it off. **Save → Inbox** works as before; once the note has a tag, **Save → Cabinet** files it straight away.
 
+### Merging notes
+
+Tick two or more notes and press **Merge**. The note at the top of the list is kept (↑ moves another to the top); the others' text is added to it under their titles, and their tags and attachments come along. The other notes go to **Trash**, where **↩ Restore** brings them back for 30 days.
+
 ### Spreadsheet notes
 
 **＋ Note → ▦ Spreadsheet** makes a blank Google Sheet that is a note like any other: title, tags, Inbox, Cabinet, search, Tasks and Trash all work the same. Handy for back-of-the-envelope math, parts lists, logs and counts. On a computer it opens for editing right inside ArNotes (✏️ Edit here); on a phone it opens in the Google Sheets app. The preview shows the sheet as a table (formulas worked out, every tab); Print, Download, Send and Export for AI handle it as a spreadsheet. A spreadsheet note can't be merged with other notes, and ＋ Add text is for regular notes only.

@@ -707,7 +707,7 @@ $('#aMerge').onclick=function(){
     $$('#mgl [data-up]').forEach(function(b){b.onclick=function(){var i=+b.dataset.up;if(!i)return;var x=ids[i];ids[i]=ids[i-1];ids[i-1]=x;
       if(i===1&&!$('#mgt').dataset.edited)$('#mgt').value=S.byId[ids[0]].title;draw()}});
   }
-  modal('Merge '+ids.length+' notes','They become one note, in this order. Tags and attachments are combined; the other notes go to Drive trash (restorable for 30 days).',
+  modal('Merge '+ids.length+' notes','They become one note, in this order. Tags and attachments are combined; the other notes go to Trash (Restore puts them back for 30 days).',
     '<label class="muted" style="font-size:12px">Title of the merged note</label><input class="field" id="mgt" style="margin:4px 0 10px"><div id="mgl"></div>',
     '<span class="grow"></span><button class="btn" id="mgc">Cancel</button><button class="btn primary" id="mgo">Merge</button>');
   $('#mgt').value=S.byId[ids[0]].title; $('#mgt').oninput=function(){this.dataset.edited=1};
@@ -718,9 +718,9 @@ $('#aMerge').onclick=function(){
     call('api_mergeNotes',ids,title).then(function(r){
       closeModal();
       var keep=S.byId[r.id]; keep.title=r.title; keep.tags=r.tags; keep.starred=r.starred; keep.att=r.att; keep.updated=r.updated;
-      ids.slice(1).forEach(function(id){delete S.byId[id]}); S.notes=S.notes.filter(function(n){return S.byId[n.id]});
+      ids.slice(1).forEach(function(id){var n=S.byId[id];if(n){n.notebook='Trash';S.trashN=(S.trashN||[]).filter(function(x){return x.id!==id});S.trashN.unshift(n)}delete S.byId[id]}); S.notes=S.notes.filter(function(n){return S.byId[n.id]});
       S.sel={}; refreshInboxCount(); rerender(); paintSel();
-      toast('Merged '+ids.length+' notes into “'+r.title+'”');
+      toast('Merged '+ids.length+' notes into “'+r.title+'”. The other '+(ids.length-1)+' are in Trash if you need them back.');
     }).catch(function(){b.disabled=false;b.textContent='Merge'});
   };
 };

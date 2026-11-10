@@ -507,7 +507,7 @@ function api_setPinned(id) { if (id) props_().setProperty('pinnedNote', String(i
 /* ---- Merge notes ----
  * ids[0] is the note that survives (keeps its Doc, created date and notebook).
  * The others' bodies are appended to it under a heading with their title, their tags
- * and attachments move over, and their Docs go to Drive trash (restorable 30 days).
+ * and attachments are copied over, and they go to the ArNotes Trash (Restore puts them back; gone for good after 30 days).
  */
 function api_mergeNotes(ids, title) {
   if (!ids || ids.length < 2) throw new Error('Pick at least two notes to merge');
@@ -553,16 +553,15 @@ function api_mergeNotes(ids, title) {
   // attachments follow the merged note
   var attSh = ss_().getSheetByName('Attachments'), av = attSh.getDataRange().getValues();
   var others = {}; ids.slice(1).forEach(function (id) { others[id] = 1; });
-  for (var a = 1; a < av.length; a++) if (others[av[a][0]]) attSh.getRange(a + 1, 1).setValue(ids[0]);
+  var copies = [];   // copied, not moved: a merged-away note restored from the Trash still has its attachments
+  for (var a = 1; a < av.length; a++) if (others[av[a][0]]) { var cp = av[a].slice(); cp[0] = ids[0]; copies.push(cp); }
+  if (copies.length) attSh.getRange(attSh.getLastRow() + 1, 1, copies.length, copies[0].length).setValues(copies);
   var now = new Date();
   kr[col_('tags')] = tags.join(TAG_SEP); kr[col_('starred')] = starred; kr[col_('attachments')] = att; kr[col_('updated')] = now;
   t.sh.getRange(keep.row, 1, 1, NOTE_COLS.length).setValues([kr]);
   if (starred) { try { DriveApp.getFileById(kr[col_('docId')]).setStarred(true); } catch (e) {} }
-  // remove the merged-away notes (bottom-up so row numbers stay valid)
-  ids.slice(1).map(function (id) { return byId[id]; }).sort(function (x, y) { return y.row - x.row; }).forEach(function (o) {
-    try { DriveApp.getFileById(o.r[col_('docId')]).setTrashed(true); } catch (e) {}
-    t.sh.deleteRow(o.row);
-  });
+  // the merged-away notes go to the ArNotes Trash (Restore brings them back; deleted for good after 30 days)
+  api_batchTrash(ids.slice(1));
   return { id: ids[0], title: String(kr[col_('title')]), tags: tags, starred: starred, att: att, updated: now.toISOString() };
 }
 
@@ -736,6 +735,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li><b>Search</b> (top left) looks through titles and text. Hover over it or click it (on a phone, tap it) to see your recent searches, the notes you opened lately and what just came in.</li>' +
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
   '<li><b>Tag as you write:</b> in <b>＋ Note</b>, press <b>🏷 Add tags</b> under the title. <b>Save → Inbox</b> as usual, or <b>Save → Cabinet</b> to file it straight away.</li>' +
+  '<li><b>Merge:</b> tick two or more notes and press <b>Merge</b>. The top note in the list is kept (use ↑ to choose); the others\' text is added to it under their titles, with their tags and attachments. The others go to <b>Trash</b>, so <b>↩ Restore</b> brings them back if you change your mind.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
   '<li><b>Trash:</b> deleted notes wait in <b>Trash</b> (left menu) for 30 days with their tags. Tick them and press <b>↩ Restore</b> to put them back where they were, or <b>Delete forever</b>; <b>Empty trash</b> clears it.</li>' +
   '<li><b>Places:</b> in Google Maps (or Apple Maps, Waze, MapQuest) tap <b>Share → ArNotes</b> on a place or dropped pin. You get a place note: 📍 name and address, a small map, <b>Open in Maps</b>, tagged Where.</li>' +
