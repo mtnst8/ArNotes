@@ -484,8 +484,16 @@ function api_createNote(title, text, tags, notebook) {
   doc.saveAndClose();
   DriveApp.getFileById(doc.getId()).moveTo(DriveApp.getFolderById(props_().getProperty('notesId')));
   var now = new Date(), id = Utilities.getUuid();
-  var url = '', info = null; try { url = soleUrl_(text); if (url) info = addLinkCard_(doc.getId(), url); } catch (e) {}   // just a link: add the page's preview
-  if (url && (soleUrl_(title) || /^(Untitled Note|Shared)$/i.test(title))) {       // a bare link: name the note after the page (or its site, if the page won't say)
+  var url = '', info = null, place = false;
+  try { url = soleUrl_(text);
+    if (url && typeof isMapUrl_ === 'function' && isMapUrl_(url)) { info = addPlaceCard_(doc.getId(), url, text); place = true; if (tags.indexOf('Where') < 0) tags.push('Where'); }   // a map pin: a place note
+    else if (url) info = addLinkCard_(doc.getId(), url);                                          // just a link: add the page's preview
+    else if (typeof looksMarkdown_ === 'function' && looksMarkdown_(text)) replaceDocFromHtml_(doc.getId(), mdToHtml_(text));   // pasted from an AI chat: real formatting
+  } catch (e) { Logger.log('New note extras: ' + e); }
+  if (place) { try { var dd = DocumentApp.openById(doc.getId()); dd.getBody().getChild(0).asParagraph().setText(headerLine_(notebook, tags)); dd.saveAndClose(); } catch (e) {} }
+  var firstLine = String(text || '').replace(/https?:\/\/\S+/g, '').split('\n').map(function (l) { return l.trim(); }).filter(String)[0] || '';
+  if (place && info && info.title && (soleUrl_(title) || /^(Untitled Note|Shared)$/i.test(title) || title === firstLine || /Google Maps|MapQuest|Waze|Apple Maps/i.test(title))) { title = info.title.slice(0, 120); try { DriveApp.getFileById(doc.getId()).setName(title); } catch (e) {} }
+  else if (url && (soleUrl_(title) || /^(Untitled Note|Shared)$/i.test(title))) {       // a bare link: name the note after the page (or its site, if the page won't say)
     title = (info && info.title) ? info.title.slice(0, 120) : url.replace(/^https?:\/\/(www\.)?/i, '').replace(/[?#].*$/, '').replace(/\/$/, '').slice(0, 90);
     try { DriveApp.getFileById(doc.getId()).setName(title); } catch (e) {}
   }

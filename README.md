@@ -47,6 +47,12 @@ Google's editor won't run inside a web page on a phone, so on a phone **✏️ E
 
 In **Settings → Sharing & people**, **📱 Text invite** adds the person (no email sent) and shows a short message with their personal setup link; on a phone **📱 Open Messages** puts it in a new text, **Share…** offers WhatsApp, Messenger and the rest, and **Copy** works anywhere. Anyone still waiting to set up has a **📱 Text** button on their row, so an invite email that didn't arrive (check Spam first) can be sent as a text instead. It's the same link the email carries.
 
+### Places and AI answers
+
+**Places:** share a place or dropped pin from Google Maps, Apple Maps, Waze or MapQuest to ArNotes (phone: Share → ArNotes; computer: 📌 Save to ArNotes on the map page, or paste the link into ＋ Note). The note gets 📍 the place name and address, the coordinates, a small map (OpenStreetMap), and **Open in Maps** (opens the Maps app on a phone); it's tagged **Where**. Short links like maps.app.goo.gl are followed to find the place.
+
+**AI answers:** text pasted into ＋ Note or shared to ArNotes that's written in Markdown (what Claude, ChatGPT and Gemini copy out: `**bold**`, `#` headings, `-` lists, tables, code) is turned into real formatting. Plain text is left as it is. On a computer, selecting the answer and clicking 📌 Save to ArNotes keeps the text and a link back to the chat.
+
 ### Trash
 
 Deleting a note moves it to **Trash** (left menu), with Undo for a few seconds. It waits there 30 days with its tags and filing, then is deleted for good (its Google Doc goes to Google Drive's trash). In Trash, tick notes and press **↩ Restore** to put them back where they were, or **Delete forever**; **Empty trash** clears it. Notes in the Trash stay out of search, tags, receipts and shared links. Deleted photos still go straight to Google Drive's trash.

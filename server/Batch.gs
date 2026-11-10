@@ -737,6 +737,8 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
   '<li><b>Trash:</b> deleted notes wait in <b>Trash</b> (left menu) for 30 days with their tags. Tick them and press <b>↩ Restore</b> to put them back where they were, or <b>Delete forever</b>; <b>Empty trash</b> clears it.</li>' +
+  '<li><b>Places:</b> in Google Maps (or Apple Maps, Waze, MapQuest) tap <b>Share → ArNotes</b> on a place or dropped pin. You get a place note: 📍 name and address, a small map, <b>Open in Maps</b>, tagged Where.</li>' +
+  '<li><b>From an AI chat:</b> copy an answer from Claude, ChatGPT or Gemini and paste it into <b>＋ Note</b> (or share it to ArNotes): headings, bold, lists and tables come through as real formatting. On a computer you can also select the answer and click <b>📌 Save to ArNotes</b>.</li>' +
   '<li><b>Editing on a phone:</b> press <b>✏️ Edit</b> and the note opens in ArNotes\' own editor: change the text, with bold, italic, headings and lists, then <b>Save</b>. Pictures and tables stay as they are (shown as grey boxes); to change those, use <b>Edit in Google Docs</b>.</li>' +
   '<li><b>Spreadsheets:</b> for quick math, lists and logs, press <b>＋ Note</b> → <b>▦ Spreadsheet</b>. It makes a blank Google Sheet that is a note like any other (tags, Inbox, Cabinet, search, Tasks). Edit it right in ArNotes on a computer; on a phone it opens in the Google Sheets app.</li>' +
   '<li><b>Tasks:</b> put any note on your to-do list with <b>☑ Add to Tasks</b> (on the note, its preview, or the selection bar for several). A photo too: <b>☑ Add to Tasks</b> in the photo viewer or the Photos selection bar makes a task with the photo in it. In the <b>Tasks</b> box on Home, type a task and press Enter (or <b>＋ Add task</b>); the line clears for the next one. Click a task to open it for editing. Any note tagged <b>Tasks</b> (When › Now › Tasks) shows there too. Tick the ones you\'ve done and press <b>✓ Completed</b> to move them to When › Completed, press <b>🗑 Delete task</b> to send them to the trash (Undo brings them back), or tap a task\'s tag to move it to another When tag. ArNotes starts you with a <b>Welcome to ArNotes</b> note and three how-to tasks (install, getting started, how to use), and each update adds a <b>What\'s new</b> task.</li></ul>' +
@@ -3452,6 +3454,7 @@ function decode_(s) {
 }
 /** Put the page's preview at the top of a note's Doc (under the Notebook line). Returns the page info, or null. */
 function addLinkCard_(docId, url) {
+  if (typeof isMapUrl_ === 'function' && isMapUrl_(url)) { try { return addPlaceCard_(docId, url, ''); } catch (e) { Logger.log('Place card: ' + e); } }   // map pins get a place card
   var info = null; try { info = linkInfo_(url); } catch (e) { Logger.log('Link preview ' + url + ': ' + e); }
   if (!info || (!info.title && !info.desc && !info.image)) return null;
   var doc = DocumentApp.openById(docId), b = doc.getBody(), at = 1;
@@ -3905,4 +3908,109 @@ function api_inviteText(email) {
   var text = 'Hi' + (first ? ' ' + first : '') + ', you\'re invited to ArNotes, the notes-and-photos app I built. Everything stays in your own Google Drive. ' +
     'Set it up here (about 10 minutes, best on a computer, with a Google account): ' + link + (from ? ' - ' + from : '');
   return { text: text, link: link, name: u.name || '' };
+}
+
+/* ---- Places: a map link (Google Maps, Apple Maps, Waze, MapQuest) becomes a place note: 📍 name and address,
+ * a small map, "Open in Maps", tagged Where. ---- */
+var MAP_HOST_RE_ = /^https?:\/\/((www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.apple\.com|(www\.)?waze\.com\/(ul|live-map)|(www\.)?mapquest\.com|mqs\.link)/i;
+function isMapUrl_(url) { return MAP_HOST_RE_.test(String(url || '')); }
+/** Follow short links (maps.app.goo.gl etc.) to the full map address, which carries the place and its coordinates. */
+function resolveMapUrl_(url) {
+  var u = url;
+  for (var i = 0; i < 6; i++) {
+    var r; try { r = UrlFetchApp.fetch(u, { followRedirects: false, muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ArNotes place)' } }); } catch (e) { break; }
+    var c = r.getResponseCode(); if (c < 300 || c >= 400) break;
+    var h = r.getHeaders(), loc = h.Location || h.location; if (!loc) break;
+    u = /^https?:/i.test(loc) ? loc : u.replace(/^(https?:\/\/[^\/]+).*$/, '$1') + loc;
+  }
+  return u;
+}
+/** {name, address, lat, lng} from a map link and the text that was shared with it. */
+function placeInfo_(url, text) {
+  var full = resolveMapUrl_(url), p = { name: '', address: '', lat: null, lng: null, url: url, full: full }, m, d = function (x) { try { return decodeURIComponent(String(x).replace(/\+/g, ' ')); } catch (e) { return String(x); } };
+  if ((m = full.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/))) { p.lat = +m[1]; p.lng = +m[2]; }
+  else if ((m = full.match(/[?&](?:q|query|ll|daddr|center|to)=(?:ll\.)?(-?\d+\.\d+)(?:,|%2C)\s*(-?\d+\.\d+)/i))) { p.lat = +m[1]; p.lng = +m[2]; }
+  else if ((m = full.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/))) { p.lat = +m[1]; p.lng = +m[2]; }
+  if ((m = full.match(/\/maps\/place\/([^\/@?]+)/))) {
+    var s = d(m[1]); if (!/^-?\d+(\.\d+)?,\s*-?\d+/.test(s) && !/°/.test(s)) { var k = s.indexOf(','); p.name = k > 0 ? s.slice(0, k).trim() : s.trim(); p.address = k > 0 ? s.slice(k + 1).trim() : ''; }
+  }
+  if (!p.name && (m = full.match(/[?&]q=([^&]+)/)) && !/^-?\d+\.\d+,/.test(d(m[1]))) p.name = d(m[1]).trim();
+  if (!p.address && (m = full.match(/[?&]address=([^&]+)/))) p.address = d(m[1]).trim();
+  // the lines shared with the link (Google Maps shares "Name\nAddress\nlink")
+  var lines = String(text || '').replace(/https?:\/\/\S+/g, '').split('\n').map(function (l) { return l.trim(); }).filter(String);
+  if (lines.length) { if (!p.name) p.name = lines[0]; if (!p.address && lines.length > 1) p.address = lines.slice(1).join(', '); }
+  if (!p.name || p.lat == null) { try { var info = linkInfo_(full); if (info) { if (!p.name) p.name = String(info.title || '').replace(/\s*[-·|]\s*(Google Maps|MapQuest|Waze|Apple Maps)\s*$/i, ''); if (!p.address && info.desc) p.address = info.desc.slice(0, 160); } } catch (e) {} }
+  if (!p.name && p.lat != null) p.name = 'Dropped pin';
+  if (!p.name) p.name = 'Place';
+  return p;
+}
+/** A small map: the OpenStreetMap tile around the place (no account or key needed). */
+function placeTile_(lat, lng) {
+  var z = 16, n = Math.pow(2, z), x = Math.floor((lng + 180) / 360 * n), r = lat * Math.PI / 180;
+  var y = Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n);
+  var res = UrlFetchApp.fetch('https://tile.openstreetmap.org/' + z + '/' + x + '/' + y + '.png', { muteHttpExceptions: true, headers: { 'User-Agent': 'ArNotes place notes (personal notes app)' } });
+  return res.getResponseCode() === 200 ? res.getBlob().setName('map.png') : null;
+}
+/** Put the place card at the top of a note (under its Notebook line). Returns {title}. */
+function addPlaceCard_(docId, url, text) {
+  var p = placeInfo_(url, text), doc = DocumentApp.openById(docId), b = doc.getBody(), at = 1;
+  var first = b.getChild(0); if (!(first.getType() === DocumentApp.ElementType.PARAGRAPH && /^Notebook:/.test(first.asParagraph().getText()))) at = 0;
+  var open = p.lat != null ? 'https://www.google.com/maps/search/?api=1&query=' + p.lat + ',' + p.lng : p.full || url;
+  var h = b.insertParagraph(at++, '📍 ' + p.name); h.setHeading(DocumentApp.ParagraphHeading.HEADING2); h.editAsText().setLinkUrl(null);
+  if (p.address) b.insertParagraph(at++, p.address).setHeading(DocumentApp.ParagraphHeading.NORMAL).editAsText().setBold(false).setLinkUrl(null);
+  var o = b.insertParagraph(at++, 'Open in Maps'); o.setHeading(DocumentApp.ParagraphHeading.NORMAL); o.editAsText().setBold(true).setLinkUrl(open);
+  if (p.lat != null) {
+    b.insertParagraph(at++, p.lat.toFixed(6) + ', ' + p.lng.toFixed(6)).setHeading(DocumentApp.ParagraphHeading.NORMAL).editAsText().setBold(false).setFontSize(10).setForegroundColor('#666666').setLinkUrl(null);
+    try { var t = placeTile_(p.lat, p.lng); if (t) { inlineImg_(b.insertParagraph(at++, ''), t, 256, 256); var c = b.insertParagraph(at++, 'Map © OpenStreetMap contributors'); c.editAsText().setFontSize(8).setForegroundColor('#888888').setBold(false).setLinkUrl(null); } } catch (e) {}
+  }
+  b.insertParagraph(at, '').editAsText().setBold(false).setFontSize(11).setForegroundColor('#000000').setLinkUrl(null);
+  doc.saveAndClose();
+  return { title: '📍 ' + p.name, place: p };
+}
+
+/* ---- Text pasted or shared from an AI chat: Markdown (**bold**, # headings, - lists, tables, ```code```) becomes real formatting ---- */
+function looksMarkdown_(t) {
+  t = String(t || ''); var n = 0;
+  if (/^#{1,6}\s+\S/m.test(t)) n += 2;
+  if (/^\s*\|.+\|\s*$\n^\s*\|?\s*:?-{3,}/m.test(t)) n += 2;
+  if (/^```/m.test(t)) n += 2;
+  if (/\*\*[^*\n]+\*\*/.test(t)) n++;
+  if (/^\s*[-*+]\s+\S/m.test(t)) n++;
+  if (/^\s*\d+[.)]\s+\S/m.test(t)) n++;
+  if (/\[[^\]]+\]\(https?:\/\/[^)]+\)/.test(t)) n++;
+  return n >= 2;
+}
+function mdToHtml_(md) {
+  var e = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  var inl = function (s) {
+    var codes = []; s = e(s).replace(/`([^`]+)`/g, function (m, c) { codes.push(c); return '\u0000' + (codes.length - 1) + '\u0000'; });
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>')
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/__([^_]+)__/g, '<b>$1</b>')
+      .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, '$1<i>$2</i>').replace(/(^|[^_\w])_([^_\n]+)_(?!\w)/g, '$1<i>$2</i>')
+      .replace(/~~([^~]+)~~/g, '<s>$1</s>');
+    return s.replace(/\u0000(\d+)\u0000/g, function (m, k) { return '<span style="font-family:Courier New">' + codes[+k] + '</span>'; });
+  };
+  var lines = String(md).replace(/\r/g, '').split('\n'), out = [], i = 0;
+  var cells = function (l) { return l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(function (c) { return c.trim(); }); };
+  while (i < lines.length) {
+    var l = lines[i], m;
+    if (/^```/.test(l)) { var code = []; i++; while (i < lines.length && !/^```/.test(lines[i])) code.push(lines[i++]); i++;
+      out.push('<p style="font-family:Courier New;font-size:10pt">' + code.map(e).join('<br>') + '</p>'); continue; }
+    if ((m = l.match(/^(#{1,6})\s+(.*)$/))) { var lv = Math.min(m[1].length, 3); out.push('<h' + lv + '>' + inl(m[2].replace(/\s*#+\s*$/, '')) + '</h' + lv + '>'); i++; continue; }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(l)) { out.push('<hr>'); i++; continue; }
+    if (/^\s*\|.*\|\s*$/.test(l) && i + 1 < lines.length && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1])) {
+      var head = cells(l), rows = []; i += 2; while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) rows.push(cells(lines[i++]));
+      out.push('<table border="1" style="border-collapse:collapse"><tr>' + head.map(function (c) { return '<td><b>' + inl(c) + '</b></td>'; }).join('') + '</tr>' +
+        rows.map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + inl(c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table>'); continue; }
+    if (/^\s*([-*+]|\d+[.)])\s+/.test(l)) {
+      var ordered = /^\s*\d+[.)]\s+/.test(l), items = [];
+      while (i < lines.length && /^\s*([-*+]|\d+[.)])\s+/.test(lines[i])) { var it = lines[i].replace(/^\s*([-*+]|\d+[.)])\s+/, ''); items.push((/^\s{2,}/.test(lines[i]) ? '&nbsp;&nbsp;&nbsp;' : '') + inl(it.replace(/^\[( |x)\]\s+/i, function (m0, x) { return x.trim() ? '☑ ' : '☐ '; }))); i++; }
+      out.push('<' + (ordered ? 'ol' : 'ul') + '>' + items.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</' + (ordered ? 'ol' : 'ul') + '>'); continue; }
+    if (/^\s*>\s?/.test(l)) { var q = []; while (i < lines.length && /^\s*>\s?/.test(lines[i])) q.push(lines[i++].replace(/^\s*>\s?/, ''));
+      out.push('<p style="margin-left:24pt;color:#555"><i>' + q.map(inl).join('<br>') + '</i></p>'); continue; }
+    if (!l.trim()) { i++; continue; }
+    var para = [l]; i++; while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|```|\s*([-*+]|\d+[.)])\s+|\s*>|\s*\|.*\|\s*$)/.test(lines[i])) para.push(lines[i++]);
+    out.push('<p>' + para.map(inl).join('<br>') + '</p>');
+  }
+  return out.join('\n');
 }
