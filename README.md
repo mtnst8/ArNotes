@@ -43,6 +43,10 @@ A photo or file shared from your phone is saved straight with the note's attachm
 
 Google's editor won't run inside a web page on a phone, so on a phone **✏️ Edit** (on a note or its Inbox preview) opens ArNotes' own quick editor: the note's text with bold, italic, underline, a heading style and bullet or numbered lists, and **Save**. Pictures, tables and other content stay exactly as they are, shown as grey boxes; the text around them is editable. Only the sections you change are rewritten. If the note was changed somewhere else since you opened it, Save says so instead of overwriting. Spreadsheet notes open in the Google Sheets app. For anything more, use **Edit in Google Docs** (with the Google Docs app installed it opens straight into editing).
 
+### Inviting by text
+
+In **Settings → Sharing & people**, **📱 Text invite** adds the person (no email sent) and shows a short message with their personal setup link; on a phone **📱 Open Messages** puts it in a new text, **Share…** offers WhatsApp, Messenger and the rest, and **Copy** works anywhere. Anyone still waiting to set up has a **📱 Text** button on their row, so an invite email that didn't arrive (check Spam first) can be sent as a text instead. It's the same link the email carries.
+
 ### Trash
 
 Deleting a note moves it to **Trash** (left menu), with Undo for a few seconds. It waits there 30 days with its tags and filing, then is deleted for good (its Google Doc goes to Google Drive's trash). In Trash, tick notes and press **↩ Restore** to put them back where they were, or **Delete forever**; **Empty trash** clears it. Notes in the Trash stay out of search, tags, receipts and shared links. Deleted photos still go straight to Google Drive's trash.

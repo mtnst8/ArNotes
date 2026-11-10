@@ -997,12 +997,12 @@ function api_exportMarkdown(ids) {
 
 /* ---------- Invites: Brian types an email and clicks Invite; they confirm their Google account on the invite page ---------- */
 function inviteToken_() { return Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + Date.now())).replace(/=+$/, '').slice(0, 32); }
-function api_userInvite(contact, name) {
+function api_userInvite(contact, name, noEmail) {
   contact = String(contact || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact)) throw new Error('That isn\'t an email address');
   var t = userRows_(); if (t.rows.some(function (u) { return u.email === contact || u.contact === contact; })) throw new Error(contact + ' is already on the list (use Resend)');
   var tok = inviteToken_(); name = String(name || '').trim().slice(0, 60);
   t.sh.appendRow([contact, name, 'invited', 'free', today_(), '', '', '', '', '', contact, tok, today_(), '', '']);
-  inviteEmail_(contact, name, tok);
+  if (!noEmail) inviteEmail_(contact, name, tok);
   return api_users();
 }
 function api_userResend(email) {
@@ -3892,4 +3892,17 @@ function qeInsert_(body, at, it) {
     pos += len;
   });
   return el;
+}
+
+/** A short invite to send by text message: their personal setup link (the same one the invite email carries). */
+function api_inviteText(email) {
+  email = String(email || '').toLowerCase(); var t = userRows_(), u = t.rows.filter(function (x) { return x.email === email; })[0];
+  if (!u) throw new Error('Not on the list');
+  var tok = u.invite; if (!tok) { tok = inviteToken_(); t.sh.getRange(u.row, 12, 1, 2).setValues([[tok, today_()]]); }
+  var first = String(u.name || '').split(/\s+/)[0], me = String(Session.getEffectiveUser().getEmail() || ''), from = me.split('@')[0].split('.')[0];
+  from = from ? from.charAt(0).toUpperCase() + from.slice(1) : '';
+  var link = APP_URL + '#invite=' + tok;
+  var text = 'Hi' + (first ? ' ' + first : '') + ', you\'re invited to ArNotes, the notes-and-photos app I built. Everything stays in your own Google Drive. ' +
+    'Set it up here (about 10 minutes, best on a computer, with a Google account): ' + link + (from ? ' - ' + from : '');
+  return { text: text, link: link, name: u.name || '' };
 }
