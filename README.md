@@ -39,6 +39,10 @@ A photo or file shared from your phone is saved straight with the note's attachm
 
 In **＋ Note**, press **🏷 Add tags** under the title to pick tags (or make new ones) before saving. Click a tag chip to take it off. **Save → Inbox** works as before; once the note has a tag, **Save → Cabinet** files it straight away.
 
+### Editing in the Inbox
+
+Click (or tap) into a note's text in the Inbox preview and it opens for editing right there, the same as **✏️ Edit** (on a phone, ArNotes' quick editor). Press **✓ Done editing** when finished. If notes are ticked in the list, the preview is locked until you clear the selection.
+
 ### Merging notes
 
 Tick two or more notes and press **Merge**. The note at the top of the list is kept (↑ moves another to the top); the others' text is added to it under their titles, and their tags and attachments come along. The other notes go to **Trash**, where **↩ Restore** brings them back for 30 days.

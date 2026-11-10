@@ -735,6 +735,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li><b>Search</b> (top left) looks through titles and text. Hover over it or click it (on a phone, tap it) to see your recent searches, the notes you opened lately and what just came in.</li>' +
   '<li><b>Tags</b> lets you drill down: tap a tag, then a tag inside it.</li>' +
   '<li><b>Tag as you write:</b> in <b>＋ Note</b>, press <b>🏷 Add tags</b> under the title. <b>Save → Inbox</b> as usual, or <b>Save → Cabinet</b> to file it straight away.</li>' +
+  '<li><b>Edit in the Inbox:</b> click (or tap) into a note\'s text in the Inbox preview and it opens for editing, same as <b>✏️ Edit</b>. Press <b>✓ Done editing</b> when you\'re finished.</li>' +
   '<li><b>Merge:</b> tick two or more notes and press <b>Merge</b>. The top note in the list is kept (use ↑ to choose); the others\' text is added to it under their titles, with their tags and attachments. The others go to <b>Trash</b>, so <b>↩ Restore</b> brings them back if you change your mind.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
   '<li><b>Trash:</b> deleted notes wait in <b>Trash</b> (left menu) for 30 days with their tags. Tick them and press <b>↩ Restore</b> to put them back where they were, or <b>Delete forever</b>; <b>Empty trash</b> clears it.</li>' +

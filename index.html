@@ -1175,6 +1175,7 @@ function renderPv(){
     var r=$('#pv .reader')||$('#pv .pdfview')||$('#pv iframe');if(!r){S.editNow=n.id;go('note',n.id);return}   // edit right here in the preview
     var f=document.createElement('iframe');f.className='reader editor pvedit';f.allow='clipboard-read; clipboard-write';
     f.src=editUrl(n,true);
+    f.onload=function(){try{f.focus()}catch(e){}};
     r.replaceWith(f);S.editing=n.id;b.dataset.on=1;b.textContent='✓ Done editing';b.classList.add('primary')};
   if($('#pvAdd')) $('#pvAdd').onclick=function(){addText(n.id,function(){if(S.pv===n.id)renderPv()})};
   if($('#pvRc')) $('#pvRc').onclick=function(){S.rcData=null;rcDetails(n.id)};
@@ -1241,6 +1242,13 @@ document.addEventListener('keydown',function(e){
   else if((e.key==='f'||e.key==='F')&&S.pv){e.preventDefault();fileNote(S.pv)}
   else if(e.key==='Enter'&&S.pv){e.preventDefault();go('note',S.pv)}
 });
+/* Click (or tap) into an Inbox preview's text and it opens for editing, same as ✏️ Edit.
+   The preview is a locked-down frame, so the click itself can't be seen: the page notices the frame taking focus instead. */
+window.addEventListener('blur',function(){setTimeout(function(){
+  var a=document.activeElement, pv=$('#pv'), b=$('#pvEd');
+  if(!a||a.tagName!=='IFRAME'||!pv||!pv.contains(a)||!a.classList.contains('reader')||a.classList.contains('editor')) return;
+  if(!b||b.dataset.on||pv.classList.contains('pvlock')) return;
+  b.click()},0)});
 /* ---------- Add files: button, drag & drop anywhere, Drive Drop folder ---------- */
 var DROP_URL='';
 var UP_MAX=35*1024*1024;
