@@ -54,7 +54,7 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mute)
 .qetools{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);overflow-x:auto}.qetools button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;min-width:40px;height:34px;padding:0 10px;font-size:14px}
 .qebody{flex:1;overflow-y:auto;padding:12px 14px 40vh;background:#fff;color:#222}.qeseg{outline:none;min-height:1.5em;font:15px/1.45 Arial,sans-serif}.qeseg h1,.qeseg h2,.qeseg h3{text-transform:none;letter-spacing:normal;color:inherit;font-weight:bold}.qepic{margin:8px 0;user-select:none;cursor:default}.qepic img{display:block;max-width:100%;height:auto}.qehr{border:0;border-top:1px solid #ccc;margin:10px 0}.qeseg p{margin:0 0 6px}.qeseg h1{font-size:21px;margin:14px 0 6px}.qeseg h2{font-size:18px;margin:12px 0 6px}.qeseg h3{font-size:17px;margin:6px 0}.qeseg ul,.qeseg ol{margin:0 0 6px;padding-left:24px}.qeseg a{color:#1a5fb4}
 .qefix{margin:8px 0;padding:10px 12px;border:1px dashed #bbb;border-radius:8px;color:#555;background:#f6f6f6;font-size:14px}
-.etbar{display:flex;gap:6px;align-items:center;margin:0 0 4px}.etbar .field{flex:1;min-width:0;margin:0;font-weight:600;font-size:15px}.pvbill{display:flex;align-items:center;gap:6px;cursor:pointer}.pvbill input{width:18px;height:18px;margin:0}.rcrow{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}.rcrow span{width:90px;opacity:.65;flex:none}
+.etbar{display:flex;gap:6px;align-items:center;margin:0 0 4px}.etbar .field{flex:1;min-width:0;margin:0;font-weight:600;font-size:15px}.fslist{max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:4px 8px}.fsrow{display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer}.pvbill{display:flex;align-items:center;gap:6px;cursor:pointer}.pvbill input{width:18px;height:18px;margin:0}.rcrow{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}.rcrow span{width:90px;opacity:.65;flex:none}
 .rcinv{font-size:10px;text-transform:uppercase;letter-spacing:.4px;border:1px solid var(--line);border-radius:6px;padding:1px 5px;opacity:.75;white-space:nowrap}
 .rct td.ck,.rct th.ck{width:28px;padding-right:0}.rct .bl{font-size:12px;color:var(--acc);white-space:nowrap}
 .rcwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
@@ -377,6 +377,7 @@ body.guest #actbar,body.guest .row .nb{display:none!important}
   <button class="btn small primary" id="aTags">Tags…</button>
   <button class="btn small" id="aFile">File → Cabinet</button>
   <button class="btn small" id="aInbox">Move to Inbox</button>
+  <button class="btn small" id="aFShare" title="Share the selected notes with friends who use ArNotes">👥 Share</button>
   <button class="btn small" id="aTask" title="Put the selected notes on your to-do list (Tasks on Home)">☑ Add to Tasks</button>
   <button class="btn small" id="aStar">★ Bookmark</button>
   <button class="btn small" id="aUnstar">☆ Remove bookmark</button>
@@ -667,7 +668,7 @@ function paintSel(){
   $$('.row[data-id]').forEach(function(r){var on=!!S.sel[r.dataset.id];r.classList.toggle('sel',on);var c=r.querySelector('.cb');if(c)c.checked=on});
   $('#actbar').classList.toggle('on',n>0); document.body.classList.toggle('selmode',n>0); pvLock();
   $('#selN').textContent=n+' selected';
-  ['aTags','aFile','aInbox','aTask','aStar','aUnstar','aDel','aPrint'].forEach(function(k){$('#'+k).disabled=!n});
+  ['aTags','aFile','aInbox','aTask','aFShare','aStar','aUnstar','aDel','aPrint'].forEach(function(k){$('#'+k).disabled=!n});
   $('#aMerge').disabled=n<2; $('#aMerge').title=n<2?'Select two or more notes to merge':'Combine the selected notes into one';
   $('#aAll').textContent=(n&&n===S.listIds.length)?'Select none':'Select all ('+S.listIds.length+')';
   setTimeout(function(){var c=$$('.row .cb');c.forEach(function(x){x.checked=!!S.sel[x.closest('.row').dataset.id]})},0);
@@ -685,6 +686,7 @@ $('#aFile').onclick=function(){
 };
 $('#aInbox').onclick=function(){batch({notebook:'Inbox'},'Moved to Inbox')};
 $('#aTask').onclick=function(){addToTasks(Object.keys(S.sel))};
+$('#aFShare').onclick=function(){friendShare({notes:Object.keys(S.sel)})};
 $('#aStar').onclick=function(){batch({starred:true},'Bookmarked')};
 $('#aUnstar').onclick=function(){batch({starred:false},'Bookmarks removed')};
 $('#aDel').onclick=function(){
@@ -943,6 +945,10 @@ function viewHome(){
       '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px"><span class="bignum">'+inbox.length+'</span><span class="muted">to tag & file</span></div>'+
       (inbox.length?miniList(inbox.slice(0,5)):'<div class="empty">Inbox is empty. Nice.</div>')+'</div>',
     tasks:'<div class="wg" id="htasks" data-box="tasks"></div>',
+    shared:(function(){var sh=S.notes.filter(function(n){return n.shared}).sort(function(a,b){return new Date(b.created)-new Date(a.created)});
+      return '<div class="wg" data-box="shared"><div class="wh"><h3>Shared with me</h3><span class="muted">'+sh.length+'</span><button class="lnk" id="hShAll">See all</button></div>'+
+        (sh.length?'<ul class="mini">'+sh.slice(0,7).map(function(n){return '<li data-open="'+n.id+'"><span class="t">'+(n.notebook==='Inbox'?'<b>':'')+esc(n.title)+(n.notebook==='Inbox'?'</b>':'')+'</span><span class="d">'+esc(friendName(n))+'</span></li>'}).join('')+'</ul>'
+        :'<div class="empty">Notes friends share with you show up here. Share yours with 👥 Share on a note or a tag.</div>')+'</div>'})(),
     shortcuts:'<div class="wg" data-box="shortcuts"><div class="wh"><h3>Shortcuts</h3><button class="lnk" data-go="shortcuts">See all</button></div>'+
       (bm.length?miniList(bm.slice(0,8)):'<div class="empty">Star a note (☆) to add it here.</div>')+'</div>',
     tags:'<div class="wg" data-box="tags"><div class="wh"><h3>Tags</h3><button class="lnk" data-go="tags">See all</button></div><div>'+
@@ -992,7 +998,7 @@ function viewTrash(){
     list.sort(function(a,b){return new Date((info[b.id]||{}).at||0)-new Date((info[a.id]||{}).at||0)});if(S.view==='trash')draw()}).catch(function(){});
 }
 /* ---------- Home boxes: drag a box by its title bar to move it; the order is kept on this device ---------- */
-var HOME_BOXES=['tasks','notes','scratch','pin','inbox','shortcuts','tags'];
+var HOME_BOXES=['tasks','notes','shared','scratch','pin','inbox','shortcuts','tags'];
 function homeOrder(){var o=(store('homeOrder')||[]).filter(function(k){return HOME_BOXES.indexOf(k)>=0});HOME_BOXES.forEach(function(k){if(o.indexOf(k)<0)o.push(k)});return o}
 var HDRAG=null;   // the box being moved: {el, x0, y0, on, timer, touch}
 function homeResetLink(){var g=$('#hgrid');if(!g||$('#hReset'))return;var d=document.createElement('div');d.className='hreset';d.innerHTML='<button class="lnk" id="hReset">Reset box layout</button>';g.after(d);
@@ -1110,6 +1116,7 @@ function bindHome(){
   $('#hall').onclick=function(){go(S.homeTab==='recent'?'all':S.homeTab)};
   $$('.home .wg [data-go]').forEach(function(b){if(!b.closest('#hcards'))b.onclick=function(){go(b.dataset.go)}});
   $$('.home .mini [data-open]').forEach(function(li){li.onclick=function(){go('note',li.dataset.open)}});
+  if($('#hShAll'))$('#hShAll').onclick=function(){if(S.parent.hasOwnProperty('ArNotes Friends'))showTag('ArNotes Friends');else toast('Nothing shared with you yet')};
   $$('.home [data-tagq]').forEach(function(c){c.onclick=function(){$('#q').value='#'+c.dataset.tagq;runSearch()}});
   var sc=$('#scratch'), st=$('#scrSt'), tm=null;
   sc.oninput=function(){sc.dataset.dirty=1;st.textContent='Saving…';clearTimeout(tm);tm=setTimeout(function(){call('api_setScratch',sc.value).then(function(){st.textContent='Saved';delete sc.dataset.dirty})},900)};
@@ -1120,10 +1127,11 @@ function bindHome(){
 function viewAll(){ var arr=byRecent(S.notes); $('#main').innerHTML=section('All notes ('+arr.length+')',arr); bindRows(); }
 function viewList(o){ S.lastList=o;
   if(o.tag){ if(!S.parent.hasOwnProperty(o.tag)){go('tags');return} o.notes=tagNotes(o.tag);
-    $('#main').innerHTML=tagCrumbs(o.tag).replace('</div>','<button class="btn small tshare" id="tShare">Share…</button></div>')+(o.notes.length?'<div class="list">'+o.notes.map(rowHtml).join('')+'</div>':'<p class="muted">No notes with this tag yet.</p>');
+    $('#main').innerHTML=tagCrumbs(o.tag).replace('</div>','<button class="btn small tshare" id="tFShare" title="Share every note with this tag with friends who use ArNotes">👥 Share with friends</button><button class="btn small tshare" id="tShare" title="A read-only web link anyone can open">🔗 Share a link</button></div>')+(o.notes.length?'<div class="list">'+o.notes.map(rowHtml).join('')+'</div>':'<p class="muted">No notes with this tag yet.</p>');
     $$('#main [data-crumb]').forEach(function(b){b.onclick=function(){var c=b.dataset.crumb;if(c)showTag(c);else go('tags')}});
     bindNewTag(function(){viewList(o)});
     $('#tShare').onclick=function(){shareDialog(o.tag)};
+    $('#tFShare').onclick=function(){friendShare({tag:o.tag})};
   } else $('#main').innerHTML=section(esc(o.title),o.notes,o.empty);
   bindRows(); }
 function isSplit(){return window.innerWidth>=900}
@@ -1669,12 +1677,12 @@ function bindNewTag(after){
 function tagMenu(t,anchor){
   closeMenu();
   var m=document.createElement('div');m.className='menu';m.id='menu';
-  m.innerHTML='<button data-a="open">Show notes</button><button data-a="share">Share…</button><button data-a="sub">New sub-tag…</button><button data-a="rename">Rename / merge…</button><button data-a="move">Change parent tag…</button>'+tagOrderItems(t)+'<button data-a="delete" style="color:var(--warn)">Delete tag…</button>';
+  m.innerHTML='<button data-a="open">Show notes</button><button data-a="fshare">👥 Share with friends…</button><button data-a="share">🔗 Share a link…</button><button data-a="sub">New sub-tag…</button><button data-a="rename">Rename / merge…</button><button data-a="move">Change parent tag…</button>'+tagOrderItems(t)+'<button data-a="delete" style="color:var(--warn)">Delete tag…</button>';
   document.body.appendChild(m);
   var r=anchor.getBoundingClientRect();m.style.top=Math.min(r.bottom+4,window.innerHeight-200)+'px';m.style.left=Math.max(8,Math.min(r.right-170,window.innerWidth-180))+'px';
   m.onclick=function(e){var a=e.target.dataset.a;if(!a)return;closeMenu();
     if(a==='pin'||a==='unpin'||a==='up'||a==='down'){tagOrderDo(t,a);return}
-    if(a==='open')showTag(t); else if(a==='share')shareDialog(t); else if(a==='sub')tagDialog('new',t); else tagDialog(a,t)};
+    if(a==='open')showTag(t); else if(a==='fshare')friendShare({tag:t}); else if(a==='share')shareDialog(t); else if(a==='sub')tagDialog('new',t); else tagDialog(a,t)};
   setTimeout(function(){document.addEventListener('click',closeMenu,{once:true})},0);
 }
 /* tag order: pinned top-level tags come first (in your order); under a parent, ↑ ↓ set the order */
@@ -1956,6 +1964,7 @@ function viewNote(id,keep){
         (n.sheet?'<a class="btn" target="_blank" id="odocs" href="'+editUrl(n)+'">Open in Google Sheets ↗</a><button class="btn" id="ehere">✏️ Edit here</button>':
         '<a class="btn" target="_blank" id="odocs" href="'+docUrl(n.docId,true)+'">Edit in Google Docs ↗</a><button class="btn" id="ehere">✏️ Edit here</button><button class="btn" id="eadd" title="Type some text and it goes at the end of this note">＋ Add text</button>')+
         (n.sourceUrl&&!n.sheet?'<a class="btn" target="_blank" href="'+esc(n.sourceUrl)+'">'+(/mail\.google\.com/.test(n.sourceUrl)?'Open in Gmail':'Source')+'</a>':'')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" onclick="S.rcData=null;rcDetails(\''+n.id+'\')">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" onclick="markReceipt(\''+n.id+'\',this)">🧾 It\'s a receipt</button>':''))+
+      (n.shared?'':'<button class="btn" id="nfshare" title="Share this note with friends who use ArNotes">👥 Share</button>')+
       '<button class="btn" id="ntask" title="'+(n.tags.indexOf(TASK_TAG)>=0?'It\'s on your to-do list (Tasks on Home). Click to take it off.':'Put this on your to-do list (Tasks on Home)')+'">'+(n.tags.indexOf(TASK_TAG)>=0?'✓ In Tasks':'☑ Add to Tasks')+'</button>'+
       '<button class="btn" id="nsend" title="Email this note to someone">✉ Send</button>'+
       '<button class="btn" id="nprint">🖨 Print</button>'+
@@ -1966,11 +1975,13 @@ function viewNote(id,keep){
     '<div class="muted" id="ehint" style="font-size:12px;margin:2px 0 6px">'+(n.link?'🔗 Linked file: it stays where it is in your Drive. Edits happen in the original; removing this note never deletes the file.':n.sheet?'Spreadsheet: ✏️ Edit here to change it (or Open in Google Sheets; on a phone it opens the Sheets app).':'Reading view. To change the text, use Edit in Google Docs (on a phone it opens the Docs app).')+'</div>'+
     '<div id="nbody">'+readerHtml()+'</div>';
   renderTags(n);
-  var fr=fillReader($('#nbody .reader'),id,true);
+  var fr=n.shared?null:fillReader($('#nbody .reader'),id,true);
+  if(n.shared)setTimeout(function(){sharedNote(n)},0);   // a friend's note: Google's own viewer
   if(fr) fr.then(function(d){if(n.link&&d&&d.loc&&$('#nloc'))$('#nloc').innerHTML=locHtml(d.loc,n)}).catch(function(){});
   if(fr) fr.then(function(d){if(d&&d.atts&&d.atts.length&&$('#atts'))$('#atts').innerHTML=d.atts.map(function(a){return '<a target="_blank" href="'+fileUrl(a.fileId)+'">📎 '+esc(a.filename)+'</a>'}).join('')}).catch(function(){});
   $('#odocs').onclick=function(){S.editing=id};
   $('#nprint').onclick=function(){printNotes([id])};
+  if($('#nfshare'))$('#nfshare').onclick=function(){friendShare({notes:[n.id]})};
   $('#ntask').onclick=function(){var on=n.tags.indexOf(TASK_TAG)>=0;addToTasks([n.id],on);var b=this;on=!on;b.textContent=on?'✓ In Tasks':'☑ Add to Tasks'};
   $('#nsend').onclick=function(){sendNotes([id])};
   $('#nai').onclick=function(){exportForAI([id])};
@@ -2011,6 +2022,63 @@ function textInvite(email){
     if($('#tiSms'))$('#tiSms').onclick=function(){var b=encodeURIComponent(txt());this.href=/iPhone|iPad/.test(navigator.userAgent)?'sms:&body='+b:'sms:?body='+b};
     if(!isPhone())setTimeout(function(){t.focus();t.select()},50);
   }).catch(function(e){toast('Could not make the text: '+e.message)});
+}
+/* ---------- ArNotes Friends: share notes and whole tags with friends who use ArNotes ---------- */
+function friendName(n){var t=(n.tags||[]).filter(function(x){return S.parent[x]==='ArNotes Friends'})[0];return t||String(n.shared||'').split('@')[0]||'a friend'}
+function sharedNote(n){
+  var bar=$('#odocs')&&$('#odocs').parentNode, b=$('#nbody'), h=$('#ehint');if(!b)return;
+  ['ehere','eadd','nsend','nprint','ndl','nai','nmerge','nfshare'].forEach(function(k){var e=$('#'+k);if(e)e.remove()});
+  if(h)h.innerHTML='👥 Shared with you by <b>'+esc(friendName(n))+'</b> · <span id="shRole">checking…</span>';
+  b.innerHTML='<div class="muted" style="padding:12px">Opening…</div>';
+  call('api_noteView',n.id).then(function(v){var sh=v.shared||{};
+    if(sh.gone){b.innerHTML='<div class="empty">This note is no longer shared with you. It will drop off your list at the next check.</div>';if($('#shRole'))$('#shRole').textContent='no longer shared';return}
+    var u=S.user?'authuser='+encodeURIComponent(S.user):'', doc=/google-apps\.document$/.test(sh.mime), sheet=/google-apps\.spreadsheet$/.test(sh.mime);
+    var view=doc?'https://docs.google.com/document/d/'+n.docId+'/preview':sheet?'https://docs.google.com/spreadsheets/d/'+n.docId+'/preview':'https://drive.google.com/file/d/'+n.docId+'/preview';
+    if($('#shRole'))$('#shRole').textContent=sh.canEdit?'you can edit it':'view only';
+    b.innerHTML='<iframe class="editor" src="'+view+(u?'?'+u:'')+'" allow="clipboard-read; clipboard-write"></iframe>';
+    var o=$('#odocs');if(o){o.href=(sh.url||view)+(u?(String(sh.url).indexOf('?')<0?'?':'&')+u:'');o.textContent=sh.canEdit?'Edit in Google '+(sheet?'Sheets':'Docs')+' ↗':'Open in Google '+(doc?'Docs':sheet?'Sheets':'Drive')+' ↗'}
+    if(bar&&sh.canEdit&&(doc||sheet)&&!$('#shEdit')){var e=document.createElement('button');e.className='btn';e.id='shEdit';e.textContent='✏️ Edit here';e.onclick=function(){S.editing=n.id;b.innerHTML='<iframe class="editor" src="https://docs.google.com/'+(sheet?'spreadsheets':'document')+'/d/'+n.docId+'/edit?rm=minimal'+(u?'&'+u:'')+'" allow="clipboard-read; clipboard-write"></iframe>'};bar.insertBefore(e,o?o.nextSibling:null)}
+    if(bar&&sh.canCopy&&!$('#shCopy')){var c=document.createElement('button');c.className='btn';c.id='shCopy';c.textContent='⧉ Save a copy';c.title='Keep your own copy in your notes';
+      c.onclick=function(){c.disabled=true;call('api_saveSharedCopy',n.id).then(function(r){return load(true).then(function(){toast('Copy saved to your Inbox');go('note',r.id)})}).catch(function(e){c.disabled=false;toast(e.message)})};bar.appendChild(c)}
+  }).catch(function(e){b.innerHTML='<div class="empty">Could not open it: '+esc(e.message)+'</div>'});
+}
+/** Share notes ({notes:[ids]}) or a whole tag ({tag}) with friends. */
+function friendShare(o){
+  var many=o.notes&&o.notes.length>1, what=o.tag?'every note tagged <b>'+esc(o.tag)+'</b> (and new ones as you tag them)':many?'<b>'+o.notes.length+' notes</b>':'<b>'+esc((S.byId[o.notes[0]]||{}).title||'this note')+'</b>';
+  if(o.notes&&o.notes.some(function(id){return (S.byId[id]||{}).shared})){toast('Notes friends shared with you can\'t be shared on');return}
+  modal('Share with friends','Share '+what+' with friends who use ArNotes. It shares from your Google Drive; nothing is copied.',
+    '<div id="fsBody"><p class="muted">Loading…</p></div>',
+    '<button class="btn" id="fsNo">Close</button><span class="grow"></span><button class="btn primary" id="fsGo" disabled>👥 Share</button>');
+  $('#fsNo').onclick=closeModal;
+  var friends=[],pick={},current=[];
+  function draw(){
+    var h='<div style="margin-bottom:8px"><b>Who</b></div>'+(friends.length?'<div class="fslist">'+friends.map(function(f){return '<label class="fsrow"><input type="checkbox" data-f="'+esc(f.email)+'"'+(pick[f.email]?' checked':'')+'> <b>'+esc(f.name)+'</b> <span class="muted">'+esc(f.email)+'</span></label>'}).join('')+'</div>':'<p class="muted" style="margin:0 0 6px">No friends yet. Add one below.</p>')+
+      '<div class="setrow" style="flex-wrap:wrap;gap:6px;margin:8px 0"><input class="field" id="fsName" placeholder="Name" style="max-width:150px;margin:0"><input class="field" id="fsMail" placeholder="their Google account email" style="max-width:250px;margin:0" autocomplete="off"><button class="btn small" id="fsAdd">＋ Add friend</button></div>'+
+      '<div style="margin:10px 0 4px"><b>They can</b></div><label class="fsrow"><input type="radio" name="fsRole" value="reader" checked> View only <span class="muted">(can\'t download, print or copy)</span></label><label class="fsrow"><input type="radio" name="fsRole" value="writer"> Edit <span class="muted">(you both see changes; they can\'t share it on)</span></label>'+
+      (current.length?'<div style="margin:12px 0 4px"><b>Shared with now</b></div>'+current.map(function(c){return '<div class="fsrow" style="justify-content:space-between"><span><b>'+esc(c.name)+'</b> <span class="muted">'+(c.role==='writer'?'can edit':'view only')+(c.via?' · '+esc(c.via):'')+'</span></span><button class="btn small" data-stop="'+esc(c.email)+'">Stop sharing</button></div>'}).join(''):'');
+    $('#fsBody').innerHTML=h;
+    $$('#fsBody [data-f]').forEach(function(cb){cb.onchange=function(){if(cb.checked)pick[cb.dataset.f]=1;else delete pick[cb.dataset.f];$('#fsGo').disabled=!Object.keys(pick).length}});
+    $('#fsGo').disabled=!Object.keys(pick).length;
+    $('#fsAdd').onclick=function(){var m=$('#fsMail').value.trim(),nm=$('#fsName').value.trim();if(!m){toast('Enter their email');return}var b=this;b.disabled=true;
+      call('api_friendAdd',m,nm).then(function(l){friends=l;pick[m.toLowerCase()]=1;draw()}).catch(function(e){b.disabled=false;toast(e.message)})};
+    $('#fsMail').onkeydown=function(e){if(e.key==='Enter')$('#fsAdd').click()};
+    $$('#fsBody [data-stop]').forEach(function(b){b.onclick=function(){b.disabled=true;var em=b.dataset.stop;
+      (o.tag?call('api_unshareTag',o.tag,em):call('api_unshareNotes',o.notes,em)).then(function(l){friends=l;toast('Stopped sharing');refresh()}).catch(function(e){b.disabled=false;toast(e.message)})}});
+  }
+  function refresh(){
+    var p=[call('api_friends')];
+    if(o.notes&&o.notes.length===1)p.push(call('api_noteShares',o.notes[0]).then(function(l){return l.map(function(c){return {email:c.email,name:c.name,role:c.role,via:c.via.filter(function(v){return v!=='note'}).map(function(v){return 'via tag '+v.slice(4)}).join(', ')}})}));
+    Promise.all(p).then(function(r){friends=r[0];
+      current=o.tag?[]:(r[1]||[]);
+      if(o.tag)friends.forEach(function(f){(f.tags||[]).forEach(function(t){if(t.tag===o.tag)current.push({email:f.email,name:f.name,role:t.role,via:''})})});
+      draw()}).catch(function(e){$('#fsBody').innerHTML='<p>Could not load: '+esc(e.message)+'</p>'});
+  }
+  refresh();
+  $('#fsGo').onclick=function(){var em=Object.keys(pick);if(!em.length)return;var role=($('input[name=fsRole]:checked')||{}).value||'reader',b=this;b.disabled=true;b.textContent='Sharing…';
+    (o.tag?call('api_shareTag',o.tag,em,role):call('api_shareNotes',o.notes,em,role)).then(function(r){b.textContent='👥 Share';
+      var msg=r.shared?'Shared'+(o.tag?' '+r.shared+' item'+(r.shared===1?'':'s'):'')+(r.more?' (the rest within 15 minutes)':''):(o.tag?'Sharing set up':'Already shared');
+      if(r.failed&&r.failed.length)msg+=' · '+r.failed.length+' couldn\'t be shared';toast(msg);pick={};refresh();
+      if(r.failed&&r.failed.length)console.log('Not shared:',r.failed)}).catch(function(e){b.disabled=false;b.textContent='👥 Share';toast('Could not share: '+e.message)})};
 }
 /* ---------- Quick edit: a note's text edited inside ArNotes (phones). Pictures and tables stay as they are. ---------- */
 function qeHtml(items){var out='',list=null;
@@ -2293,8 +2361,17 @@ function viewSettings(){
   $('#unpair').onclick=function(){var b=this;if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tap again to unpair';return}saveCfg(null);try{Object.keys(localStorage).forEach(function(k){if(/^arnote\.nv/.test(k))localStorage.removeItem(k)})}catch(e){}location.hash='';location.reload()};
       }},
     {k:'sh',t:'Sharing & people',sub:(own?'Users and releases':'Updates')+' · Shared links',
-      html:(own?H('Users')+L('ppl'):H('Updates')+L('upd'))+H('Shared links')+L('sset'),
+      html:(own?H('Users')+L('ppl'):H('Updates')+L('upd'))+H('ArNotes Friends')+L('frl')+H('Shared links')+L('sset'),
       load:function(){if(own)drawPeople();else drawUpdates();
+  function drawFriends(){call('api_friends').then(function(l){var el=$('#frl');if(!el)return;
+    el.innerHTML='<p style="margin:0 0 6px;font-size:13px">Friends who use ArNotes. Share a note with <b>👥 Share</b> on it, or a whole tag from its ⋯ menu. Notes they share with you show up in <b>Shared with me</b> on Home, under <b>ArNotes Friends › their name</b>.</p>'+
+      (l.length?'<div class="rcwrap"><table class="rct"><thead><tr><th>Friend</th><th>You share</th><th></th></tr></thead><tbody>'+l.map(function(f){return '<tr><td><b>'+esc(f.name)+'</b><br><span class="muted" style="font-size:12px">'+esc(f.email)+'</span></td><td>'+
+        (f.notes?f.notes+' item'+(f.notes===1?'':'s'):'nothing yet')+(f.tags.length?'<br><span class="muted" style="font-size:12px">tags: '+f.tags.map(function(t){return esc(t.tag)+(t.role==='writer'?' (edit)':'')}).join(', ')+'</span>':'')+'</td><td><button class="btn small" data-frm="'+esc(f.email)+'" title="Stop sharing everything with them and take them off this list">Remove</button></td></tr>'}).join('')+'</tbody></table></div>':'')+
+      '<div class="setrow" style="margin-top:8px;flex-wrap:wrap"><input class="field" id="frName" placeholder="Name" style="max-width:150px;margin:0"><input class="field" id="frMail" placeholder="their Google account email" style="max-width:250px;margin:0" autocomplete="off"><button class="btn small" id="frAdd">＋ Add friend</button></div>';
+    $('#frAdd').onclick=function(){var m=$('#frMail').value.trim();if(!m){toast('Enter their email');return}call('api_friendAdd',m,$('#frName').value.trim()).then(function(){toast('Friend added');return load(true)}).then(drawFriends).catch(function(e){toast(e.message)})};
+    $$('#frl [data-frm]').forEach(function(b){b.onclick=function(){if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tap again: stop sharing all';return}b.disabled=true;call('api_friendRemove',b.dataset.frm).then(function(){toast('Stopped sharing with them');drawFriends()}).catch(function(e){toast(e.message)})}});
+  }).catch(function(){})}
+  drawFriends();
   function drawShares(){call('api_shares').then(function(all){var el=$('#sset');if(!el)return;
     el.innerHTML=(all.length?shareRows(all,true):'<p style="margin:4px 0">None yet. Open a tag and choose <b>Share…</b> to give someone a read-only link to its notes.</p>');
     bindShareRows('#sset',all,drawShares)}).catch(function(){})}

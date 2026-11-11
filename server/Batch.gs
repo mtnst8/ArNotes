@@ -114,7 +114,7 @@ function purgeOldTrash_() {
 function purgeNotes_(ids) {
   var want = {}; ids.forEach(function (id) { want[id] = 1; });
   var t = notesTable_(), del = [];
-  t.rows.forEach(function (r, i) { if (want[r[col_('id')]]) del.push({ row: i + 2, docId: r[col_('docId')], link: r[col_('source')] === 'link' }); });
+  t.rows.forEach(function (r, i) { if (want[r[col_('id')]]) del.push({ row: i + 2, docId: r[col_('docId')], link: r[col_('source')] === 'link' || r[col_('source')] === 'shared' }); });   // a friend's note is only taken off your list
   // attachments used only by these notes go to trash too
   var attSh = ss_().getSheetByName('Attachments'), att = attSh.getDataRange().getValues(); att.shift();
   var refs = {}; att.forEach(function (a) { if (a[1]) refs[a[1]] = (refs[a[1]] || 0) + (want[a[0]] ? 0 : 1); });
@@ -210,7 +210,7 @@ function flushHeaders_(budgetMs) {
     var start = Date.now(), done = 0;
     while (q.length && Date.now() - start < budgetMs) {
       var d = q.shift(), r = byDoc[d];
-      if (r && r[col_('source')] !== 'link') {   // never write into a linked file
+      if (r && r[col_('source')] !== 'link' && r[col_('source')] !== 'shared') {   // never write into a linked file or a friend's note
         try {
           var doc = DocumentApp.openById(d), body = doc.getBody(), first = body.getChild(0);
           var line = headerLine_(r[col_('notebook')], splitTags_(r[col_('tags')]));
@@ -307,6 +307,8 @@ function processDrop() {
     try { buildReceiptReport_(); } catch (e) { Logger.log('Receipt report: ' + e); }
     try { if (Date.now() - start < 230000) geoWork_(Date.now(), 45000); } catch (e) { Logger.log('Geo: ' + e); }
     try { if (Date.now() - start < 250000) photoDedupe_(40000); } catch (e) { Logger.log('Dedupe: ' + e); }
+    try { if (Date.now() - start < 260000) incomingShares_(true); } catch (e) { Logger.log('Shared with me: ' + e); }
+    try { if (Date.now() - start < 270000) shareSync_(null, 25000, true); } catch (e) { Logger.log('Sharing: ' + e); }
   } finally { lock.releaseLock(); }
   try { flushHeaders_(5000); } catch (e) {}
   return made;
@@ -363,6 +365,7 @@ function api_addText(id, text) {
   if (!n) throw new Error('Note not found');
   if (n.source === 'sheet') throw new Error('This note is a spreadsheet: open it to add to it');
   if (n.source === 'link') throw new Error('This is a linked Drive file: add text in the original');
+  if (n.source === 'shared') throw new Error('This note belongs to a friend: open it to change it');
   var doc = DocumentApp.openById(n.docId), body = doc.getBody();
   text.split('\n').forEach(function (line) { body.appendParagraph(line); });
   doc.saveAndClose();
@@ -516,7 +519,7 @@ function api_mergeNotes(ids, title) {
   ids = ids.filter(function (id) { return byId[id]; });
   if (ids.some(function (id) { return byId[id].r[col_('source')] === 'sheet'; })) throw new Error('Spreadsheet notes can\'t be merged');
   if (ids.length < 2) throw new Error('Notes not found');
-  if (ids.some(function (id) { return byId[id].r[col_('source')] === 'link'; })) throw new Error('Linked notes can\'t be merged (that would change the original files).');
+  if (ids.some(function (id) { return byId[id].r[col_('source')] === 'link' || byId[id].r[col_('source')] === 'shared'; })) throw new Error('Linked notes and friends\' notes can\'t be merged (that would change the original files).');
   var keep = byId[ids[0]], kr = keep.r;
   var doc = DocumentApp.openById(kr[col_('docId')]), body = doc.getBody();
   var tags = splitTags_(kr[col_('tags')]), starred = kr[col_('starred')] === true, att = +kr[col_('attachments')] || 0;
@@ -739,6 +742,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<li><b>Merge:</b> tick two or more notes and press <b>Merge</b>. The top note in the list is kept (use ↑ to choose); the others\' text is added to it under their titles, with their tags and attachments. The others go to <b>Trash</b>, so <b>↩ Restore</b> brings them back if you change your mind.</li>' +
   '<li><b>Bookmark</b> a note (★) to keep it in <b>Shortcuts</b>.</li>' +
   '<li><b>Trash:</b> deleted notes wait in <b>Trash</b> (left menu) for 30 days with their tags. Tick them and press <b>↩ Restore</b> to put them back where they were, or <b>Delete forever</b>; <b>Empty trash</b> clears it.</li>' +
+  '<li><b>ArNotes Friends:</b> share a note with friends who use ArNotes with <b>👥 Share</b> on the note (or tick several), or a whole tag from its ⋯ menu (notes you tag later are shared too). View only is the default (they can\'t download, print or copy); choose Edit to work on it together. Notes shared with you show up in <b>Shared with me</b> on Home, under <b>ArNotes Friends › their name</b>. Stop sharing any time from the same 👥 Share box or Settings → Sharing & people.</li>' +
   '<li><b>Places:</b> in Google Maps (or Apple Maps, Waze, MapQuest) tap <b>Share → ArNotes</b> on a place or dropped pin. You get a place note: 📍 name and address, a small map, <b>Open in Maps</b>, tagged Where.</li>' +
   '<li><b>From an AI chat:</b> copy an answer from Claude, ChatGPT or Gemini and paste it into <b>＋ Note</b> (or share it to ArNotes): headings, bold, lists and tables come through as real formatting. On a computer you can also select the answer and click <b>📌 Save to ArNotes</b>.</li>' +
   '<li><b>Editing on a phone:</b> press <b>✏️ Edit</b> and the note opens in ArNotes\' own editor: change the text, with bold, italic, headings and lists, then <b>Save</b>. Pictures and tables stay as they are (shown as grey boxes); to change those, use <b>Edit in Google Docs</b>.</li>' +
@@ -1223,6 +1227,7 @@ function api_noteView(id, o) {
   var n = readTable_('Notes').filter(function (x) { return x.id === id; })[0];
   if (!n) throw new Error('Note not found');
   if (n.source === 'sheet') return { html: sheetHtml_(n.docId), atts: [], docId: n.docId, sheet: true };
+  if (n.source === 'shared') return sharedView_(n);
   if (n.source === 'link') {
     var meta = driveMeta_(n.docId);
     if (!meta) return { html: '<p style="font:14px sans-serif">This linked file is missing or no longer shared with you.</p>', atts: [], docId: n.docId, link: { url: n.sourceUrl } };
@@ -1492,6 +1497,7 @@ function api_checkNow() {
       while (di.hasNext() && Date.now() - start < 120000) { try { if (noteFromFolder_(di.next())) out.files++; } catch (e) {} }
     } catch (e) { Logger.log('Drop: ' + e); } t('drop');
     try { out.files += (processLinks_(start) || []).length; } catch (e) { Logger.log('Links: ' + e); } t('links');
+    try { out.shared = incomingShares_(true) || 0; out.files += out.shared; } catch (e) { Logger.log('Shared with me: ' + e); } t('shared');
     // (No photo-library walk here: it takes ~40 s on a big library. App uploads are indexed at once; Photos has its own Check for new.)
     try { var q = photoRows_().filter(function (p) { return p.scan === 'q'; }).length;
       if (q && Date.now() - start < 200000) { scanQueue_(Math.max(20000, 230000 - (Date.now() - start))); out.scanned = q - photoRows_().filter(function (p) { return p.scan === 'q'; }).length; } } catch (e) { Logger.log('Scan: ' + e); } t('scan');
@@ -3535,10 +3541,10 @@ function api_storageReport() {
 /** Tags ArNotes ships that older set-ups don't have yet (When › Now › Tasks, Cash under the receipt category tag).
  *  Runs once per set-up, from the app's first load after an update; never renames or moves anything. */
 function ensureShipTags_() {
-  var p = props_(); if (p.getProperty('shipTags') === '3') return false;
+  var p = props_(); if (p.getProperty('shipTags') === '4') return false;
   var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) return false;   // two app windows opening at once must not both add the tags
   try {
-  if (p.getProperty('shipTags') === '3') return false;
+  if (p.getProperty('shipTags') === '4') return false;
   var sh = ss_().getSheetByName('Tags'), have = {}, added = [];
   // remove any tag listed twice (keeps the first)
   var rows = sh.getDataRange().getValues(), seen = {};
@@ -3555,7 +3561,8 @@ function ensureShipTags_() {
   try { (receiptCfg_().cols || []).forEach(function (c) { if (/categor/i.test(c.name || '') && c.parent) cat = c.parent; }); } catch (e) {}
   if (!have.hasOwnProperty(cat.toLowerCase())) add(cat, '');
   add('Cash', cat);
-  p.setProperty('shipTags', '3');
+  add(FRIENDS_ROOT_, '');
+  p.setProperty('shipTags', '4');
   return added;
   } finally { lock.releaseLock(); }
 }
@@ -3856,7 +3863,7 @@ function qeVer_(docId) { return String(DriveApp.getFileById(docId).getLastUpdate
 /** The note's sections for the quick editor. */
 function api_quickEditLoad(id) {
   var n = readTable_('Notes').filter(function (x) { return x.id === id; })[0]; if (!n) throw new Error('Note not found');
-  if (n.source === 'link' || n.source === 'sheet') throw new Error('This note is edited in its own app');
+  if (n.source === 'link' || n.source === 'sheet' || n.source === 'shared') throw new Error('This note is edited in its own app');
   var doc = DocumentApp.openById(n.docId), segs = qeSegments_(doc.getBody());
   if (!segs.some(function (s) { return s.type === 'text'; })) segs.push({ type: 'text', from: -1, to: -1, items: [] });   // only pictures: room to type under them
   return { ver: qeVer_(n.docId), segs: segs.map(function (s) { return s.type === 'text' ? { type: 'text', items: s.items } : { type: 'fixed', label: s.label }; }) };
@@ -4015,4 +4022,282 @@ function mdToHtml_(md) {
     out.push('<p>' + para.map(inl).join('<br>') + '</p>');
   }
   return out.join('\n');
+}
+
+/* ======================= ArNotes Friends: sharing notes between ArNotes users =======================
+ * Sharing a note shares its Google Doc (and its attachments) from your Drive with a friend's Google account:
+ * Viewer by default (can't download, print or copy), or Editor (can't re-share). Google's own "shared with you"
+ * email is not sent; the friend's ArNotes finds shared notes in their Drive by a marker on the file and lists them
+ * under Shared with me, tagged ArNotes Friends › <your name>. Whole tags can be shared too: notes tagged later are
+ * shared within 15 minutes, and a note that loses the tag is unshared.
+ * Sheets (hidden): Friends [email, name, tag, added] · Sharing [kind note|tag, target, email, role, added] ·
+ * Shared out [noteId, fileId, email, role, via, at] (via = 'note' or 'tag:<name>'). */
+var FRIENDS_ROOT_ = 'ArNotes Friends';
+function shareSheet_(name, head) {
+  var ss = ss_(), sh = ss.getSheetByName(name);
+  if (!sh) { sh = ss.insertSheet(name); sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); sh.setFrozenRows(1); try { sh.hideSheet(); } catch (e) {} }
+  return sh;
+}
+function friendsSh_() { return shareSheet_('Friends', ['email', 'name', 'tag', 'added']); }
+function sharingSh_() { return shareSheet_('Sharing', ['kind', 'target', 'email', 'role', 'added']); }
+function sharedOutSh_() { return shareSheet_('Shared out', ['noteId', 'fileId', 'email', 'role', 'via', 'at']); }
+function rowsOf_(sh) { var v = sh.getDataRange().getValues(), h = v.shift(); return v.map(function (r, i) { var o = { _row: i + 2 }; h.forEach(function (k, j) { o[k] = r[j]; }); return o; }); }
+function myEmail_() { return String(Session.getEffectiveUser().getEmail() || '').toLowerCase(); }
+function validEmail_(e) { e = String(e || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new Error('That isn\'t an email address: ' + e); return e; }
+/** The friend's tag (ArNotes Friends › Name), made if needed. */
+function friendTag_(name) {
+  name = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Friend';
+  var sh = ss_().getSheetByName('Tags'), have = {}; readTable_('Tags').forEach(function (t) { have[String(t.name).toLowerCase()] = String(t.parent || ''); });
+  if (!have.hasOwnProperty(FRIENDS_ROOT_.toLowerCase())) { sh.appendRow([FRIENDS_ROOT_, '']); have[FRIENDS_ROOT_.toLowerCase()] = ''; }
+  var tag = name;
+  if (have.hasOwnProperty(tag.toLowerCase()) && have[tag.toLowerCase()] !== FRIENDS_ROOT_) tag = name + ' (friend)';
+  if (!have.hasOwnProperty(tag.toLowerCase())) sh.appendRow([tag, FRIENDS_ROOT_]);
+  return tag;
+}
+function friendByEmail_(email) { return rowsOf_(friendsSh_()).filter(function (f) { return String(f.email).toLowerCase() === email; })[0] || null; }
+function addFriend_(email, name) {
+  email = validEmail_(email); if (email === myEmail_()) throw new Error('That\'s your own account');
+  var f = friendByEmail_(email); if (f) return f;
+  name = String(name || '').trim() || email.split('@')[0].replace(/[._]+/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  var tag = friendTag_(name);
+  friendsSh_().appendRow([email, name, tag, new Date()]);
+  return { email: email, name: name, tag: tag };
+}
+function api_friends() {
+  var out = rowsOf_(sharedOutSh_()), rules = rowsOf_(sharingSh_());
+  return rowsOf_(friendsSh_()).map(function (f) {
+    var e = String(f.email).toLowerCase(), notes = {};
+    out.forEach(function (o) { if (String(o.email).toLowerCase() === e) notes[o.noteId] = 1; });
+    return { email: e, name: f.name, tag: f.tag, notes: Object.keys(notes).length,
+      tags: rules.filter(function (r) { return r.kind === 'tag' && String(r.email).toLowerCase() === e; }).map(function (r) { return { tag: r.target, role: r.role }; }) };
+  });
+}
+function api_friendAdd(email, name) { addFriend_(email, name); return api_friends(); }
+/** Stop sharing everything with a friend and take them off the list (their tag and the notes they shared with you stay). */
+function api_friendRemove(email) {
+  email = validEmail_(email);
+  var lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    var rs = sharingSh_(), rules = rowsOf_(rs).filter(function (r) { return String(r.email).toLowerCase() === email; });
+    rules.map(function (r) { return r._row; }).sort(function (a, b) { return b - a; }).forEach(function (r) { rs.deleteRow(r); });
+    var os = sharedOutSh_(), outs = rowsOf_(os).filter(function (o) { return String(o.email).toLowerCase() === email; }), done = {};
+    outs.forEach(function (o) { if (!done[o.fileId]) { done[o.fileId] = 1; try { unshareFile_(o.fileId, email); } catch (e) {} } });
+    outs.map(function (o) { return o._row; }).sort(function (a, b) { return b - a; }).forEach(function (r) { os.deleteRow(r); });
+    var f = friendByEmail_(email); if (f) friendsSh_().deleteRow(f._row);
+  } finally { lock.releaseLock(); }
+  return api_friends();
+}
+/* ---- Drive permissions ---- */
+function driveCall_(method, path, body) {
+  var o = { method: method, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true };
+  if (body) { o.contentType = 'application/json'; o.payload = JSON.stringify(body); }
+  var r = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/' + path, o), c = r.getResponseCode();
+  if (c >= 300) { var m = ''; try { m = JSON.parse(r.getContentText()).error.message; } catch (e) {} throw new Error('Drive ' + c + (m ? ': ' + m : '')); }
+  return c === 204 ? {} : JSON.parse(r.getContentText() || '{}');
+}
+function filePerm_(fileId, email) {
+  var l = driveCall_('get', 'files/' + fileId + '/permissions?supportsAllDrives=true&fields=permissions(id,emailAddress,role)');
+  return (l.permissions || []).filter(function (p) { return String(p.emailAddress || '').toLowerCase() === email; })[0] || null;
+}
+/** Give a friend view or edit access to one file. mark = put the ArNotes marker and limits on it (the note's own Doc, or a photo). */
+function shareFile_(fileId, email, role, mark) {
+  var r = role === 'writer' ? 'writer' : 'reader', p = filePerm_(fileId, email);
+  if (!p) driveCall_('post', 'files/' + fileId + '/permissions?sendNotificationEmail=false&supportsAllDrives=true', { type: 'user', role: r, emailAddress: email });
+  else if (p.role !== r && p.role !== 'owner') driveCall_('patch', 'files/' + fileId + '/permissions/' + p.id + '?supportsAllDrives=true', { role: r });
+  if (mark) { try { driveCall_('patch', 'files/' + fileId + '?supportsAllDrives=true', { properties: { arnotesShare: mark, arnotesFrom: myEmail_() }, copyRequiresWriterPermission: true, writersCanShare: false }); } catch (e) { Logger.log('Mark ' + fileId + ': ' + e); } }
+}
+function unshareFile_(fileId, email) {
+  var p = filePerm_(fileId, email);
+  if (p && p.role !== 'owner') driveCall_('delete', 'files/' + fileId + '/permissions/' + p.id + '?supportsAllDrives=true');
+}
+/** A note's files: its Doc plus its attachments. */
+function noteFiles_(noteId, docId) {
+  var files = [docId];
+  try { var att = ss_().getSheetByName('Attachments').getDataRange().getValues(); for (var i = 1; i < att.length; i++) if (att[i][0] === noteId && att[i][1] && files.indexOf(att[i][1]) < 0) files.push(att[i][1]); } catch (e) {}
+  return files;
+}
+/** Share one note (or photo) with a friend, recording why (via). Returns '' or an error message. */
+function grantItem_(item, email, role, via, out) {
+  var files = item.photo ? [item.docId] : noteFiles_(item.id, item.docId), err = '';
+  files.forEach(function (fid, k) {
+    try { shareFile_(fid, email, role, k === 0 ? (item.photo ? 'photo' : 'note') : ''); }
+    catch (e) { if (k === 0) err = String(e.message || e); return; }
+    var had = out.filter(function (o) { return o.noteId === item.id && o.fileId === fid && String(o.email).toLowerCase() === email && o.via === via; })[0];
+    if (had) { if (had.role !== role) sharedOutSh_().getRange(had._row, 4).setValue(role); }
+    else { sharedOutSh_().appendRow([item.id, fid, email, role, via, new Date()]); out.push({ noteId: item.id, fileId: fid, email: email, role: role, via: via, _row: sharedOutSh_().getLastRow() }); }
+  });
+  return err;
+}
+/** Take back one way an item was shared; the file is unshared only if no other way still shares it. */
+function revokeItem_(itemId, email, via) {
+  var os = sharedOutSh_(), out = rowsOf_(os), mine = out.filter(function (o) { return o.noteId === itemId && String(o.email).toLowerCase() === email && o.via === via; });
+  mine.forEach(function (o) {
+    var still = out.some(function (x) { return x !== o && x.fileId === o.fileId && String(x.email).toLowerCase() === email && mine.indexOf(x) < 0; });
+    if (!still) { try { unshareFile_(o.fileId, email); } catch (e) { Logger.log('Unshare ' + o.fileId + ': ' + e); } }
+  });
+  mine.map(function (o) { return o._row; }).sort(function (a, b) { return b - a; }).forEach(function (r) { os.deleteRow(r); });
+  return mine.length;
+}
+function api_shareNotes(ids, emails, role) {
+  role = role === 'writer' ? 'writer' : 'reader';
+  var lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    var notes = {}; readTable_('Notes').forEach(function (n) { notes[n.id] = n; });
+    var rs = sharingSh_(), rules = rowsOf_(rs), out = rowsOf_(sharedOutSh_()), failed = [], done = 0;
+    (emails || []).forEach(function (em) {
+      var f = addFriend_(em), email = f.email || validEmail_(em);
+      (ids || []).forEach(function (id) {
+        var n = notes[id]; if (!n) return;
+        if (n.source === 'shared') { failed.push(n.title + ' (it belongs to a friend)'); return; }
+        var r = rules.filter(function (x) { return x.kind === 'note' && x.target === id && String(x.email).toLowerCase() === email; })[0];
+        if (r) { if (r.role !== role) rs.getRange(r._row, 4).setValue(role); } else { rs.appendRow(['note', id, email, role, new Date()]); rules.push({ kind: 'note', target: id, email: email, role: role, _row: rs.getLastRow() }); }
+        var e = grantItem_({ id: id, docId: n.docId }, email, role, 'note', out);
+        if (e) failed.push(n.title + ': ' + e); else done++;
+      });
+    });
+    return { shared: done, failed: failed, friends: api_friends() };
+  } finally { lock.releaseLock(); }
+}
+function api_unshareNotes(ids, email) {
+  email = validEmail_(email);
+  var lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    var rs = sharingSh_(), want = {}; (ids || []).forEach(function (id) { want[id] = 1; });
+    rowsOf_(rs).filter(function (r) { return r.kind === 'note' && want[r.target] && String(r.email).toLowerCase() === email; })
+      .map(function (r) { return r._row; }).sort(function (a, b) { return b - a; }).forEach(function (r) { rs.deleteRow(r); });
+    (ids || []).forEach(function (id) { revokeItem_(id, email, 'note'); });
+  } finally { lock.releaseLock(); }
+  return api_friends();
+}
+/** Who a note is shared with, and how. */
+function api_noteShares(id) {
+  var by = {};
+  rowsOf_(sharedOutSh_()).forEach(function (o) { if (o.noteId !== id) return; var e = String(o.email).toLowerCase(); by[e] = by[e] || { email: e, role: o.role, via: [] }; if (by[e].via.indexOf(o.via) < 0) by[e].via.push(o.via); if (o.role === 'writer') by[e].role = 'writer'; });
+  var names = {}; rowsOf_(friendsSh_()).forEach(function (f) { names[String(f.email).toLowerCase()] = f.name; });
+  return Object.keys(by).map(function (e) { by[e].name = names[e] || e; return by[e]; });
+}
+function api_shareTag(tag, emails, role) {
+  role = role === 'writer' ? 'writer' : 'reader';
+  var lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    if (!readTable_('Tags').some(function (t) { return t.name === tag; })) throw new Error('No tag called ' + tag);
+    var rs = sharingSh_(), rules = rowsOf_(rs);
+    (emails || []).forEach(function (em) {
+      var email = addFriend_(em).email || validEmail_(em);
+      var r = rules.filter(function (x) { return x.kind === 'tag' && x.target === tag && String(x.email).toLowerCase() === email; })[0];
+      if (r) { if (r.role !== role) rs.getRange(r._row, 4).setValue(role); } else rs.appendRow(['tag', tag, email, role, new Date()]);
+    });
+  } finally { lock.releaseLock(); }
+  var res = shareSync_(tag, 240000);
+  return { shared: res.added, failed: res.failed, more: res.more, friends: api_friends() };
+}
+function api_unshareTag(tag, email) {
+  email = validEmail_(email);
+  var lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    var rs = sharingSh_();
+    rowsOf_(rs).filter(function (r) { return r.kind === 'tag' && r.target === tag && String(r.email).toLowerCase() === email; })
+      .map(function (r) { return r._row; }).sort(function (a, b) { return b - a; }).forEach(function (r) { rs.deleteRow(r); });
+    var ids = {}; rowsOf_(sharedOutSh_()).forEach(function (o) { if (o.via === 'tag:' + tag && String(o.email).toLowerCase() === email) ids[o.noteId] = 1; });
+    Object.keys(ids).forEach(function (id) { revokeItem_(id, email, 'tag:' + tag); });
+  } finally { lock.releaseLock(); }
+  return api_friends();
+}
+/** The tag and every tag under it. */
+function tagFamily_(tag) {
+  var kids = {}; readTable_('Tags').forEach(function (t) { var p = String(t.parent || ''); (kids[p] = kids[p] || []).push(String(t.name)); });
+  var out = {}, st = [tag]; while (st.length) { var x = st.pop(); if (out[x]) continue; out[x] = 1; (kids[x] || []).forEach(function (k) { st.push(k); }); }
+  return out;
+}
+/** Bring tag shares up to date: share notes and photos that now carry the tag, unshare ones that lost it.
+ *  Also drops shares of notes that were deleted. */
+function shareSync_(onlyTag, budget, held) {   // held: the caller already holds the script lock
+  var start = Date.now(), res = { added: 0, removed: 0, failed: [], more: false };
+  var lock = held ? null : LockService.getScriptLock(); if (lock && !lock.tryLock(onlyTag ? 30000 : 2000)) return res;
+  try {
+    var rules = rowsOf_(sharingSh_()).filter(function (r) { return r.kind === 'tag' && (!onlyTag || r.target === onlyTag); });
+    var notes = readTable_('Notes'), live = {}; notes.forEach(function (n) { live[n.id] = n; });
+    var out = rowsOf_(sharedOutSh_());
+    if (!onlyTag) {   // shares of notes that are gone (deleted or in the Trash)
+      var photos0 = {}; try { photoRows_().forEach(function (p) { photos0[p.fileId] = 1; }); } catch (e) {}
+      var gone = {}; out.forEach(function (o) { if (!live[o.noteId] && !photos0[o.noteId]) gone[o.noteId + '|' + String(o.email).toLowerCase() + '|' + o.via] = o; });
+      Object.keys(gone).forEach(function (k) { if (Date.now() - start > budget) { res.more = true; return; } var o = gone[k]; res.removed += revokeItem_(o.noteId, String(o.email).toLowerCase(), o.via); });
+      out = rowsOf_(sharedOutSh_());
+    }
+    var photos = null;
+    rules.forEach(function (r) {
+      var fam = tagFamily_(r.target), email = String(r.email).toLowerCase(), via = 'tag:' + r.target, want = {};
+      notes.forEach(function (n) { if (n.source === 'shared') return; if (splitTags_(n.tags).some(function (t) { return fam[t]; })) want[n.id] = { id: n.id, docId: n.docId, title: n.title }; });
+      if (!photos) { photos = []; try { photos = photoRows_(); } catch (e) {} }
+      photos.forEach(function (p) { if (splitTags_(p.tags).some(function (t) { return fam[t]; })) want[p.fileId] = { id: p.fileId, docId: p.fileId, photo: true, title: p.name }; });
+      var have = {}; out.forEach(function (o) { if (o.via === via && String(o.email).toLowerCase() === email) have[o.noteId] = o.role; });
+      Object.keys(want).forEach(function (id) {
+        if (have[id] === r.role) return;
+        if (Date.now() - start > budget) { res.more = true; return; }
+        var e = grantItem_(want[id], email, r.role, via, out); if (e) res.failed.push(want[id].title + ': ' + e); else res.added++;
+      });
+      Object.keys(have).forEach(function (id) { if (!want[id] && Date.now() - start < budget) res.removed += revokeItem_(id, email, via); });
+    });
+  } finally { if (lock) lock.releaseLock(); }
+  return res;
+}
+/** Photos sheet rows as {fileId, name, tags}. */
+function photoRows_() {
+  var sh = ss_().getSheetByName('Photos'); if (!sh) return [];
+  var v = sh.getDataRange().getValues(), h = v.shift(), fi = h.indexOf('fileId'), ni = h.indexOf('name'), ti = h.indexOf('tags');
+  return v.filter(function (r) { return r[fi] && r[ti]; }).map(function (r) { return { fileId: String(r[fi]), name: String(r[ni]), tags: r[ti] }; });
+}
+/* ---- The other side: notes friends shared with you ---- */
+/** Find files friends' ArNotes shared with this account and list them (tagged with the friend's name); drop ones no longer shared. */
+function incomingShares_(held) {   // held: the caller already holds the script lock
+  var me = myEmail_(), files = [], tok = '', ok = true;
+  do {
+    var q = encodeURIComponent("sharedWithMe and trashed=false and (properties has { key='arnotesShare' and value='note' } or properties has { key='arnotesShare' and value='photo' })");
+    var r; try { r = driveCall_('get', 'files?q=' + q + '&pageSize=200&fields=nextPageToken,files(id,name,mimeType,webViewLink,owners(emailAddress,displayName),properties)' + (tok ? '&pageToken=' + tok : '')); }
+    catch (e) { ok = false; Logger.log('Shared with me: ' + e); break; }
+    files = files.concat(r.files || []); tok = r.nextPageToken || '';
+  } while (tok);
+  if (!ok) return 0;
+  var lock = held ? null : LockService.getScriptLock(); if (lock && !lock.tryLock(10000)) return 0;
+  try {
+    var sh = ss_().getSheetByName('Notes'), notes = readTable_('Notes', true), have = {}, added = 0;
+    notes.forEach(function (n) { if (n.source === 'shared') have[n.docId] = n; });
+    var seen = {};
+    files.forEach(function (f) {
+      seen[f.id] = 1; if (have[f.id]) return;
+      var o = (f.owners || [])[0] || {}, from = String((f.properties || {}).arnotesFrom || o.emailAddress || '').toLowerCase();
+      if (!from || from === me) return;
+      var fr = null; try { fr = addFriend_(from, o.displayName || ''); } catch (e) {}
+      var now = new Date(), id = Utilities.getUuid(), tags = fr && fr.tag ? [fr.tag] : [];
+      sh.appendRow(noteToRow_({ id: id, title: String(f.name || 'Shared note').replace(/\.[A-Za-z0-9]{2,4}$/, ''), notebook: 'Inbox', tags: tags.join(TAG_SEP), created: now, updated: now,
+        docId: f.id, starred: false, source: 'shared', sourceUrl: f.webViewLink || '', author: from, attachments: 0 }));
+      added++;
+    });
+    // no longer shared (or deleted by the owner): take it off this list
+    var rows = []; notes.forEach(function (n, i) { if (n.source === 'shared' && !seen[n.docId]) rows.push(n._row); });
+    rows.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
+    if (added || rows.length) props_().setProperty('sharedIn', JSON.stringify({ at: new Date().toISOString(), added: added, removed: rows.length }));
+    return added + rows.length;
+  } finally { if (lock) lock.releaseLock(); }
+}
+function api_sharedCheck() { return incomingShares_(); }
+/** What the app shows for a friend's note: it opens Google's own viewer (the owner may not allow downloading). */
+function sharedView_(n) {
+  var meta = null; try { meta = driveCall_('get', 'files/' + n.docId + '?supportsAllDrives=true&fields=id,name,mimeType,webViewLink,capabilities(canEdit,canCopy),owners(displayName,emailAddress)'); } catch (e) {}
+  if (!meta) return { html: '<p style="font:14px sans-serif">This note is no longer shared with you.</p>', atts: [], docId: n.docId, shared: { gone: true } };
+  var o = (meta.owners || [])[0] || {};
+  return { html: '', atts: [], docId: n.docId, shared: { mime: meta.mimeType, canEdit: !!(meta.capabilities || {}).canEdit, canCopy: !!(meta.capabilities || {}).canCopy,
+    from: o.displayName || n.author, fromEmail: o.emailAddress || n.author, url: meta.webViewLink || n.sourceUrl } };
+}
+/** Keep your own copy of a friend's note (only when they let you edit it: view-only notes can't be copied). */
+function api_saveSharedCopy(id) {
+  var n = readTable_('Notes').filter(function (x) { return x.id === id; })[0]; if (!n || n.source !== 'shared') throw new Error('Not a friend\'s note');
+  var meta = driveCall_('get', 'files/' + n.docId + '?fields=mimeType,capabilities(canCopy)');
+  if (!(meta.capabilities || {}).canCopy) throw new Error('Your friend shared this as view only, so it can\'t be copied');
+  var f = DriveApp.getFileById(n.docId).makeCopy(n.title, DriveApp.getFolderById(props_().getProperty('notesId')));
+  var now = new Date(), nid = Utilities.getUuid(), tags = splitTags_(n.tags);
+  ss_().getSheetByName('Notes').appendRow(noteToRow_({ id: nid, title: n.title, notebook: 'Inbox', tags: tags.join(TAG_SEP), created: now, updated: now, docId: f.getId(), starred: false,
+    source: meta.mimeType === 'application/vnd.google-apps.spreadsheet' ? 'sheet' : 'arenote', sourceUrl: '', author: '', attachments: 0 }));
+  try { if (meta.mimeType === 'application/vnd.google-apps.document') { var d = DocumentApp.openById(f.getId()), b = d.getBody(), c0 = b.getChild(0); if (c0.getType() === DocumentApp.ElementType.PARAGRAPH && /^Notebook:/.test(c0.asParagraph().getText())) c0.asParagraph().setText(headerLine_('Inbox', tags)); d.saveAndClose(); } } catch (e) {}
+  return { id: nid };
 }

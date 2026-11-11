@@ -67,6 +67,12 @@ In **Settings → Sharing & people**, **📱 Text invite** adds the person (no e
 
 **AI answers:** text pasted into ＋ Note or shared to ArNotes that's written in Markdown (what Claude, ChatGPT and Gemini copy out: `**bold**`, `#` headings, `-` lists, tables, code) is turned into real formatting. Plain text is left as it is. On a computer, selecting the answer and clicking 📌 Save to ArNotes keeps the text and a link back to the chat.
 
+### ArNotes Friends (sharing between ArNotes users)
+
+Share a note with friends who use ArNotes: **👥 Share** on a note, on the selection bar for several notes, or **👥 Share with friends** on a tag (its page or ⋯ menu) to share every note with that tag, including ones you tag later (within 15 minutes; taking the tag off unshares it). Pick friends (add them by their Google account email the first time) and **View only** (default) or **Edit**.
+
+How it works with Google Drive: the note's Google Doc and its attachments are shared from your Drive to their Google account; nothing is copied and it doesn't use their storage. View only = Google Viewer with downloading, printing and copying turned off. Edit = Google Editor (you both see changes; Google keeps version history) with re-sharing turned off. Google's own "shared with you" email isn't sent: their ArNotes finds the note by a marker on the file (within 15 minutes, or ⟳ Check for new) and lists it in **Shared with me** on Home, tagged **ArNotes Friends › your name**. Friend's notes open in Google's own viewer (or editor, if you can edit). **⧉ Save a copy** keeps your own copy when they let you edit. Stop sharing from the same 👥 Share box, or remove a friend in **Settings → Sharing & people → ArNotes Friends** (stops sharing everything with them). Your tags are never shared.
+
 ### Trash
 
 Deleting a note moves it to **Trash** (left menu), with Undo for a few seconds. It waits there 30 days with its tags and filing, then is deleted for good (its Google Doc goes to Google Drive's trash). In Trash, tick notes and press **↩ Restore** to put them back where they were, or **Delete forever**; **Empty trash** clears it. Notes in the Trash stay out of search, tags, receipts and shared links. Deleted photos still go straight to Google Drive's trash.

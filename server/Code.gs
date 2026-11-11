@@ -406,7 +406,7 @@ function api_bootstrap() {
   var notes = readTable_('Notes', true).map(function (n) {
     return { id: n.id, title: String(n.title), notebook: n.notebook, tags: n.tags ? String(n.tags).split(TAG_SEP) : [],
       created: iso_(n.created), updated: iso_(n.updated), docId: n.docId, starred: n.starred === true || n.starred === 'TRUE',
-      att: +n.attachments || 0, sourceUrl: n.sourceUrl || '', link: n.source === 'link', sheet: n.source === 'sheet' };
+      att: +n.attachments || 0, sourceUrl: n.sourceUrl || '', link: n.source === 'link', sheet: n.source === 'sheet', shared: n.source === 'shared' ? (n.author || '1') : '' };
   });
   var tags = readTable_('Tags').map(function (t) { return { name: String(t.name), parent: String(t.parent || ''), order: +t.order || 0 }; });
   var order = (props_().getProperty('bookmarkOrder') || '').split(',').filter(String);
@@ -449,7 +449,7 @@ function api_updateNote(id, ch) {
   var row = findNoteRow_(id), sh = ss_().getSheetByName('Notes');
   var vals = sh.getRange(row, 1, 1, NOTE_COLS.length).getValues()[0];
   var n = {}; NOTE_COLS.forEach(function (c, i) { n[c] = vals[i]; });
-  var file = DriveApp.getFileById(n.docId), linked = n.source === 'link';   // linked files are never renamed, starred or edited
+  var file = DriveApp.getFileById(n.docId), linked = n.source === 'link' || n.source === 'shared';   // linked files and friends' notes are never renamed, starred or edited
   if (ch.title !== undefined) { n.title = String(ch.title).trim() || 'Untitled Note'; if (!linked) file.setName(n.title); }
   if (ch.notebook !== undefined) n.notebook = ch.notebook;
   if (ch.tags !== undefined) {
