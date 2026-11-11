@@ -41,7 +41,7 @@ In **＋ Note**, press **🏷 Add tags** under the title to pick tags (or make n
 
 ### Editing in the Inbox
 
-Click (or tap) into a note's text in the Inbox preview and it opens for editing right there, the same as **✏️ Edit** (on a phone, ArNotes' quick editor). Press **✓ Done editing** when finished. If notes are ticked in the list, the preview is locked until you clear the selection.
+Click into a note's text in the Inbox preview (or press **✏️ Edit**) and you can type right there in the preview. Press **Save** (or Ctrl+S) when finished, **Cancel** (or Esc) to throw the changes away. On a phone, ✏️ Edit opens ArNotes' full-screen editor. If notes are ticked in the list, the preview is locked until you clear the selection.
 
 On a computer, **✏️ Edit** opens ArNotes' own editor, which works whatever Google account the browser is signed in to. Pictures and dividers show as grey boxes and stay as they are. To use Google Docs' editor instead, press **Use Google Docs editor instead** at the top of ArNotes' editor (remembered on that computer). If Google's editor then says **You need access**, that browser isn't signed in to your ArNotes Google account: use **Sign in to it** under the editor, or switch back with **✏️ Use ArNotes' editor**.
 
