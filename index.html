@@ -1171,7 +1171,7 @@ function renderPv(){
   $('#pvOpen').onclick=function(){go('note',n.id)};
   if($('#pvEd')) $('#pvEd').onclick=function(){var b=this;
     if(b.dataset.on){S.editing=null;b.textContent='Saving…';nvFetch(n.id).catch(function(){}).then(function(){if(S.pv===n.id)renderPv()});return}
-    if(isPhone()||(!n.sheet&&store('qeAlways'))){if(n.sheet)window.open(editUrl(n),'_blank');else quickEdit(n,function(){if(S.pv===n.id)renderPv()});return}
+    if(isPhone()||(!n.sheet&&store('qeAlways')!==false)){if(n.sheet)window.open(editUrl(n),'_blank');else quickEdit(n,function(){if(S.pv===n.id)renderPv()});return}
     var r=$('#pv .reader')||$('#pv .pdfview')||$('#pv iframe');if(!r){S.editNow=n.id;go('note',n.id);return}   // edit right here in the preview
     var f=document.createElement('iframe');f.className='reader editor pvedit';f.allow='clipboard-read; clipboard-write';
     f.src=editUrl(n,true);
@@ -2046,7 +2046,7 @@ function bindEdHint(n,after){var q=$('#ehQ');if(!q)return;
 function quickEdit(n,after){
   var ov=document.createElement('div');ov.className='qe';ov.id='qe';
   ov.innerHTML='<div class="qehead"><button class="btn small" id="qeNo">Cancel</button><b class="grow" style="text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(n.title)+'</b><button class="btn small primary" id="qeOk" disabled>Save</button></div>'+
-    '<div class="qetools"><button data-c="bold"><b>B</b></button><button data-c="italic"><i>I</i></button><button data-c="underline"><u>U</u></button><button data-c="h">H</button><button data-c="insertUnorderedList">• List</button><button data-c="insertOrderedList">1. List</button>'+(!isPhone()&&store('qeAlways')?'<span class="grow"></span><button class="btn small" id="qeGd" title="Go back to editing in Google Docs on this computer">Use Google Docs editor instead</button>':'')+'</div>'+
+    '<div class="qetools"><button data-c="bold"><b>B</b></button><button data-c="italic"><i>I</i></button><button data-c="underline"><u>U</u></button><button data-c="h">H</button><button data-c="insertUnorderedList">• List</button><button data-c="insertOrderedList">1. List</button>'+(!isPhone()&&store('qeAlways')!==false?'<span class="grow"></span><button class="btn small" id="qeGd" title="Go back to editing in Google Docs on this computer">Use Google Docs editor instead</button>':'')+'</div>'+
     '<div class="qebody" id="qeBody"><div class="muted" style="padding:16px">Opening…</div></div>';
   document.body.appendChild(ov);document.body.classList.add('qeon');
   var data=null,orig=[];
@@ -2073,7 +2073,7 @@ function quickEdit(n,after){
     .catch(function(e){ok.disabled=false;ok.textContent='Save';toast('Could not save: '+e.message)})};
 }
 function editHere(n){
-  if((isPhone()||(!n.sheet&&store('qeAlways')))&&!n.link){if(n.sheet){window.open(editUrl(n),'_blank');return}quickEdit(n,function(){viewNote(n.id)});return}   // phones: Google's editor won't run inside a page
+  if((isPhone()||(!n.sheet&&store('qeAlways')!==false))&&!n.link){if(n.sheet){window.open(editUrl(n),'_blank');return}quickEdit(n,function(){viewNote(n.id)});return}   // phones: Google's editor won't run inside a page
   var b=$('#nbody'),h=$('#ehint');if(!b)return;
   var app=n.sheet?'Google Sheets':'Google Docs';
   if(h)h.innerHTML='<div class="etbar"><input class="field" id="etitle" value="'+esc(n.title)+'" placeholder="Title" spellcheck="false" title="The note\'s title"><button class="btn small primary" id="edone">Done</button></div>'+
