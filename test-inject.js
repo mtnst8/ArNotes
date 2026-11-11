@@ -10,6 +10,7 @@ window.renderPv=function(){
     (n.tags.indexOf('Receipt')>=0?'<div id="pvRcCard"><p class="muted">Loading receipt…</p></div><div id="pvFull" style="display:none">'+readerHtml()+'</div>':readerHtml());
   renderTags(n);
   var isRc=n.tags.indexOf('Receipt')>=0, pf=isRc?null:fillReader($('#pv .reader'),n.id);
+  el.onmouseover=(!isRc&&!n.link&&!n.sheet&&!isPhone()&&store('qeAlways')!==false)?function(e){var t=e.target;if(t&&t.tagName==='IFRAME'&&t.classList.contains('reader')&&!t.classList.contains('editor')&&S.pv===n.id&&!$('#qe'))qeLoad(n)}:null;   // the reader frame gets swapped as it loads, so listen on the preview
   if(isRc) pvReceipt(n);
   var po=S.pvOrder||[],pi=po.indexOf(n.id); if(pi>=0) setTimeout(function(){prefetchNotes([po[pi+1],po[pi-1],po[pi+2]])},300);
   if(n.link&&pf) pf.then(function(d){if(d&&d.loc&&$('#pvloc')&&S.pv===n.id)$('#pvloc').innerHTML=locHtml(d.loc,n)}).catch(function(){});
@@ -43,15 +44,21 @@ window.renderPv=function(){
     if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tap again to delete';setTimeout(function(){if(b.isConnected){b.textContent='Delete';delete b.dataset.arm}},3000);return}
     trashLater([n.id],n.link?'Link moved to Trash (the file is untouched)':'Note moved to Trash'); refreshInboxCount(); refreshSplit();};
 };
+window.qeLoad=function(n,take){S.qeCache=S.qeCache||{};var c=S.qeCache[n.id];
+  if(c&&c.u===n.updated&&Date.now()-c.t<120000){if(take)delete S.qeCache[n.id];return c.p}
+  var p=call('api_quickEditLoad',n.id);
+  if(!take){S.qeCache[n.id]={p:p,u:n.updated,t:Date.now()};p.catch(function(){if(S.qeCache[n.id]&&S.qeCache[n.id].p===p)delete S.qeCache[n.id]})}
+  return p};
 window.quickEdit=function(n,after,host){
   var inl=!!host;   // host given: edit right in its place (the Inbox preview), not full screen
   var ov=document.createElement('div');ov.className='qe'+(inl?' qein':'');ov.id='qe';
   ov.innerHTML='<div class="qehead"><button class="btn small" id="qeNo">Cancel</button><b class="grow" style="text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(inl?'<span class="muted" style="font-weight:normal;font-size:13px">Editing · Ctrl+S saves · Esc cancels</span>':esc(n.title))+'</b><button class="btn small primary" id="qeOk" disabled>Save</button></div>'+
     '<div class="qetools"><button data-c="bold"><b>B</b></button><button data-c="italic"><i>I</i></button><button data-c="underline"><u>U</u></button><button data-c="h">H</button><button data-c="insertUnorderedList">• List</button><button data-c="insertOrderedList">1. List</button>'+(!isPhone()&&store('qeAlways')!==false?'<span class="grow"></span><button class="btn small" id="qeGd" title="Go back to editing in Google Docs on this computer">Use Google Docs editor instead</button>':'')+'</div>'+
     '<div class="qebody" id="qeBody"><div class="muted" style="padding:16px">Opening…</div></div>';
-  if(inl){host.replaceWith(ov);S.qeIn={id:n.id,dirty:dirty}}else{document.body.appendChild(ov);document.body.classList.add('qeon')}
+  if(inl){host.replaceWith(ov);S.qeIn={id:n.id,dirty:dirty};   // keep showing the note (dimmed) while it opens for editing
+    var hs=host.getAttribute('style')||'';$('#qeBody').innerHTML='<div class="muted" style="padding:6px 2px;font-size:13px">Opening for editing…</div>';host.style.cssText=hs+';height:calc(100% - 40px);min-height:0;opacity:.55;pointer-events:none;border:0';$('#qeBody').appendChild(host)}else{document.body.appendChild(ov);document.body.classList.add('qeon')}
   var data=null,orig=[];
-  function close(){if(inl){if(S.qeIn&&S.qeIn.id===n.id)S.qeIn=null;if(ov.isConnected)ov.replaceWith(host)}else ov.remove();document.body.classList.remove('qeon')}
+  function close(){if(inl){if(S.qeIn&&S.qeIn.id===n.id)S.qeIn=null;host.setAttribute('style',hs);if(ov.isConnected)ov.replaceWith(host)}else ov.remove();document.body.classList.remove('qeon')}
   if(inl) ov.addEventListener('keydown',function(e){
     if((e.ctrlKey||e.metaKey)&&(e.key==='s'||e.key==='S')){e.preventDefault();var ok=$('#qeOk');if(ok&&!ok.disabled)ok.click();else close()}
     else if(e.key==='Escape'){e.preventDefault();if(dirty()&&!confirmLeave())return;close()}});
@@ -59,7 +66,7 @@ window.quickEdit=function(n,after,host){
   $('#qeNo').onclick=function(){if(dirty()&&!confirmLeave())return;close()};
   if($('#qeGd')) $('#qeGd').onclick=function(){if(dirty()&&!confirmLeave())return;store('qeAlways',false);close();toast('Google Docs editor from now on: press ✏️ Edit again',3500)};
   function confirmLeave(){return window.confirm('Throw away your changes?')}
-  call('api_quickEditLoad',n.id).then(function(d){data=d;
+  qeLoad(n,true).then(function(d){if(!ov.isConnected)return;data=d;
     $('#qeBody').innerHTML=d.segs.map(function(sg,k){
       if(sg.type==='fixed')return '<div class="qefix">'+(sg.label==='Picture'?'🖼':sg.label==='Table'?'▦':'▪')+' '+esc(sg.label)+' <span class="muted">(stays as it is; open in Google Docs to change it)</span></div>';
       return '<div class="qeseg" contenteditable="true" data-k="'+k+'">'+qeHtml(sg.items)+'</div>'}).join('');
@@ -79,4 +86,4 @@ window.quickEdit=function(n,after,host){
 };
 window.pvMove=function(d){var o=S.pvOrder||[],i=o.indexOf(S.pv);if(i<0)return;var j=Math.max(0,Math.min(o.length-1,i+d));if(j===i||!pvLeaveOk())return;S.pv=o[j];markAct();renderPv();
   var r=$('#lcol .row.act');if(r)r.scrollIntoView({block:'nearest'})};
-var st=document.createElement('style');st.textContent='.qe.qein{position:static;inset:auto;z-index:auto;border:1px solid var(--line);border-radius:10px;overflow:hidden;height:calc(100vh - 300px);min-height:360px}.qein .qehead{padding:6px 10px}.qein .qetools{padding:6px 10px}.qein .qebody{padding-bottom:60px}';document.head.appendChild(st);'ok'
+'ok'
