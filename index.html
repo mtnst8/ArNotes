@@ -1841,7 +1841,9 @@ function openTagPanel(ids,onDone,why,prefill,ext){
     draw(); }
   /* making a new tag: pick where it goes in the tag tree (starts at the top, nothing expanded) */
   var cm=false;
-  function createNew(){var name=q.value.trim();if(!name)return;cm=true;
+  function createNew(){var name=q.value.trim();if(!name)return;
+    var sp=tagSplitPath(name);if(sp){q.value='';createUnder(sp.name,sp.parent);return}
+    cm=true;
     $('#pbody').innerHTML='<div class="sect">New tag “<span id="cmName">'+esc(name)+'</span>” — put it under:</div>'+parentPicker()+
       '<div class="bar" style="margin-top:8px"><button class="btn" id="cmBack">Back</button><span class="grow"></span><button class="btn primary" id="cmGo">Create here</button></div>';
     bindParentPicker(null,'');
@@ -2214,14 +2216,14 @@ function renderTags(n){
     names.sort(function(a,b){var pa=a.toLowerCase().indexOf(q)===0?0:1,pb=b.toLowerCase().indexOf(q)===0?0:1;return pa-pb||a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'})});
     items=names.slice(0,8).map(function(t){return {t:t,label:esc(t)+(S.parent[t]?' <span class="muted">'+esc(tagPath(S.parent[t]))+'</span>':'')}});
     var exact=S.tags.some(function(t){return t.name.toLowerCase()===q});
-    if(!exact){ items.push({t:inp.value.trim(),label:'Create tag “'+esc(inp.value.trim())+'”',neu:true});
-      items.push({panel:true,label:'Create “'+esc(inp.value.trim())+'” under a parent tag…'}); }
+    if(!exact){var raw=inp.value.trim(),sp=tagSplitPath(raw);
+      items.push({t:raw,neu:true,label:sp?'Create “'+esc(sp.name)+'” under '+esc(tagPath(sp.parent)):'Create tag “'+esc(raw)+'”… <span class="muted">(choose where it goes)</span>'}); }
     sug.innerHTML=items.map(function(it,i){return '<div class="sg'+(i===k?' on':'')+'" data-i="'+i+'">'+it.label+'</div>'}).join('');
     sug.classList.add('on');
     sug.querySelectorAll('.sg').forEach(function(d){d.onmousedown=function(e){e.preventDefault();pick(+d.dataset.i)}});
   }
   function hi(){sug.querySelectorAll('.sg').forEach(function(d,i){d.classList.toggle('on',i===k)})}
-  function pick(i){var it=items[i];if(!it)return;if(it.panel){var v=inp.value.trim();inp.value='';draw();openTagPanel([n.id],null,null,v);return}if(!it.t)return;addTagTo(n,it.t,true)}
+  function pick(i){var it=items[i];if(!it||!it.t)return;if(it.neu){inp.value='';draw();newTagDialog(it.t,function(t){addTagTo(n,t,true)});return}addTagTo(n,it.t,true)}
   inp.oninput=draw;
   inp.onkeydown=function(e){
     if(e.key==='ArrowDown'){e.preventDefault();if(items.length){k=(k+1)%items.length;hi()}}
@@ -2234,6 +2236,25 @@ function renderTags(n){
   inp.onfocus=draw; inp.onclick=function(){if(!sug.classList.contains('on'))draw()};
 }
 S.tagOpen={};
+/** A new tag typed into a tag box: ask where it goes (never silently at the top level).
+ *  "Parent/Child" (or "Parent > Child") with an existing parent goes straight under it. done(name) once it exists. */
+function tagSplitPath(raw){var m=String(raw||'').trim().match(/^(.*\S)\s*(?:\/|>)\s*([^\/>]*\S)\s*$/);if(!m)return null;
+  var pl=m[1].trim().toLowerCase(),par=S.tags.filter(function(t){return t.name.toLowerCase()===pl})[0];return par?{parent:par.name,name:m[2].trim()}:null}
+function newTagDialog(raw,done){
+  raw=String(raw||'').trim(); if(!raw) return;
+  function made(nm,par){if(!S.parent.hasOwnProperty(nm)){S.tags.push({name:nm,parent:par||''});setTags(S.tags)}toast('Created “'+nm+'”'+(par?' under '+par:' at the top level'));done(nm)}
+  function exists(nm){return S.tags.filter(function(t){return t.name.toLowerCase()===nm.toLowerCase()})[0]}
+  var sp=tagSplitPath(raw);
+  if(sp){var ex0=exists(sp.name);if(ex0){toast('“'+ex0.name+'” already exists'+(ex0.parent?' under '+ex0.parent:''));done(ex0.name);return}
+    call('api_createTag',sp.name,sp.parent).then(function(){made(sp.name,sp.parent)}).catch(function(e){toast(e.message)});return}
+  var ex=exists(raw); if(ex){done(ex.name);return}
+  modal('New tag “'+esc(raw)+'”','Put it under:',parentPicker(),'<span class="grow"></span><button class="btn" id="ntX">Cancel</button><button class="btn primary" id="ntOk">Create here</button>');
+  bindParentPicker(null,'');
+  $('#ntX').onclick=closeModal;
+  var ff=$('#ppf'); if(ff){setTimeout(function(){ff.focus()},30);ff.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var r=$('#ppt .trow[data-tag]:not([data-tag=""]) .nm');if(r&&ff.value.trim())r.click();else $('#ntOk').click()}})}
+  $('#ntOk').onclick=function(){var b=this,par=$('#dp').value||'';b.disabled=true;b.textContent='Creating…';
+    call('api_createTag',raw,par).then(function(){closeModal();made(raw,par)}).catch(function(e){b.disabled=false;b.textContent='Create here';toast(e.message)})};
+}
 function addTagTo(n,t,refocus){
   t=String(t).trim(); if(!t||n.tags.indexOf(t)>=0) return;
   if(!S.parent.hasOwnProperty(t)) setTags(S.tags.concat([{name:t,parent:''}]));
@@ -3137,11 +3158,11 @@ function tagInput(inp,sug,onPick){
     var names=S.tags.map(function(t){return t.name}).filter(function(t){return t.toLowerCase().indexOf(q)>=0});
     names.sort(function(a,b){var pa=a.toLowerCase().indexOf(q)===0?0:1,pb=b.toLowerCase().indexOf(q)===0?0:1;return pa-pb||a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'})});
     items=names.slice(0,8).map(function(t){return {t:t,label:esc(t)+(S.parent[t]?' <span class="muted">'+esc(tagPath(S.parent[t]))+'</span>':'')}});
-    if(!S.tags.some(function(t){return t.name.toLowerCase()===q})) items.push({t:inp.value.trim(),label:'Create tag “'+esc(inp.value.trim())+'”'});
+    if(!S.tags.some(function(t){return t.name.toLowerCase()===q})){var raw=inp.value.trim(),sp=tagSplitPath(raw);items.push({t:raw,neu:true,label:sp?'Create “'+esc(sp.name)+'” under '+esc(tagPath(sp.parent)):'Create tag “'+esc(raw)+'”… <span class="muted">(choose where it goes)</span>'})}
     sug.innerHTML=items.map(function(it,i){return '<div class="sg'+(i===k?' on':'')+'" data-i="'+i+'">'+it.label+'</div>'}).join('');sug.classList.add('on');
     [].slice.call(sug.querySelectorAll('.sg')).forEach(function(d){d.onmousedown=function(e){e.preventDefault();pick(+d.dataset.i)}})}
   function hi(){[].slice.call(sug.querySelectorAll('.sg')).forEach(function(d,i){d.classList.toggle('on',i===k)})}
-  function pick(i){var it=items[i];if(!it||!it.t)return;inp.value='';draw();onPick(it.t)}
+  function pick(i){var it=items[i];if(!it||!it.t)return;inp.value='';draw();if(it.neu)newTagDialog(it.t,onPick);else onPick(it.t)}
   inp.oninput=draw;
   inp.onkeydown=function(e){e.stopPropagation();
     if(e.key==='ArrowDown'){e.preventDefault();if(items.length){k=(k+1)%items.length;hi()}}

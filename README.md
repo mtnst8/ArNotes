@@ -45,6 +45,10 @@ Click into a note's text in the Inbox preview (or press **✏️ Edit**) and you
 
 On a computer, **✏️ Edit** opens ArNotes' own editor, which works whatever Google account the browser is signed in to. The note looks the way it does in the preview, pictures included; you change the text, and pictures stay as they are (tables and other special content show as grey boxes). To use Google Docs' editor instead, press **Use Google Docs editor instead** at the top of ArNotes' editor (remembered on that computer). If Google's editor then says **You need access**, that browser isn't signed in to your ArNotes Google account: use **Sign in to it** under the editor, or switch back with **✏️ Use ArNotes' editor**.
 
+### New tags
+
+Type a new tag name in a note's **Add tag…** box (or a photo's tag box) and press Enter: ArNotes asks where it goes (pick the parent tag, or *top level*), then creates it and tags the note. Shortcut: type **Parent/Child** (or **Parent > Child**) and it's created straight under that parent, e.g. `Brewing Equipment/Canner`.
+
 ### Merging notes
 
 Tick two or more notes and press **Merge**. The note at the top of the list is kept (↑ moves another to the top); the others' text is added to it under their titles, and their tags and attachments come along. The other notes go to **Trash**, where **↩ Restore** brings them back for 30 days.
