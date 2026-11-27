@@ -757,6 +757,7 @@ var GUIDE_DEFAULT_HTML_ = '<p>ArNotes works like a mailbox and a filing cabinet:
   '<h2>6. Photos</h2><ul><li><b>Photos</b> is one gallery for all your pictures: browse by tag, or by place on the map.</li>' +
   '<li><b>📝 Note with this photo</b> starts a note with the picture in it, ready to write about. Tick several photos for <b>Note with these photos</b>.</li>' +
   '<li>A photo that was mistaken for a document? <b>📷 Just a photo</b> removes the note and puts the photo back in Photos.</li>' +
+  '<li>A business card ArNotes didn\'t spot? Tick the photo (or open it) and press <b>👤 Business card</b>, or press <b>👤 It\'s a business card</b> on a note. ArNotes reads it, names the note for the person and business, and tags it <b>Business Card</b>.</li>' +
   '<li>Download photos and videos as the original files; on a phone, <b>Save to phone</b> puts them in your camera roll.</li></ul>' +
   '<h2>7. Receipts</h2><ul><li>Give each receipt a <b>Job</b> and an <b>Expense category</b>. <b>Receipts</b> shows them by job and category, billed or not, and prints a clean report.</li><li>Billed to the customer? Tick the box in the <b>Billed</b> column of the Receipts table, or on the receipt\'s preview. No need to open the receipt.</li></ul>' +
   '<h2>8. Get help from AI</h2><ul><li>Tick the notes you want help with (or open one) and choose <b>Export for AI</b>. You get one file (or text to paste) that Claude, ChatGPT or Gemini can read.</li></ul>' +
@@ -2882,6 +2883,11 @@ function ocrText_(fileId) {
     if (r.getResponseCode() === 200) blob = r.getBlob();
   }
   if (!blob) { if (+meta.size > 4 * 1024 * 1024 || !/^image\//.test(meta.mimeType)) return ''; blob = DriveApp.getFileById(fileId).getBlob(); }
+  return ocrBlob_(blob);
+}
+/** Text in a picture we already hold (a photo, or a picture inside a note). */
+function ocrBlob_(blob) {
+  var hdr = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
   var b = 'arnote' + Date.now(), head = '--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' +
     JSON.stringify({ name: 'ArNotes OCR (temporary)', mimeType: 'application/vnd.google-apps.document' }) +
     '\r\n--' + b + '\r\nContent-Type: ' + (blob.getContentType() || 'image/jpeg') + '\r\n\r\n';
@@ -3135,6 +3141,106 @@ function api_scanPhotos(ids) {
   for (var i = 0; i < rows.length && Date.now() - start < 45000; i++) out.push(scanPhoto_(rows[i]));
   setPhotoScan_(out);
   return { results: out, left: rows.length - out.length };
+}
+
+/* ---------- "It's a business card": you say so, and ArNotes reads it as one ----------
+ * For the cards the automatic reader misses (odd layouts, no phone number, a photo taken long ago) and for notes that
+ * arrived another way (an emailed picture, a note with a photo in it, typed-in contact details). */
+/** Card details from any text: a card photo's OCR, or a note's own words. */
+function cardFromText_(text) {
+  var lines = String(text || '').split(/\r?\n/).map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String).slice(0, 60);
+  var all = lines.join('\n');
+  var phone = all.match(/\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/), email = all.match(/[\w.+-]+@[\w-]+\.[\w.]+/), web = all.match(/\b(?:www\.)?[\w-]+\.(?:com|net|org|biz|co|us|io)\b/i);
+  return cardFields_(lines, email, phone, web);
+}
+function cardRead_(f) { return !!(f && (f.name || f.business)); }
+function cardTitle_(f) { return [f.name, f.business].filter(String).join(' — '); }
+
+/** Make one note a business-card note. Reads the linked photo, else the note's picture attachments, else a picture inside the note,
+ *  else the note's own text. Named "Name — Business" when one was read (otherwise the title stays), tagged Business Card
+ *  (Receipt / Document come off), and for a regular note the details read from the picture are added as text.
+ *  Returns {id, title, tags, updated, fields, read, photoId?, wasReceipt?} or {id, error}. */
+function cardNote_(n, atts) {
+  var src = String(n.source || ''), out = { id: n.id, title: String(n.title) }, f = null, doc = null, docText = '';
+  if (src === 'shared') { out.error = 'It belongs to a friend'; return out; }
+  if (src === 'sheet') { out.error = 'It is a spreadsheet'; return out; }
+  try {
+    if (src === 'link') { try { f = cardFromText_(ocrText_(String(n.docId))); } catch (e) { Logger.log('Card OCR: ' + e); } out.photoId = String(n.docId); }
+    else {
+      var pics = (atts || []).filter(function (a) { return a.fileId && /^image\/|pdf$/i.test(String(a.mime)); });
+      for (var i = 0; i < pics.length && i < 2 && !cardRead_(f); i++) { try { f = cardFromText_(ocrText_(String(pics[i].fileId))); } catch (e) { Logger.log('Card OCR: ' + e); } }
+      doc = DocumentApp.openById(String(n.docId));
+      var body = doc.getBody();
+      docText = body.getText().replace(/^Notebook:[^\n]*\n?/, '');
+      if (!cardRead_(f)) {                      // a picture inside the note (the biggest one)
+        var imgs = body.getImages().sort(function (a, b) { return b.getWidth() * b.getHeight() - a.getWidth() * a.getHeight(); });
+        if (imgs.length) { try { f = cardFromText_(ocrBlob_(imgs[0].getBlob())); } catch (e) { Logger.log('Card OCR: ' + e); } }
+      }
+      if (!cardRead_(f)) f = cardFromText_(docText);          // no picture (or nothing read from it): the note's own words
+      var low = docText.toLowerCase(), add = [];
+      [['', f.name], ['', f.business], ['Phone: ', f.phone], ['Email: ', f.email]].forEach(function (p) { if (p[1] && low.indexOf(String(p[1]).toLowerCase()) < 0) add.push(p[0] + p[1]); });
+      if (cardRead_(f) && add.length) { add.forEach(function (l) { body.appendParagraph(l); }); doc.saveAndClose(); }
+    }
+    f = f || {};
+    var had = splitTags_(n.tags), tags = had.filter(function (t) { return t !== 'Receipt' && t !== 'Document' && t !== 'Business Card'; });
+    tags.push('Business Card');
+    var ch = { tags: tags }; if (cardRead_(f)) ch.title = cardTitle_(f).slice(0, 120);
+    var up = api_updateNote(n.id, ch);
+    if (had.indexOf('Receipt') >= 0) {            // it was filed as a receipt: take it out of Receipts
+      out.wasReceipt = true;
+      var sh = receiptSheet_(), rows = sh.getLastRow() - 1, k = RECEIPT_COLS.indexOf('noteId');
+      if (rows > 0) { var ids = sh.getRange(2, k + 1, rows, 1).getValues(); for (var j = ids.length - 1; j >= 0; j--) if (String(ids[j][0]) === String(n.id)) sh.deleteRow(j + 2); }
+    }
+    out.title = ch.title || out.title; out.tags = tags; out.updated = up.updated; out.fields = f; out.read = cardRead_(f);
+  } catch (e) { out.error = String(e.message || e); }
+  return out;
+}
+
+/** From the app: these notes are business cards. A few per call; the ones not reached come back in `left`. */
+function api_markCard(noteIds) {
+  var start = Date.now(), ids = (noteIds || []).map(String), want = {}, notes = {}, atts = {}, out = [], left = [], scans = [], rc = false;
+  ids.forEach(function (id) { want[id] = 1; });
+  readTable_('Notes').forEach(function (n) { if (want[n.id]) notes[n.id] = n; });
+  readTable_('Attachments').forEach(function (a) { var id = String(a.noteId); if (want[id]) (atts[id] = atts[id] || []).push(a); });
+  ids.forEach(function (id) {
+    if (out.length && Date.now() - start > 40000) { left.push(id); return; }
+    if (!notes[id]) { out.push({ id: id, error: 'Note not found' }); return; }
+    var r = cardNote_(notes[id], atts[id]); out.push(r);
+    if (!r.error && r.photoId) scans.push({ id: r.photoId, kind: 'card', noteId: id });
+    if (r.wasReceipt) rc = true;
+  });
+  if (scans.length) { try { setPhotoScan_(scans); } catch (e) { Logger.log('Card photo mark: ' + e); } }   // a photo from Photos: it now lives in the note Inbox
+  if (rc) { try { buildReceiptReport_(); } catch (e) {} }
+  return { results: out, left: left };
+}
+
+/** From the app: these photos are business cards. Each becomes a Business Card note in the Inbox (pointing at the photo, no copy),
+ *  whatever the automatic reader made of it. Same shape as api_scanPhotos. */
+function api_cardPhotos(ids) {
+  var start = Date.now(), want = {}, out = [], byFile = {}, seen = {};
+  (ids || []).forEach(function (id) { want[String(id)] = 1; });
+  var rows = photoRows_().filter(function (p) { return want[p.id]; });
+  readTable_('Notes').forEach(function (n) { if (n.source === 'link' && want[String(n.docId)]) byFile[String(n.docId)] = n; });
+  for (var i = 0; i < rows.length && (!i || Date.now() - start < 40000); i++) {
+    var p = rows[i], t0 = Date.now(), r = { id: p.id, name: p.name, kind: 'card' };
+    seen[p.id] = 1;
+    if (/^video\//.test(p.mime)) { r.kind = 'error'; r.error = 'A video can\'t be read as a card'; }
+    else if (byFile[p.id]) {                      // already a note (say, read as a receipt or document): fix that note
+      var c = cardNote_(byFile[p.id], null);
+      if (c.error) { r.kind = 'error'; r.error = c.error; } else { r.fields = c.fields; r.title = c.title; r.noteId = c.id; }
+    } else {
+      var f = {}; try { f = cardFromText_(ocrText_(p.id)); } catch (e) { Logger.log('Card OCR: ' + e); }
+      var day = /^\d{4}-\d\d-\d\d/.test(p.taken) ? p.taken.slice(0, 10) : '';
+      r.fields = f; r.title = cardTitle_(f) || ('Business card' + (day ? ' — ' + day : ''));
+      r.noteId = photoNote_(p.id, r.title, ['Business Card'].concat(p.tags.filter(function (t) { return t !== 'Business Card' && t !== 'Receipt' && t !== 'Document' && t !== VIDEO_TAG; })));
+    }
+    r.ms = Date.now() - t0; out.push(r);
+  }
+  var stopped = rows.length - out.length;
+  Object.keys(want).forEach(function (id) { if (!seen[id] && !rows.some(function (p) { return p.id === id; })) out.push({ id: id, name: '', kind: 'error', error: 'Not in ArNotes Photos', ms: 0 }); });
+  var made = out.filter(function (r) { return r.kind === 'card' && r.noteId; });
+  if (made.length) setPhotoScan_(made);
+  return { results: out, left: stopped };
 }
 
 /** Every 15 minutes: scan photos queued by the photo sync (new photos taken in the last 60 days). */
@@ -4219,7 +4325,7 @@ function shareSync_(onlyTag, budget, held) {   // held: the caller already holds
     var notes = readTable_('Notes'), live = {}; notes.forEach(function (n) { live[n.id] = n; });
     var out = rowsOf_(sharedOutSh_());
     if (!onlyTag) {   // shares of notes that are gone (deleted or in the Trash)
-      var photos0 = {}; try { photoRows_().forEach(function (p) { photos0[p.fileId] = 1; }); } catch (e) {}
+      var photos0 = {}; try { photoTagRows_().forEach(function (p) { photos0[p.fileId] = 1; }); } catch (e) {}
       var gone = {}; out.forEach(function (o) { if (!live[o.noteId] && !photos0[o.noteId]) gone[o.noteId + '|' + String(o.email).toLowerCase() + '|' + o.via] = o; });
       Object.keys(gone).forEach(function (k) { if (Date.now() - start > budget) { res.more = true; return; } var o = gone[k]; res.removed += revokeItem_(o.noteId, String(o.email).toLowerCase(), o.via); });
       out = rowsOf_(sharedOutSh_());
@@ -4228,7 +4334,7 @@ function shareSync_(onlyTag, budget, held) {   // held: the caller already holds
     rules.forEach(function (r) {
       var fam = tagFamily_(r.target), email = String(r.email).toLowerCase(), via = 'tag:' + r.target, want = {};
       notes.forEach(function (n) { if (n.source === 'shared') return; if (splitTags_(n.tags).some(function (t) { return fam[t]; })) want[n.id] = { id: n.id, docId: n.docId, title: n.title }; });
-      if (!photos) { photos = []; try { photos = photoRows_(); } catch (e) {} }
+      if (!photos) { photos = []; try { photos = photoTagRows_(); } catch (e) {} }
       photos.forEach(function (p) { if (splitTags_(p.tags).some(function (t) { return fam[t]; })) want[p.fileId] = { id: p.fileId, docId: p.fileId, photo: true, title: p.name }; });
       var have = {}; out.forEach(function (o) { if (o.via === via && String(o.email).toLowerCase() === email) have[o.noteId] = o.role; });
       Object.keys(want).forEach(function (id) {
@@ -4241,8 +4347,8 @@ function shareSync_(onlyTag, budget, held) {   // held: the caller already holds
   } finally { if (lock) lock.releaseLock(); }
   return res;
 }
-/** Photos sheet rows as {fileId, name, tags}. */
-function photoRows_() {
+/** Photos sheet rows that have tags, as {fileId, name, tags}. (Not photoRows_: that name is the gallery's full row reader.) */
+function photoTagRows_() {
   var sh = ss_().getSheetByName('Photos'); if (!sh) return [];
   var v = sh.getDataRange().getValues(), h = v.shift(), fi = h.indexOf('fileId'), ni = h.indexOf('name'), ti = h.indexOf('tags');
   return v.filter(function (r) { return r[fi] && r[ti]; }).map(function (r) { return { fileId: String(r[fi]), name: String(r[ni]), tags: r[ti] }; });

@@ -384,6 +384,7 @@ body.guest #actbar,body.guest .row .nb{display:none!important}
   <button class="btn small" id="aMerge">⇲ Merge</button>
   <button class="btn small" id="aPrint">🖨 Print</button>
   <button class="btn small" id="aJp" title="Notes made from scanned photos: remove the note, put the photo back in Photos">📷 Just a photo</button>
+  <button class="btn small" id="aCard" title="These are business cards: read each one, name the note for the person and business, and tag it Business Card">👤 Business card</button>
   <button class="btn small" id="aSend" title="Email these notes to someone">✉ Send</button>
   <button class="btn small" id="aDl" title="Download as PDF">⇩ Download</button>
   <button class="btn small" id="aAI" title="One Markdown file of the selected notes that Claude, ChatGPT or Gemini can read">✦ Export for AI</button>
@@ -652,6 +653,32 @@ function openMadeNote(r,msg){go('note',r.id);setTimeout(function(){var e=$('#ehe
 function noteFromScan(id,btn){var n=S.byId[id];if(!n)return;if(btn){btn.disabled=true;btn.textContent='Making the note…'}
   call('api_photoToNote',n.docId,n.tags).then(function(r){call('api_justPhoto',[id]).catch(function(){});dropLocalNote(id);return addMadeNote(r).then(function(){openMadeNote(r,'Note made: write away. It\'s in your Inbox.')})})
   .catch(function(){if(btn){btn.disabled=false;btn.textContent='📝 Note with this photo'}})}
+/** "It's a business card": you say so, and ArNotes reads the note's picture (or its words) as one. */
+function canCard(n){return !!(n&&!n.shared&&!n.sheet&&n.tags.indexOf('Business Card')<0)}
+function markCard(ids,btn){
+  ids=ids.filter(function(id){var n=S.byId[id];return n&&!n.shared&&!n.sheet});
+  if(!ids.length){toast('Business card is for your own notes: not spreadsheets or a friend\'s notes');return}
+  var lbl=btn?btn.textContent:'', total=ids.length, left=ids.slice(), ok=0, bad=[], last=null, wasNote=S.view==='note'&&total===1;
+  if(btn){btn.disabled=true;btn.textContent='Reading…'}
+  toast(total>1?'Reading '+total+' business cards… a few seconds each':'Reading the card…',total*6000);
+  function finish(){
+    if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent=lbl}
+    toast(total===1?(ok?(last.read?'Business card: '+last.title:'Tagged Business Card. No name could be read, so the title stays as it was'):'Couldn\'t do that: '+(bad[0]||'try again')):
+      ok+' business card'+(ok===1?'':'s')+' done'+(bad.length?' · '+bad.length+' skipped':''),4000);
+    ids.forEach(function(id){delete noteCache[id];try{localStorage.removeItem('arnote.nv.'+id)}catch(e){}});
+    if(wasNote&&S.view==='note')viewNote(ids[0]);else rerender();
+    paintSel();
+  }
+  (function next(){
+    if(!left.length) return finish();
+    call('api_markCard',left.splice(0,4)).then(function(r){
+      (r.results||[]).forEach(function(x){
+        if(x.error){bad.push(x.error);return}
+        ok++; last=x; var n=S.byId[x.id]; if(n){n.title=x.title;n.tags=x.tags;if(x.updated)n.updated=x.updated}});
+      left=(r.left||[]).concat(left); next();
+    }).catch(function(e){bad.push((e&&e.message)||'failed');finish()});
+  })();
+}
 function justPhoto(ids){
   ids=ids.filter(function(id){var n=S.byId[id];return n&&n.link});        // ArNotes checks which ones really are your photos
   if(!ids.length){toast('None of these are photos: Just a photo is for notes made from a photo');return}
@@ -668,7 +695,7 @@ function paintSel(){
   $$('.row[data-id]').forEach(function(r){var on=!!S.sel[r.dataset.id];r.classList.toggle('sel',on);var c=r.querySelector('.cb');if(c)c.checked=on});
   $('#actbar').classList.toggle('on',n>0); document.body.classList.toggle('selmode',n>0); pvLock();
   $('#selN').textContent=n+' selected';
-  ['aTags','aFile','aInbox','aTask','aFShare','aStar','aUnstar','aDel','aPrint'].forEach(function(k){$('#'+k).disabled=!n});
+  ['aTags','aFile','aInbox','aTask','aFShare','aStar','aUnstar','aDel','aPrint','aCard'].forEach(function(k){$('#'+k).disabled=!n});
   $('#aMerge').disabled=n<2; $('#aMerge').title=n<2?'Select two or more notes to merge':'Combine the selected notes into one';
   $('#aAll').textContent=(n&&n===S.listIds.length)?'Select none':'Select all ('+S.listIds.length+')';
   setTimeout(function(){var c=$$('.row .cb');c.forEach(function(x){x.checked=!!S.sel[x.closest('.row').dataset.id]})},0);
@@ -700,6 +727,7 @@ $('#aAI').onclick=function(){exportForAI(Object.keys(S.sel))};
 $('#aDl').onclick=function(){downloadNotes(Object.keys(S.sel))};
 $('#aSend').onclick=function(){sendNotes(Object.keys(S.sel))};
 $('#aJp').onclick=function(){justPhoto(Object.keys(S.sel))};
+$('#aCard').onclick=function(){markCard(Object.keys(S.sel),this)};
 $('#aMerge').onclick=function(){
   var ids=Object.keys(S.sel).filter(function(id){return S.byId[id]});
   if(ids.length<2){toast('Select two or more notes to merge');return}
@@ -1158,7 +1186,7 @@ function renderPv(){
   el.innerHTML='<input id="pvTitle" class="pvtitle" value="'+esc(n.title)+'" title="Click to rename" spellcheck="false">'+
     '<div class="muted" style="font-size:12px">Created '+fmt(n.created)+(n.att?' · 📎'+n.att:'')+'</div>'+
     '<div class="bar" id="tagbar"></div>'+
-    '<div class="bar"><button class="btn primary" id="pvFile">File → Cabinet</button><button class="btn" id="pvOpen">Open</button>'+'<button class="btn" id="pvTask" title="Put this on your to-do list (Tasks on Home)">'+(n.tags.indexOf(TASK_TAG)>=0?'✓ In Tasks':'☑ Add to Tasks')+'</button>'+(n.link?'':'<button class="btn" id="pvEd" title="Edit this note (inside ArNotes)">✏️ Edit</button>'+(n.sheet?'':'<button class="btn" id="pvAdd" title="Type some text and it goes at the end of this note">＋ Add text</button>'))+(n.tags.indexOf('Receipt')>=0?'<button class="btn" id="pvRc">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" id="pvMk" title="Read this email as a receipt or invoice">🧾 It\'s a receipt</button>':'')+(isScanNote(n)?'<button class="btn" id="pvNp" title="A new note with this picture in it, ready for you to write">📝 Note with this photo</button>':'')+(isScanNote(n)?'<button class="btn" id="pvJp" title="Not a document, receipt or card: remove this note and put the photo back in Photos">📷 Just a photo</button>':'')+'<button class="btn" id="pvSend" title="Email this note to someone">✉ Send</button><button class="btn" id="pvPr">🖨 Print</button><button class="btn" id="pvDn" title="Download as PDF">⇩ Download</button>'+'<button class="btn danger" id="pvDel">Delete</button>'+
+    '<div class="bar"><button class="btn primary" id="pvFile">File → Cabinet</button><button class="btn" id="pvOpen">Open</button>'+'<button class="btn" id="pvTask" title="Put this on your to-do list (Tasks on Home)">'+(n.tags.indexOf(TASK_TAG)>=0?'✓ In Tasks':'☑ Add to Tasks')+'</button>'+(n.link?'':'<button class="btn" id="pvEd" title="Edit this note (inside ArNotes)">✏️ Edit</button>'+(n.sheet?'':'<button class="btn" id="pvAdd" title="Type some text and it goes at the end of this note">＋ Add text</button>'))+(n.tags.indexOf('Receipt')>=0?'<button class="btn" id="pvRc">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" id="pvMk" title="Read this email as a receipt or invoice">🧾 It\'s a receipt</button>':'')+(canCard(n)?'<button class="btn" id="pvBc" title="Read this note\'s picture (or its words) as a business card: named for the person and business, tagged Business Card">👤 It\'s a business card</button>':'')+(isScanNote(n)?'<button class="btn" id="pvNp" title="A new note with this picture in it, ready for you to write">📝 Note with this photo</button>':'')+(isScanNote(n)?'<button class="btn" id="pvJp" title="Not a document, receipt or card: remove this note and put the photo back in Photos">📷 Just a photo</button>':'')+'<button class="btn" id="pvSend" title="Email this note to someone">✉ Send</button><button class="btn" id="pvPr">🖨 Print</button><button class="btn" id="pvDn" title="Download as PDF">⇩ Download</button>'+'<button class="btn danger" id="pvDel">Delete</button>'+
     '<span class="kbd">Keys: ↑ ↓ move · T add tag · F file · Enter open</span></div><div id="pvloc"></div>'+
     (n.tags.indexOf('Receipt')>=0?'<div id="pvRcCard"><p class="muted">Loading receipt…</p></div><div id="pvFull" style="display:none">'+readerHtml()+'</div>':readerHtml());
   renderTags(n);
@@ -1176,6 +1204,7 @@ function renderPv(){
   $('#pvPr').onclick=function(){printNotes([n.id])};
   $('#pvSend').onclick=function(){sendNotes([n.id])};
   if($('#pvJp'))$('#pvJp').onclick=function(){justPhoto([n.id])};
+  if($('#pvBc'))$('#pvBc').onclick=function(){markCard([n.id],this)};
   if($('#pvNp'))$('#pvNp').onclick=function(){noteFromScan(n.id,this)};
   pvLock();
   $('#pvDn').onclick=function(){downloadNotes([n.id])};
@@ -1966,6 +1995,7 @@ function viewNote(id,keep){
         (n.sheet?'<a class="btn" target="_blank" id="odocs" href="'+editUrl(n)+'">Open in Google Sheets ↗</a><button class="btn" id="ehere">✏️ Edit here</button>':
         '<a class="btn" target="_blank" id="odocs" href="'+docUrl(n.docId,true)+'">Edit in Google Docs ↗</a><button class="btn" id="ehere">✏️ Edit here</button><button class="btn" id="eadd" title="Type some text and it goes at the end of this note">＋ Add text</button>')+
         (n.sourceUrl&&!n.sheet?'<a class="btn" target="_blank" href="'+esc(n.sourceUrl)+'">'+(/mail\.google\.com/.test(n.sourceUrl)?'Open in Gmail':'Source')+'</a>':'')+(n.tags.indexOf('Receipt')>=0?'<button class="btn" onclick="S.rcData=null;rcDetails(\''+n.id+'\')">🧾 Receipt details</button>':/mail\.google\.com/.test(n.sourceUrl||'')?'<button class="btn" onclick="markReceipt(\''+n.id+'\',this)">🧾 It\'s a receipt</button>':''))+
+      (canCard(n)?'<button class="btn" id="nbc" title="Read this note\'s picture (or its words) as a business card: named for the person and business, tagged Business Card">👤 It\'s a business card</button>':'')+
       (n.shared?'':'<button class="btn" id="nfshare" title="Share this note with friends who use ArNotes">👥 Share</button>')+
       '<button class="btn" id="ntask" title="'+(n.tags.indexOf(TASK_TAG)>=0?'It\'s on your to-do list (Tasks on Home). Click to take it off.':'Put this on your to-do list (Tasks on Home)')+'">'+(n.tags.indexOf(TASK_TAG)>=0?'✓ In Tasks':'☑ Add to Tasks')+'</button>'+
       '<button class="btn" id="nsend" title="Email this note to someone">✉ Send</button>'+
@@ -1989,6 +2019,7 @@ function viewNote(id,keep){
   $('#nai').onclick=function(){exportForAI([id])};
   $('#ndl').onclick=function(){downloadNotes([id])};
   if($('#njp'))$('#njp').onclick=function(){justPhoto([id])};
+  if($('#nbc'))$('#nbc').onclick=function(){markCard([id],this)};
   if($('#nnp'))$('#nnp').onclick=function(){noteFromScan(id,this)};
   if($('#ehere')) $('#ehere').onclick=function(){editHere(n)};
   if($('#eadd')) $('#eadd').onclick=function(){addText(id,function(){viewNote(id)})};
@@ -3070,7 +3101,7 @@ function phPaint(){
   var recent=(store('recentTags')||[]).filter(function(t){return S.parent.hasOwnProperty(t)}).slice(0,6);
   bar.innerHTML='<div class="phbar"><b>'+n+' selected</b><button class="btn small" id="pbClr" title="Clear selection (Esc)">✕ Clear selection</button><span class="tagbox"><input id="pbIn" placeholder="Type a tag + Enter" autocomplete="off"><div class="tagsug" id="pbSug"></div></span>'+
     recent.map(function(t){return '<button class="chip" data-rt="'+esc(t)+'">+ '+esc(t)+'</button>'}).join('')+
-    '<button class="btn small" id="pbTag">Tags…</button><button class="btn small" id="pbScan" title="Read receipts, business cards and documents">🧾 Scan</button><button class="btn small" id="pbNote" title="One new note with all the selected photos in it, ready for you to write">📝 Note with '+(n>1?'these photos':'this photo')+'</button><button class="btn small" id="pbTask" title="One task with the selected photos in it, on your to-do list (Tasks on Home)">☑ Add to Tasks</button><button class="btn small" id="pbDl" title="Download the originals">⇩ Download</button><button class="btn small" id="pbDel" title="Move to Drive trash (Undo for a few seconds)">🗑 Delete</button></div>';
+    '<button class="btn small" id="pbTag">Tags…</button><button class="btn small" id="pbScan" title="Read receipts, business cards and documents">🧾 Scan</button><button class="btn small" id="pbCard" title="'+(n>1?'These are business cards':'This is a business card')+': read '+(n>1?'each one':'it')+' and make a Business Card note in the Inbox, named for the person and business">👤 Business card</button><button class="btn small" id="pbNote" title="One new note with all the selected photos in it, ready for you to write">📝 Note with '+(n>1?'these photos':'this photo')+'</button><button class="btn small" id="pbTask" title="One task with the selected photos in it, on your to-do list (Tasks on Home)">☑ Add to Tasks</button><button class="btn small" id="pbDl" title="Download the originals">⇩ Download</button><button class="btn small" id="pbDel" title="Move to Drive trash (Undo for a few seconds)">🗑 Delete</button></div>';
   var ids=Object.keys(P.sel);
   var mr=$('#main').getBoundingClientRect(); document.documentElement.style.setProperty('--phL',(window.innerWidth>600?Math.round(mr.left):0)+'px');
   document.documentElement.style.setProperty('--phBarH',bar.firstChild.offsetHeight+'px');
@@ -3080,6 +3111,7 @@ function phPaint(){
   $('#pbTag').onclick=function(){phTag(ids)};
   $('#pbClr').onclick=function(){P.sel={};phPaint()};
   $('#pbScan').onclick=function(){phScan(ids)};
+  $('#pbCard').onclick=function(){phScan(ids,true)};
   $('#pbDel').onclick=function(){phDelete(ids)};
   $('#pbDl').onclick=function(){downloadPhotos(ids)};
   $('#pbTask').onclick=function(){photosToTasks(ids,this)};
@@ -3129,9 +3161,9 @@ function phAddFiles(files){
   }
 }
 /** Read selected photos: receipts, business cards and documents become notes in the Inbox. Shows what was found and how long each took. */
-function phScan(ids){
+function phScan(ids,card){   // card: you've said these are business cards, so each one becomes a Business Card note
   var all=[], left=ids.slice(), kinds={receipt:'🧾 Receipt',card:'👤 Business card',document:'📄 Document',photo:'Photo (no change)',error:'⚠ Could not read'};
-  modal('Scanning '+ids.length+' photo'+(ids.length>1?'s':''),'Reading text with Google Drive. Receipts, business cards and documents go to the note Inbox.','<div id="scl"><p class="muted">Working… about 3–6 seconds per photo.</p></div>','<span class="grow" id="scInfo"></span><button class="btn" id="scC">Close</button>');
+  modal(card?'Reading '+ids.length+' business card'+(ids.length>1?'s':''):'Scanning '+ids.length+' photo'+(ids.length>1?'s':''),card?'Reading the text with Google Drive. Each one becomes a Business Card note in your Inbox, named for the person and business.':'Reading text with Google Drive. Receipts, business cards and documents go to the note Inbox.','<div id="scl"><p class="muted">Working… about 3–6 seconds per photo.</p></div>','<span class="grow" id="scInfo"></span><button class="btn" id="scC">Close</button>');
   $('#scC').onclick=closeModal;
   function draw(){var el=$('#scl');if(!el)return;
     el.innerHTML=all.map(function(r){var f=r.fields||{},d='';
@@ -3144,7 +3176,7 @@ function phScan(ids){
     $('#scInfo').textContent=left.length?'':all.filter(function(r){return r.noteId}).length+' added to the note Inbox';}
   function next(){ if(!left.length){ load(true).then(function(){refreshInboxCount();if(S.view==='photos'){phStats(true).then(function(){viewPhotos()})}}).catch(function(){}); draw(); return }
     var chunk=left.splice(0,6);
-    call('api_scanPhotos',chunk).then(function(r){all=all.concat(r.results);
+    call(card?'api_cardPhotos':'api_scanPhotos',chunk).then(function(r){all=all.concat(r.results);
       var done={};r.results.forEach(function(x){done[x.id]=1}); chunk.forEach(function(id){if(!done[id])left.unshift(id)}); draw(); next()})
     .catch(function(){draw()});
   }
@@ -3265,8 +3297,9 @@ function phViewer(id,swapping){
   v.innerHTML='<div class="top"><b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50vw">'+esc(p.name)+'</b><span style="opacity:.7;font-size:13px">'+(d&&!isNaN(d)?d.toLocaleDateString(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric'}):'')+(p.folder?' · '+esc(p.folder):'')+'</span><span id="pvLoc" class="pvloc"></span><span class="grow"></span><span id="pvInfo" style="opacity:.6;font-size:12px"></span><a class="btn small" id="pvOpen" target="_blank" href="https://drive.google.com/file/d/'+encodeURIComponent(id)+'/view'+(S.user?'?authuser='+encodeURIComponent(S.user):'')+'">Open in Drive ↗</a><button class="btn small" id="pvX">✕</button></div>'+
     '<div class="img">'+(isVid?'<iframe id="pvVid" src="https://drive.google.com/file/d/'+encodeURIComponent(id)+'/preview'+(S.user?'?authuser='+encodeURIComponent(S.user):'')+'" allow="autoplay; fullscreen" allowfullscreen></iframe>':'<img id="pvImg" src="'+(P.thumbs[id]||phThumbUrl(id,400))+'">')+(i>0?'<button class="nav l" id="pvL">‹</button>':'')+(i<flat.length-1?'<button class="nav r" id="pvR">›</button>':'')+'</div>'+
     '<div class="bot"><span id="pvTags"></span><span class="tagbox"><input id="pvIn" placeholder="Add tag (T)" autocomplete="off"><div class="tagsug" id="pvSug"></div></span><span id="pvRec"></span>'+
-    '<button class="btn small" id="pvNote" title="A new note with this photo in it, ready for you to write">📝 Note with this photo</button><button class="btn small" id="pvTask2" title="Put this photo on your to-do list (Tasks on Home)">☑ Add to Tasks</button><button class="btn small" id="pvDl" title="Download the original">⇩ Download</button><button class="btn small" id="pvDel" title="Delete (Del)">🗑 Delete</button></div>';
+    '<button class="btn small" id="pvNote" title="A new note with this photo in it, ready for you to write">📝 Note with this photo</button><button class="btn small" id="pvTask2" title="Put this photo on your to-do list (Tasks on Home)">☑ Add to Tasks</button>'+(isVid?'':'<button class="btn small" id="phvCard" title="This is a business card: read it and make a Business Card note in the Inbox, named for the person and business">👤 Business card</button>')+'<button class="btn small" id="pvDl" title="Download the original">⇩ Download</button><button class="btn small" id="pvDel" title="Delete (Del)">🗑 Delete</button></div>';
   document.body.appendChild(v);
+  if($('#phvCard'))$('#phvCard').onclick=function(){close();phScan([id],true)};
   function tags(){var q=P.byId[id];$('#pvTags').innerHTML=q.tags.map(function(t){return '<button class="chip" data-x="'+esc(t)+'" title="Remove">'+esc(t)+' ✕</button>'}).join(' ');
     $$('#pvTags [data-x]').forEach(function(b){b.onclick=function(){phUpdate([id],{removeTags:[b.dataset.x]},'Removed “'+b.dataset.x+'”',tags)}});
     var rec=(store('recentTags')||[]).filter(function(t){return S.parent.hasOwnProperty(t)&&q.tags.indexOf(t)<0}).slice(0,5);

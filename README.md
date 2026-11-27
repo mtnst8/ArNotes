@@ -35,6 +35,15 @@ Tick the box in the **Billed** column of the Receipts table (or on a receipt's p
 
 A photo or file shared from your phone is saved straight with the note's attachments, so the 15-minute Drop folder check can never make a second note of it, and a file that is already a note's attachment is never turned into another note. An email is never saved twice, even if its Gmail label is renamed. Phone photos are named with the time to the second (Photo Nov 8, 2026 2:21:05 PM), so pictures taken the same minute don't look like copies.
 
+### It's a business card
+
+ArNotes reads new photos and spots most business cards by itself. For the ones it misses, or anything it filed as something else, you can say so:
+
+- **A photo:** tick it in Photos (or open it) and press **👤 Business card**. Tick several to do them all at once.
+- **A note:** press **👤 It's a business card** on the note or its Inbox preview, or tick notes and press **👤 Business card** on the selection bar.
+
+ArNotes reads the picture (the linked photo, a picture attachment, or a picture inside the note; with no picture, the note's own words), names the note **Name — Business**, and tags it **Business Card**. A photo becomes a note in your Inbox that points at the photo (no copy). On a regular note the name, business, phone and email it read are added as text at the end, so they can be searched and copied. If the note was filed as a Receipt or Document, that tag comes off (and it leaves the Receipts table). If no name can be read, the note is still tagged Business Card and keeps its title.
+
 ### Tagging a new note
 
 In **＋ Note**, press **🏷 Add tags** under the title to pick tags (or make new ones) before saving. Click a tag chip to take it off. **Save → Inbox** works as before; once the note has a tag, **Save → Cabinet** files it straight away.
